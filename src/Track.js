@@ -329,7 +329,7 @@ export default class {
 
     const config = {
       attributes: {
-        style: `position: absolute; top: 0; right: 0; bottom: 0; left: 0; width: ${channelPixels}px; z-index: 9;`,
+        style: `position: absolute; top: 0; right: 0; bottom: 0; left: 0; width: ${channelPixels+30}px; z-index: 9;`,
       },
     };
 

@@ -3,7 +3,7 @@ import { pixelsToSeconds } from '../../utils/conversions';
 export default class {
   constructor(track) {
     this.track = track;
-    // 0 - not dragging; 1 - dragging the end; -1 - dragging the begining
+    // 0 : not dragging; 1 : dragging the end; -1 : dragging the begining
     this.draggingFrom = 0;
     this.action = null;
   }
@@ -27,12 +27,12 @@ export default class {
 
       const mousepos = pixelsToSeconds(e.offsetX, this.samplesPerPixel, this.sampleRate);
       
-      if (Math.abs(mousepos-this.track.startTime) < 1){
+      if (Math.abs(mousepos-this.track.startTime) < .4){
         this.draggingFrom = -1;
         this.action = "droppable";
       }
 
-      if (Math.abs(mousepos-this.track.endTime) < 1){
+      if (Math.abs(mousepos-this.track.endTime) < .4){
         this.draggingFrom = 1;
         this.action = "droppable";
       }    
@@ -48,13 +48,13 @@ export default class {
     if (this.action == "droppable"){
       this.updateDrag(e);
     }
-    else if (Math.abs(mousepos-this.track.startTime) < 1){
+    else if (Math.abs(mousepos-this.track.startTime) < .4){
       this.action = "dragable"
-      document.body.style.cursor = "ew-resize";
+      document.body.style.cursor = "e-resize";
     }
-    else if (Math.abs(mousepos-this.track.endTime) < 1){
+    else if (Math.abs(mousepos-this.track.endTime) < .4){
       this.action = "dragable"
-      document.body.style.cursor = "ew-resize";
+      document.body.style.cursor = "w-resize";
     }
     else{
       this.action = null;
@@ -62,6 +62,9 @@ export default class {
     }
     // console.log(this.action);
   }
+
+  mouseleave = e => this.mousemove(e);
+
   updateDrag(e){
     const mousepos = pixelsToSeconds(e.offsetX, this.samplesPerPixel, this.sampleRate);
     if (this.draggingFrom == -1){
@@ -84,16 +87,9 @@ export default class {
       e.preventDefault();
       this.updateDrag(e);
       this.action = null;
-      console.log("dropped");
+      // console.log("dropped");
     }
   }
-
-  mouseleave(e) {
-    if (this.active) {
-      e.preventDefault();
-    }
-  }
-
 
   static getClass() {
     return '.state-interactive';
