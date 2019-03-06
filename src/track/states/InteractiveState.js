@@ -3,7 +3,9 @@ import { pixelsToSeconds } from '../../utils/conversions';
 export default class {
   constructor(track) {
     this.track = track;
-    this.active = false;
+    // 0 - not dragging; 1 - dragging the end; -1 - dragging the begining
+    this.draggingFrom = 0;
+    this.action = null;
   }
 
   setup(samplesPerPixel, sampleRate) {
@@ -18,40 +20,77 @@ export default class {
     this.track.ee.emit('shift', deltaTime, this.track);
   }
 
-  complete(x) {
-    this.emitShift(x);
-    this.active = false;
-  }
-
   mousedown(e) {
     e.preventDefault();
 
-    this.active = true;
-    this.el = e.target;
-    this.prevX = e.offsetX;
+    if (this.action == "dragable"){
+
+      const mousepos = pixelsToSeconds(e.offsetX, this.samplesPerPixel, this.sampleRate);
+      
+      if (Math.abs(mousepos-this.track.startTime) < 1){
+        this.draggingFrom = -1;
+        this.action = "droppable";
+      }
+
+      if (Math.abs(mousepos-this.track.endTime) < 1){
+        this.draggingFrom = 1;
+        this.action = "droppable";
+      }    
+    }
+    // console.log(this.track);
   }
 
   mousemove(e) {
-    console.log(this.track,e);
-    if (this.active) {
-      e.preventDefault();
-      // this.emitShift(e.offsetX);
+ 
+    const mousepos = pixelsToSeconds(e.offsetX, this.samplesPerPixel, this.sampleRate);
+    
+    // console.log(mousepos-this.track.startTime);
+    if (this.action == "droppable"){
+      this.updateDrag(e);
     }
+    else if (Math.abs(mousepos-this.track.startTime) < 1){
+      this.action = "dragable"
+    }
+    else if (Math.abs(mousepos-this.track.endTime) < 1){
+      this.action = "dragable"
+    }
+    else{
+      this.action = null;
+    }
+    // console.log(this.action);
   }
-
+  updateDrag(e){
+    const mousepos = pixelsToSeconds(e.offsetX, this.samplesPerPixel, this.sampleRate);
+    if (this.draggingFrom == -1){
+      const oldStartTime = this.track.startTime;
+      const oldCueIn = this.track.cueIn;
+      if (oldCueIn + (mousepos - oldStartTime) < 0)return;
+      this.track.startTime = mousepos;
+      this.track.cueIn = oldCueIn + (mousepos - oldStartTime);
+      this.duration = this.track.cueOut - this.track.cueIn;
+      this.endTime = this.startTime + this.duration;
+    }
+    if (this.draggingFrom == 1){
+      this.track.trim(this.track.getStartTime(), mousepos);
+      this.track.endTime = mousepos;   
+    }
+    this.track.ee.emit("interactive",this.track);
+  }
   mouseup(e) {
-    if (this.active) {
+    if (this.action == "droppable") {
       e.preventDefault();
-      this.complete(e.offsetX);
+      this.updateDrag(e);
+      this.action = null;
+      console.log("dropped");
     }
   }
 
   mouseleave(e) {
     if (this.active) {
       e.preventDefault();
-      this.complete(e.offsetX);
     }
   }
+
 
   static getClass() {
     return '.state-interactive';
