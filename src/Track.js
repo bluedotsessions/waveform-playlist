@@ -103,6 +103,7 @@ export default class {
       fadeout: true,
       select: true,
       shift: true,
+      interactive: true
     };
 
     this.enabledStates = _assign({}, defaultStatesEnabled, enabledStates);
