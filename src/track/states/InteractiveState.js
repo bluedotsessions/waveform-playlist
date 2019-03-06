@@ -50,12 +50,15 @@ export default class {
     }
     else if (Math.abs(mousepos-this.track.startTime) < 1){
       this.action = "dragable"
+      document.body.style.cursor = "ew-resize";
     }
     else if (Math.abs(mousepos-this.track.endTime) < 1){
       this.action = "dragable"
+      document.body.style.cursor = "ew-resize";
     }
     else{
       this.action = null;
+      document.body.style.cursor = "auto";
     }
     // console.log(this.action);
   }
