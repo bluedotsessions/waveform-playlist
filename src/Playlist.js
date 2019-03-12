@@ -394,6 +394,9 @@ export default class {
         // extract peaks with AudioContext for now.
         track.calculatePeaks(this.samplesPerPixel, this.sampleRate);
 
+        track.bpm = this.bpm;
+        track.quantize = this.quantize;
+
         return track;
       });
 

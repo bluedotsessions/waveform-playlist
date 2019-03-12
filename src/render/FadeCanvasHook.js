@@ -68,6 +68,10 @@ class FadeCanvasHook {
     const ctx = canvas.getContext('2d');
     const width = canvas.width;
     const height = canvas.height;
+
+    ctx.fillStyle = "rgba(255,0,0,0.2)"
+    ctx.fillRect(0,0,width,height);
+    
     const curve = FadeCanvasHook.createCurve(this.shape, this.type, width);
     const len = curve.length;
     let y = height - (curve[0] * height);

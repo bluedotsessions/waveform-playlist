@@ -329,7 +329,7 @@ export default class {
 
     const config = {
       attributes: {
-        style: `position: absolute; top: 0; right: 0; bottom: 0; left: 0; width: ${channelPixels+30}px; z-index: 9;`,
+        style: `position: absolute; top: 0; right: 0; bottom: 0; left: 0; width: ${channelPixels+30}px; z-index: 8;`,
       },
     };
 
@@ -438,7 +438,7 @@ export default class {
           attributes: {
             width: currentWidth,
             height: data.height,
-            style: 'float: left; position: relative; margin: 0; padding: 0; z-index: 3;',
+            style: 'float: left; position: relative; margin: 0; padding: 0; z-index: 3;pointer-events: none;',
           },
           hook: new CanvasHook(peaks, offset, this.peaks.bits, canvasColor),
         }));
@@ -459,14 +459,34 @@ export default class {
         channelChildren.push(h('div.wp-fade.wp-fadein',
           {
             attributes: {
-              style: `position: absolute; height: ${data.height}px; width: ${fadeWidth}px; top: 0; left: 0; z-index: 4;`,
+              style: `position: absolute; height: ${data.height}px; width: ${fadeWidth}px; top: 0; left: 0; z-index: 10;pointer-events:none;`,
             },
           }, [
+            h('div.fadein.fadehandle',{
+              onmousemove: () => {
+                document.body.style.cursor = "pointer";
+              },
+              attributes: {
+                style: `position: absolute; 
+                        height: 10px; 
+                        width: 10px; 
+                        z-index: 10; 
+                        top:-5px; 
+                        right: -5px; 
+                        background-color: black;
+                        border-radius: 10px;
+                        pointer-events:initial;
+                        `
+              }
+            }),
             h('canvas',
               {
                 attributes: {
                   width: fadeWidth,
                   height: data.height,
+                  style: 
+                    `pointer-events: none;`
+                  ,
                 },
                 hook: new FadeCanvasHook(
                   fadeIn.type,
@@ -491,14 +511,34 @@ export default class {
         channelChildren.push(h('div.wp-fade.wp-fadeout',
           {
             attributes: {
-              style: `position: absolute; height: ${data.height}px; width: ${fadeWidth}px; top: 0; right: 0; z-index: 4;`,
+              style: `position: absolute; height: ${data.height}px; width: ${fadeWidth}px; top: 0; right: 0; z-index: 10;pointer-events:none;`,
             },
           },
           [
+            h('div.fadeout.fadehandle',{
+              onmousemove: () => {
+                document.body.style.cursor = "pointer";
+              },
+              attributes: {
+                style: `position: absolute; 
+                        height: 10px; 
+                        width: 10px; 
+                        z-index: 10; 
+                        top:-5px; 
+                        left: -5px; 
+                        background-color: black;
+                        border-radius: 10px;
+                        pointer-events:initial;
+                        `
+              }
+            }),
             h('canvas', {
               attributes: {
                 width: fadeWidth,
                 height: data.height,
+                style: 
+                    `pointer-events: none;`
+                  ,
               },
               hook: new FadeCanvasHook(
                 fadeOut.type,
@@ -514,7 +554,7 @@ export default class {
       return h(`div.channel.channel-${channelNum}`,
         {
           attributes: {
-            style: `height: ${data.height}px; width: ${width}px; top: ${channelNum * data.height}px; left: ${startX}px; position: absolute; margin: 0; padding: 0; z-index: 1;`,
+            style: `height: ${data.height}px; width: ${width}px; top: ${channelNum * data.height}px; left: ${startX}px; position: absolute; margin: 0; padding: 0; z-index: 9;pointer-events:none;`,
           },
         },
         channelChildren,

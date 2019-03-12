@@ -44,8 +44,12 @@ export default class {
  
     const mousepos = pixelsToSeconds(e.offsetX, this.samplesPerPixel, this.sampleRate);
     
-    // console.log(mousepos-this.track.startTime);
-    if (this.action == "droppable"){
+    console.log(e.target.className);
+    if (e.target.classList.contains('fadehandle')){
+      console.log('true');
+      this.action = "fadedrag";
+    }
+    else if (this.action == "droppable"){
       this.updateDrag(e);
     }
     else if (Math.abs(mousepos-this.track.startTime) < .4){
@@ -59,14 +63,22 @@ export default class {
     else{
       this.action = null;
       document.body.style.cursor = "auto";
+      this.mouseup();
     }
     // console.log(this.action);
   }
 
-  mouseleave = e => this.mousemove(e);
+  mouseleave = e => {
+    this.mouseup(e);
+    this.mousemove(e);
+  };
 
   updateDrag(e){
-    const mousepos = pixelsToSeconds(e.offsetX, this.samplesPerPixel, this.sampleRate);
+    let mousepos = pixelsToSeconds(e.offsetX, this.samplesPerPixel, this.sampleRate);
+    if (this.track.quantize){ 
+      const blocklength = ( 60 / this.track.bpm ) * this.track.quantize;
+      mousepos = Math.round ( mousepos / blocklength)*blocklength;
+    }
     if (this.draggingFrom == -1){
       const oldStartTime = this.track.startTime;
       const oldCueIn = this.track.cueIn;

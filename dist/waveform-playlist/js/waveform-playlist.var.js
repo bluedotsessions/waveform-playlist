@@ -150,6 +150,9 @@ var WaveformPlaylist =
 	  playlist.isContinuousPlay = config.isContinuousPlay;
 	  playlist.linkedEndpoints = config.linkedEndpoints;
 	
+	  playlist.bpm = config.bpm; //GH  Galen
+	  playlist.quantize = config.quantize; //GH Galen
+	
 	  // take care of initial virtual dom rendering.
 	  var tree = playlist.render();
 	  var rootNode = (0, _createElement2.default)(tree);
@@ -2020,6 +2023,9 @@ var WaveformPlaylist =
 	
 	          // extract peaks with AudioContext for now.
 	          track.calculatePeaks(_this3.samplesPerPixel, _this3.sampleRate);
+	
+	          track.bpm = _this3.bpm;
+	          track.quantize = _this3.quantize;
 	
 	          return track;
 	        });
@@ -5834,7 +5840,7 @@ var WaveformPlaylist =
 	
 	      var config = {
 	        attributes: {
-	          style: 'position: absolute; top: 0; right: 0; bottom: 0; left: 0; width: ' + (channelPixels + 30) + 'px; z-index: 9;'
+	          style: 'position: absolute; top: 0; right: 0; bottom: 0; left: 0; width: ' + (channelPixels + 30) + 'px; z-index: 8;'
 	        }
 	      };
 	
@@ -5932,7 +5938,7 @@ var WaveformPlaylist =
 	            attributes: {
 	              width: currentWidth,
 	              height: data.height,
-	              style: 'float: left; position: relative; margin: 0; padding: 0; z-index: 3;'
+	              style: 'float: left; position: relative; margin: 0; padding: 0; z-index: 3;pointer-events: none;'
 	            },
 	            hook: new _CanvasHook2.default(peaks, offset, _this3.peaks.bits, canvasColor)
 	          }));
@@ -5948,12 +5954,21 @@ var WaveformPlaylist =
 	
 	          channelChildren.push((0, _h2.default)('div.wp-fade.wp-fadein', {
 	            attributes: {
-	              style: 'position: absolute; height: ' + data.height + 'px; width: ' + fadeWidth + 'px; top: 0; left: 0; z-index: 4;'
+	              style: 'position: absolute; height: ' + data.height + 'px; width: ' + fadeWidth + 'px; top: 0; left: 0; z-index: 10;pointer-events:none;'
 	            }
-	          }, [(0, _h2.default)('canvas', {
+	          }, [(0, _h2.default)('div.fadein.fadehandle', {
+	            onmousemove: function onmousemove() {
+	              document.body.style.cursor = "pointer";
+	            },
+	            attributes: {
+	              style: 'position: absolute; \n                        height: 10px; \n                        width: 10px; \n                        z-index: 10; \n                        top:-5px; \n                        right: -5px; \n                        background-color: black;\n                        border-radius: 10px;\n                        pointer-events:initial;\n                        '
+	            }
+	          }), (0, _h2.default)('canvas', {
 	            attributes: {
 	              width: fadeWidth,
-	              height: data.height
+	              height: data.height,
+	              style: 'pointer-events: none;'
+	
 	            },
 	            hook: new _FadeCanvasHook2.default(fadeIn.type, fadeIn.shape, fadeIn.end - fadeIn.start, data.resolution)
 	          })]));
@@ -5965,12 +5980,21 @@ var WaveformPlaylist =
 	
 	          channelChildren.push((0, _h2.default)('div.wp-fade.wp-fadeout', {
 	            attributes: {
-	              style: 'position: absolute; height: ' + data.height + 'px; width: ' + _fadeWidth + 'px; top: 0; right: 0; z-index: 4;'
+	              style: 'position: absolute; height: ' + data.height + 'px; width: ' + _fadeWidth + 'px; top: 0; right: 0; z-index: 10;pointer-events:none;'
 	            }
-	          }, [(0, _h2.default)('canvas', {
+	          }, [(0, _h2.default)('div.fadeout.fadehandle', {
+	            onmousemove: function onmousemove() {
+	              document.body.style.cursor = "pointer";
+	            },
+	            attributes: {
+	              style: 'position: absolute; \n                        height: 10px; \n                        width: 10px; \n                        z-index: 10; \n                        top:-5px; \n                        left: -5px; \n                        background-color: black;\n                        border-radius: 10px;\n                        pointer-events:initial;\n                        '
+	            }
+	          }), (0, _h2.default)('canvas', {
 	            attributes: {
 	              width: _fadeWidth,
-	              height: data.height
+	              height: data.height,
+	              style: 'pointer-events: none;'
+	
 	            },
 	            hook: new _FadeCanvasHook2.default(fadeOut.type, fadeOut.shape, fadeOut.end - fadeOut.start, data.resolution)
 	          })]));
@@ -5978,7 +6002,7 @@ var WaveformPlaylist =
 	
 	        return (0, _h2.default)('div.channel.channel-' + channelNum, {
 	          attributes: {
-	            style: 'height: ' + data.height + 'px; width: ' + width + 'px; top: ' + channelNum * data.height + 'px; left: ' + startX + 'px; position: absolute; margin: 0; padding: 0; z-index: 1;'
+	            style: 'height: ' + data.height + 'px; width: ' + width + 'px; top: ' + channelNum * data.height + 'px; left: ' + startX + 'px; position: absolute; margin: 0; padding: 0; z-index: 9;pointer-events:none;'
 	          }
 	        }, channelChildren);
 	      });
@@ -7363,6 +7387,7 @@ var WaveformPlaylist =
 	
 	    this.track = track;
 	    this.active = false;
+	    this.lastqtime = undefined;
 	  }
 	
 	  _createClass(_class, [{
@@ -7376,8 +7401,31 @@ var WaveformPlaylist =
 	    value: function emitShift(x) {
 	      var deltaX = x - this.prevX;
 	      var deltaTime = (0, _conversions.pixelsToSeconds)(deltaX, this.samplesPerPixel, this.sampleRate);
-	      this.prevX = x;
-	      this.track.ee.emit('shift', deltaTime, this.track);
+	
+	      var quantizeTime = 60 / this.track.bpm * this.track.quantize;
+	
+	      // debugger;
+	      if (this.track.quantize != 0) {
+	
+	        var varGHtime = Math.round(deltaTime / quantizeTime) * quantizeTime;
+	
+	        if (varGHtime != this.lastqtime) {
+	          // Galen
+	          this.prevX = x; // Galen
+	          this.track.ee.emit('shift', varGHtime, this.track); // Galen
+	          this.lastqtime = varGHtime; // Galen
+	        }
+	      } else {
+	        // Galen: if the track isn't quantized
+	        this.prevX = x; // Galen
+	        this.track.ee.emit('shift', deltaTime, this.track); // Galen
+	        this.lastqtime = varGHtime; // Galen
+	      }
+	
+	      // const deltaX = x - this.prevX;
+	      // const deltaTime = pixelsToSeconds(deltaX, this.samplesPerPixel, this.sampleRate);
+	      // this.prevX = x;
+	      // this.track.ee.emit('shift', deltaTime, this.track);
 	    }
 	  }, {
 	    key: 'complete',
@@ -7570,7 +7618,8 @@ var WaveformPlaylist =
 	    _classCallCheck(this, _class);
 	
 	    this.mouseleave = function (e) {
-	      return _this.mousemove(e);
+	      _this.mouseup(e);
+	      _this.mousemove(e);
 	    };
 	
 	    this.track = track;
@@ -7620,8 +7669,11 @@ var WaveformPlaylist =
 	
 	      var mousepos = (0, _conversions.pixelsToSeconds)(e.offsetX, this.samplesPerPixel, this.sampleRate);
 	
-	      // console.log(mousepos-this.track.startTime);
-	      if (this.action == "droppable") {
+	      console.log(e.target.className);
+	      if (e.target.classList.contains('fadehandle')) {
+	        console.log('true');
+	        this.action = "fadedrag";
+	      } else if (this.action == "droppable") {
 	        this.updateDrag(e);
 	      } else if (Math.abs(mousepos - this.track.startTime) < .4) {
 	        this.action = "dragable";
@@ -7632,6 +7684,7 @@ var WaveformPlaylist =
 	      } else {
 	        this.action = null;
 	        document.body.style.cursor = "auto";
+	        this.mouseup();
 	      }
 	      // console.log(this.action);
 	    }
@@ -7639,6 +7692,10 @@ var WaveformPlaylist =
 	    key: 'updateDrag',
 	    value: function updateDrag(e) {
 	      var mousepos = (0, _conversions.pixelsToSeconds)(e.offsetX, this.samplesPerPixel, this.sampleRate);
+	      if (this.track.quantize) {
+	        var blocklength = 60 / this.track.bpm * this.track.quantize;
+	        mousepos = Math.round(mousepos / blocklength) * blocklength;
+	      }
 	      if (this.draggingFrom == -1) {
 	        var oldStartTime = this.track.startTime;
 	        var oldCueIn = this.track.cueIn;
@@ -7791,6 +7848,10 @@ var WaveformPlaylist =
 	      var ctx = canvas.getContext('2d');
 	      var width = canvas.width;
 	      var height = canvas.height;
+	
+	      ctx.fillStyle = "rgba(255,0,0,0.2)";
+	      ctx.fillRect(0, 0, width, height);
+	
 	      var curve = FadeCanvasHook.createCurve(this.shape, this.type, width);
 	      var len = curve.length;
 	      var y = height - curve[0] * height;
