@@ -5956,14 +5956,22 @@ var WaveformPlaylist =
 	            attributes: {
 	              style: 'position: absolute; height: ' + data.height + 'px; width: ' + fadeWidth + 'px; top: 0; left: 0; z-index: 10;pointer-events:none;'
 	            }
-	          }, [(0, _h2.default)('div.fadein.fadehandle', {
-	            onmousemove: function onmousemove() {
-	              document.body.style.cursor = "pointer";
-	            },
+	          }, _this3.state == "interactive" ? [(0, _h2.default)('div.fadein.fadehandle', {
+	            onmousemove: _this3.stateObj.mousemove.bind(_this3.stateObj),
+	            onmousedown: _this3.stateObj.mousedown.bind(_this3.stateObj),
+	            onmouseup: _this3.stateObj.mouseup.bind(_this3.stateObj),
 	            attributes: {
 	              style: 'position: absolute; \n                        height: 10px; \n                        width: 10px; \n                        z-index: 10; \n                        top:-5px; \n                        right: -5px; \n                        background-color: black;\n                        border-radius: 10px;\n                        pointer-events:initial;\n                        '
 	            }
 	          }), (0, _h2.default)('canvas', {
+	            attributes: {
+	              width: fadeWidth,
+	              height: data.height,
+	              style: 'pointer-events: none;'
+	
+	            },
+	            hook: new _FadeCanvasHook2.default(fadeIn.type, fadeIn.shape, fadeIn.end - fadeIn.start, data.resolution)
+	          })] : [(0, _h2.default)('canvas', {
 	            attributes: {
 	              width: fadeWidth,
 	              height: data.height,
@@ -5982,14 +5990,22 @@ var WaveformPlaylist =
 	            attributes: {
 	              style: 'position: absolute; height: ' + data.height + 'px; width: ' + _fadeWidth + 'px; top: 0; right: 0; z-index: 10;pointer-events:none;'
 	            }
-	          }, [(0, _h2.default)('div.fadeout.fadehandle', {
-	            onmousemove: function onmousemove() {
-	              document.body.style.cursor = "pointer";
-	            },
+	          }, _this3.state == "interactive" ? [(0, _h2.default)('div.fadeout.fadehandle', {
+	            onmousemove: _this3.stateObj.mousemove.bind(_this3.stateObj),
+	            onmousedown: _this3.stateObj.mousedown.bind(_this3.stateObj),
+	            onmouseup: _this3.stateObj.mouseup.bind(_this3.stateObj),
 	            attributes: {
 	              style: 'position: absolute; \n                        height: 10px; \n                        width: 10px; \n                        z-index: 10; \n                        top:-5px; \n                        left: -5px; \n                        background-color: black;\n                        border-radius: 10px;\n                        pointer-events:initial;\n                        '
 	            }
 	          }), (0, _h2.default)('canvas', {
+	            attributes: {
+	              width: _fadeWidth,
+	              height: data.height,
+	              style: 'pointer-events: none;'
+	
+	            },
+	            hook: new _FadeCanvasHook2.default(fadeOut.type, fadeOut.shape, fadeOut.end - fadeOut.start, data.resolution)
+	          })] : [(0, _h2.default)('canvas', {
 	            attributes: {
 	              width: _fadeWidth,
 	              height: data.height,
@@ -7646,7 +7662,9 @@ var WaveformPlaylist =
 	    key: 'mousedown',
 	    value: function mousedown(e) {
 	      e.preventDefault();
-	
+	      if (this.action == "fadedraggable") {
+	        this.action = "dragginghandle";
+	      }
 	      if (this.action == "dragable") {
 	
 	        var mousepos = (0, _conversions.pixelsToSeconds)(e.offsetX, this.samplesPerPixel, this.sampleRate);
@@ -7664,17 +7682,39 @@ var WaveformPlaylist =
 	      // console.log(this.track);
 	    }
 	  }, {
+	    key: 'correctOffset',
+	    value: function correctOffset(e) {
+	      if (e.target.classList.contains('playlist-overlay')) {
+	        return e.offsetX;
+	      } else {
+	        //sorry :/ 
+	        //this is to select the div.waveform 
+	        return e.pageX - e.target.parentElement.parentElement.parentElement.getBoundingClientRect().left;
+	      }
+	    }
+	  }, {
 	    key: 'mousemove',
 	    value: function mousemove(e) {
 	
-	      var mousepos = (0, _conversions.pixelsToSeconds)(e.offsetX, this.samplesPerPixel, this.sampleRate);
+	      var mousepos = (0, _conversions.pixelsToSeconds)(this.correctOffset(e), this.samplesPerPixel, this.sampleRate);
 	
-	      console.log(e.target.className);
-	      if (e.target.classList.contains('fadehandle')) {
-	        console.log('true');
-	        this.action = "fadedrag";
+	      // console.log(mousepos,this.track.startTime);
+	      if (this.action == "dragginghandle") {
+	        console.log(mousepos, this.track.getStartTime(), this.track.startTime);
+	        if (mousepos >= this.track.getStartTime() && mousepos <= this.track.getEndTime()) {
+	          if (this.hoveringover == "fadein") this.track.ee.emit('fadein', mousepos - this.track.getStartTime(), this.track);else this.track.ee.emit('fadeout', this.track.getEndTime() - mousepos, this.track);
+	        } else {
+	          this.action = null;
+	        }
 	      } else if (this.action == "droppable") {
 	        this.updateDrag(e);
+	      } else if (e.target.classList.contains('fadehandle')) {
+	        // console.log('true');
+	        this.action = "fadedraggable";
+	
+	        this.hoveringover = e.target.classList.contains('fadein') ? "fadein" : "fadeout";
+	
+	        document.body.style.cursor = "pointer";
 	      } else if (Math.abs(mousepos - this.track.startTime) < .4) {
 	        this.action = "dragable";
 	        document.body.style.cursor = "e-resize";
@@ -7714,7 +7754,9 @@ var WaveformPlaylist =
 	  }, {
 	    key: 'mouseup',
 	    value: function mouseup(e) {
-	      if (this.action == "droppable") {
+	      if (this.action == "dragginghandle") {
+	        this.action = null;
+	      } else if (this.action == "droppable") {
 	        e.preventDefault();
 	        this.updateDrag(e);
 	        this.action = null;
@@ -7848,9 +7890,6 @@ var WaveformPlaylist =
 	      var ctx = canvas.getContext('2d');
 	      var width = canvas.width;
 	      var height = canvas.height;
-	
-	      ctx.fillStyle = "rgba(255,0,0,0.2)";
-	      ctx.fillRect(0, 0, width, height);
 	
 	      var curve = FadeCanvasHook.createCurve(this.shape, this.type, width);
 	      var len = curve.length;
