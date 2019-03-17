@@ -461,11 +461,13 @@ export default class {
             attributes: {
               style: `position: absolute; height: ${data.height}px; width: ${fadeWidth}px; top: 0; left: 0; z-index: 10;pointer-events:none;`,
             },
-          }, [
+          }, 
+          this.state == "interactive"?
+          [
             h('div.fadein.fadehandle',{
-              onmousemove: () => {
-                document.body.style.cursor = "pointer";
-              },
+              onmousemove: this.stateObj.mousemove.bind(this.stateObj),
+              onmousedown: this.stateObj.mousedown.bind(this.stateObj),
+              onmouseup: this.stateObj.mouseup.bind(this.stateObj),
               attributes: {
                 style: `position: absolute; 
                         height: 10px; 
@@ -496,6 +498,25 @@ export default class {
                 ),
               },
             ),
+          ]:
+          [
+            h('canvas',
+            {
+              attributes: {
+                width: fadeWidth,
+                height: data.height,
+                style: 
+                  `pointer-events: none;`
+                ,
+              },
+              hook: new FadeCanvasHook(
+                fadeIn.type,
+                fadeIn.shape,
+                fadeIn.end - fadeIn.start,
+                data.resolution,
+              ),
+            },
+          ),
           ],
         ));
       }
@@ -514,11 +535,12 @@ export default class {
               style: `position: absolute; height: ${data.height}px; width: ${fadeWidth}px; top: 0; right: 0; z-index: 10;pointer-events:none;`,
             },
           },
+          this.state == "interactive"?
           [
             h('div.fadeout.fadehandle',{
-              onmousemove: () => {
-                document.body.style.cursor = "pointer";
-              },
+              onmousemove: this.stateObj.mousemove.bind(this.stateObj),
+              onmousedown: this.stateObj.mousedown.bind(this.stateObj),
+              onmouseup: this.stateObj.mouseup.bind(this.stateObj),
               attributes: {
                 style: `position: absolute; 
                         height: 10px; 
@@ -532,6 +554,22 @@ export default class {
                         `
               }
             }),
+            h('canvas', {
+              attributes: {
+                width: fadeWidth,
+                height: data.height,
+                style: 
+                    `pointer-events: none;`
+                  ,
+              },
+              hook: new FadeCanvasHook(
+                fadeOut.type,
+                fadeOut.shape,
+                fadeOut.end - fadeOut.start,
+                data.resolution,
+              ),
+            }),
+          ]:[
             h('canvas', {
               attributes: {
                 width: fadeWidth,

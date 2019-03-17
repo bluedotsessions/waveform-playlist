@@ -6,6 +6,7 @@ export default class {
     // 0 : not dragging; 1 : dragging the end; -1 : dragging the begining
     this.draggingFrom = 0;
     this.action = null;
+    
   }
 
   setup(samplesPerPixel, sampleRate) {
@@ -22,7 +23,9 @@ export default class {
 
   mousedown(e) {
     e.preventDefault();
-
+    if (this.action == "fadedraggable"){
+      this.action = "dragginghandle";
+    }
     if (this.action == "dragable"){
 
       const mousepos = pixelsToSeconds(e.offsetX, this.samplesPerPixel, this.sampleRate);
@@ -39,18 +42,44 @@ export default class {
     }
     // console.log(this.track);
   }
-
+  correctOffset(e){
+    if (e.target.classList.contains('playlist-overlay')){
+      return e.offsetX;
+    }
+    else{
+      //sorry :/ 
+      //this is to select the div.waveform 
+      return e.pageX - e.target.parentElement.parentElement.parentElement.getBoundingClientRect().left;
+    }
+  }
+  
   mousemove(e) {
  
-    const mousepos = pixelsToSeconds(e.offsetX, this.samplesPerPixel, this.sampleRate);
+    const mousepos = pixelsToSeconds(this.correctOffset(e), this.samplesPerPixel, this.sampleRate);
     
-    console.log(e.target.className);
-    if (e.target.classList.contains('fadehandle')){
-      console.log('true');
-      this.action = "fadedrag";
+    // console.log(mousepos,this.track.startTime);
+    if (this.action == "dragginghandle"){
+      console.log(mousepos,this.track.getStartTime(),this.track.startTime);
+      if (mousepos >= this.track.getStartTime() && mousepos <= this.track.getEndTime()) {
+        if (this.hoveringover == "fadein")
+          this.track.ee.emit('fadein', mousepos - this.track.getStartTime(), this.track);
+        else
+          this.track.ee.emit('fadeout', this.track.getEndTime() - mousepos, this.track);
+      }
+      else{
+        this.action = null;
+      }
     }
     else if (this.action == "droppable"){
       this.updateDrag(e);
+    }
+    else if (e.target.classList.contains('fadehandle')){
+      // console.log('true');
+      this.action = "fadedraggable";
+
+      this.hoveringover = e.target.classList.contains('fadein')?"fadein":"fadeout";
+      
+      document.body.style.cursor = "pointer";
     }
     else if (Math.abs(mousepos-this.track.startTime) < .4){
       this.action = "dragable"
@@ -95,7 +124,10 @@ export default class {
     this.track.ee.emit("interactive",this.track);
   }
   mouseup(e) {
-    if (this.action == "droppable") {
+    if (this.action == "dragginghandle"){
+      this.action = null;
+    }
+    else if (this.action == "droppable") {
       e.preventDefault();
       this.updateDrag(e);
       this.action = null;

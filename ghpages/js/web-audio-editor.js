@@ -2,7 +2,9 @@ var playlist = WaveformPlaylist.init({
   samplesPerPixel: 3000,
   waveHeight: 100,
   container: document.getElementById("playlist"),
-  state: 'cursor',
+  state: 'interactive',
+  bpm:121,
+  qunatize:1,
   colors: {
     waveOutlineColor: '#E0EFF1',
     timeColor: 'grey',
