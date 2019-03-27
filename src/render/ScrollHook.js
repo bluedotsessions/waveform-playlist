@@ -10,9 +10,8 @@ export default class {
 
   hook(node) {
     const playlist = this.playlist;
+    const el = node;
     if (!playlist.isScrolling) {
-      const el = node;
-
       if (playlist.isAutomaticScroll) {
         const rect = node.getBoundingClientRect();
         const cursorRect = node.querySelector('.cursor').getBoundingClientRect();
@@ -21,14 +20,14 @@ export default class {
           playlist.scrollLeft = playlist.playbackSeconds;
         }
       }
-
-      const left = secondsToPixels(
-          playlist.scrollLeft,
-          playlist.samplesPerPixel,
-          playlist.sampleRate,
-      );
-
-      el.scrollLeft = left;
     }
+    const left = secondsToPixels(
+      playlist.scrollLeft,
+      playlist.samplesPerPixel,
+      playlist.sampleRate,
+    );
+
+    el.scrollLeft = left;
+    el.addEventListener('mouseleave',()=>playlist.ee.emit('scrolldraggingend'));
   }
 }

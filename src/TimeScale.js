@@ -4,12 +4,15 @@ import { secondsToPixels } from './utils/conversions';
 import TimeScaleHook from './render/TimeScaleHook';
 
 class TimeScale {
-  constructor(duration, offset, samplesPerPixel, sampleRate, marginLeft = 0) {
+  constructor(ee,duration, offset, samplesPerPixel, sampleRate, marginLeft = 0) {
+    this.ee = ee;
     this.duration = duration;
     this.offset = offset;
     this.samplesPerPixel = samplesPerPixel;
     this.sampleRate = sampleRate;
     this.marginLeft = marginLeft;
+
+    this.dragging = false;
 
     this.timeinfo = {
       20000: {
@@ -126,6 +129,15 @@ class TimeScale {
 
     return h('div.playlist-time-scale',
       {
+        onmousedown : () => {
+          this.ee.emit('scrolldraggingstart');
+        },
+        onmousemove : ({movementX}) => {
+            this.ee.emit('scrolldragging',movementX);
+        },
+        onmouseup : () => {
+          this.ee.emit('scrolldraggingend');
+        },
         attributes: {
           style: `position: relative; left: 0; right: 0; margin-left: ${this.marginLeft}px;`,
         },

@@ -1637,6 +1637,7 @@ var WaveformPlaylist =
 	    this.scrollLeft = 0;
 	    this.scrollTimer = undefined;
 	    this.showTimescale = false;
+	    this.scrolldragging = false;
 	    // whether a user is scrolling the waveform
 	    this.isScrolling = false;
 	
@@ -1945,6 +1946,20 @@ var WaveformPlaylist =
 	        _this2.scrollTimer = setTimeout(function () {
 	          _this2.isScrolling = false;
 	        }, 200);
+	      });
+	      ee.on('scrolldragging', function (amount) {
+	        if (!_this2.scrolldragging) return;
+	        // console.log("scrolldragging",amount);
+	        _this2.scrollLeft -= (0, _conversions.pixelsToSeconds)(amount, _this2.samplesPerPixel, _this2.sampleRate);
+	        _this2.ee.emit('scroll');
+	      });
+	      ee.on('scrolldraggingstart', function () {
+	        _this2.scrolldragging = true;
+	        document.body.style.cursor = "grabbing";
+	      });
+	      ee.on('scrolldraggingend', function () {
+	        _this2.scrolldragging = false;
+	        document.body.style.cursor = "auto";
 	      });
 	    }
 	  }, {
@@ -2552,7 +2567,7 @@ var WaveformPlaylist =
 	    key: 'renderTimeScale',
 	    value: function renderTimeScale() {
 	      var controlWidth = this.controls.show ? this.controls.width : 0;
-	      var timeScale = new _TimeScale2.default(this.duration, this.scrollLeft, this.samplesPerPixel, this.sampleRate, controlWidth);
+	      var timeScale = new _TimeScale2.default(this.ee, this.duration, this.scrollLeft, this.samplesPerPixel, this.sampleRate, controlWidth);
 	
 	      return timeScale.render();
 	    }
@@ -2598,6 +2613,9 @@ var WaveformPlaylist =
 	      }
 	
 	      return (0, _h2.default)('div.playlist', {
+	        onselectstart: function onselectstart(event) {
+	          return event.preventDefault();
+	        },
 	        attributes: {
 	          style: 'overflow: hidden; position: relative;'
 	        }
@@ -5165,9 +5183,8 @@ var WaveformPlaylist =
 	    key: 'hook',
 	    value: function hook(node) {
 	      var playlist = this.playlist;
+	      var el = node;
 	      if (!playlist.isScrolling) {
-	        var el = node;
-	
 	        if (playlist.isAutomaticScroll) {
 	          var rect = node.getBoundingClientRect();
 	          var cursorRect = node.querySelector('.cursor').getBoundingClientRect();
@@ -5176,11 +5193,13 @@ var WaveformPlaylist =
 	            playlist.scrollLeft = playlist.playbackSeconds;
 	          }
 	        }
-	
-	        var left = (0, _conversions.secondsToPixels)(playlist.scrollLeft, playlist.samplesPerPixel, playlist.sampleRate);
-	
-	        el.scrollLeft = left;
 	      }
+	      var left = (0, _conversions.secondsToPixels)(playlist.scrollLeft, playlist.samplesPerPixel, playlist.sampleRate);
+	
+	      el.scrollLeft = left;
+	      el.addEventListener('mouseleave', function () {
+	        return playlist.ee.emit('scrolldraggingend');
+	      });
 	    }
 	  }]);
 
@@ -5216,16 +5235,19 @@ var WaveformPlaylist =
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
 	var TimeScale = function () {
-	  function TimeScale(duration, offset, samplesPerPixel, sampleRate) {
-	    var marginLeft = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : 0;
+	  function TimeScale(ee, duration, offset, samplesPerPixel, sampleRate) {
+	    var marginLeft = arguments.length > 5 && arguments[5] !== undefined ? arguments[5] : 0;
 	
 	    _classCallCheck(this, TimeScale);
 	
+	    this.ee = ee;
 	    this.duration = duration;
 	    this.offset = offset;
 	    this.samplesPerPixel = samplesPerPixel;
 	    this.sampleRate = sampleRate;
 	    this.marginLeft = marginLeft;
+	
+	    this.dragging = false;
 	
 	    this.timeinfo = {
 	      20000: {
@@ -5301,6 +5323,8 @@ var WaveformPlaylist =
 	  }, {
 	    key: 'render',
 	    value: function render() {
+	      var _this = this;
+	
 	      var widthX = (0, _conversions.secondsToPixels)(this.duration, this.samplesPerPixel, this.sampleRate);
 	      var pixPerSec = this.sampleRate / this.samplesPerPixel;
 	      var pixOffset = (0, _conversions.secondsToPixels)(this.offset, this.samplesPerPixel, this.sampleRate);
@@ -5335,6 +5359,17 @@ var WaveformPlaylist =
 	      }
 	
 	      return (0, _h2.default)('div.playlist-time-scale', {
+	        onmousedown: function onmousedown() {
+	          _this.ee.emit('scrolldraggingstart');
+	        },
+	        onmousemove: function onmousemove(_ref) {
+	          var movementX = _ref.movementX;
+	
+	          _this.ee.emit('scrolldragging', movementX);
+	        },
+	        onmouseup: function onmouseup() {
+	          _this.ee.emit('scrolldraggingend');
+	        },
 	        attributes: {
 	          style: 'position: relative; left: 0; right: 0; margin-left: ' + this.marginLeft + 'px;'
 	        }
@@ -7662,12 +7697,13 @@ var WaveformPlaylist =
 	    key: 'mousedown',
 	    value: function mousedown(e) {
 	      e.preventDefault();
+	      var mousepos = (0, _conversions.pixelsToSeconds)(e.offsetX, this.samplesPerPixel, this.sampleRate);
+	
 	      if (this.action == "fadedraggable") {
+	        // console.log("trueeer");
 	        this.action = "dragginghandle";
 	      }
 	      if (this.action == "dragable") {
-	
-	        var mousepos = (0, _conversions.pixelsToSeconds)(e.offsetX, this.samplesPerPixel, this.sampleRate);
 	
 	        if (Math.abs(mousepos - this.track.startTime) < .4) {
 	          this.draggingFrom = -1;
@@ -7677,6 +7713,12 @@ var WaveformPlaylist =
 	        if (Math.abs(mousepos - this.track.endTime) < .4) {
 	          this.draggingFrom = 1;
 	          this.action = "droppable";
+	        }
+	      }
+	      if (this.action == "scrolldraggable") {
+	        if (mousepos < this.track.startTime || mousepos > this.track.endTime) {
+	          this.action = "scrolldragging";
+	          this.track.ee.emit("scrolldraggingstart");
 	        }
 	      }
 	      // console.log(this.track);
@@ -7697,10 +7739,9 @@ var WaveformPlaylist =
 	    value: function mousemove(e) {
 	
 	      var mousepos = (0, _conversions.pixelsToSeconds)(this.correctOffset(e), this.samplesPerPixel, this.sampleRate);
-	
-	      // console.log(mousepos,this.track.startTime);
+	      // console.log(this.action);
 	      if (this.action == "dragginghandle") {
-	        console.log(mousepos, this.track.getStartTime(), this.track.startTime);
+	        // console.log(mousepos,this.track.getStartTime(),this.track.startTime);
 	        if (mousepos >= this.track.getStartTime() && mousepos <= this.track.getEndTime()) {
 	          if (this.hoveringover == "fadein") this.track.ee.emit('fadein', mousepos - this.track.getStartTime(), this.track);else this.track.ee.emit('fadeout', this.track.getEndTime() - mousepos, this.track);
 	        } else {
@@ -7715,12 +7756,17 @@ var WaveformPlaylist =
 	        this.hoveringover = e.target.classList.contains('fadein') ? "fadein" : "fadeout";
 	
 	        document.body.style.cursor = "pointer";
+	      } else if (this.action == "scrolldragging") {
+	        this.track.ee.emit("scrolldragging", e.movementX);
 	      } else if (Math.abs(mousepos - this.track.startTime) < .4) {
 	        this.action = "dragable";
 	        document.body.style.cursor = "e-resize";
 	      } else if (Math.abs(mousepos - this.track.endTime) < .4) {
 	        this.action = "dragable";
 	        document.body.style.cursor = "w-resize";
+	      } else if (mousepos < this.track.startTime || mousepos > this.track.endTime) {
+	        document.body.style.cursor = "grab";
+	        this.action = "scrolldraggable";
 	      } else {
 	        this.action = null;
 	        document.body.style.cursor = "auto";
@@ -7756,6 +7802,9 @@ var WaveformPlaylist =
 	    value: function mouseup(e) {
 	      if (this.action == "dragginghandle") {
 	        this.action = null;
+	      } else if (this.action == "scrolldragging") {
+	        this.action = null;
+	        this.track.ee.emit("scrolldraggingend");
 	      } else if (this.action == "droppable") {
 	        e.preventDefault();
 	        this.updateDrag(e);

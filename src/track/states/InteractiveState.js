@@ -23,12 +23,14 @@ export default class {
 
   mousedown(e) {
     e.preventDefault();
+    const mousepos = pixelsToSeconds(e.offsetX, this.samplesPerPixel, this.sampleRate);
+
     if (this.action == "fadedraggable"){
+      // console.log("trueeer");
       this.action = "dragginghandle";
     }
     if (this.action == "dragable"){
 
-      const mousepos = pixelsToSeconds(e.offsetX, this.samplesPerPixel, this.sampleRate);
       
       if (Math.abs(mousepos-this.track.startTime) < .4){
         this.draggingFrom = -1;
@@ -39,6 +41,12 @@ export default class {
         this.draggingFrom = 1;
         this.action = "droppable";
       }    
+    }
+    if (this.action == "scrolldraggable"){
+      if (mousepos < this.track.startTime || mousepos > this.track.endTime){
+        this.action = "scrolldragging";
+        this.track.ee.emit("scrolldraggingstart");
+      }
     }
     // console.log(this.track);
   }
@@ -56,10 +64,9 @@ export default class {
   mousemove(e) {
  
     const mousepos = pixelsToSeconds(this.correctOffset(e), this.samplesPerPixel, this.sampleRate);
-    
-    // console.log(mousepos,this.track.startTime);
+    // console.log(this.action);
     if (this.action == "dragginghandle"){
-      console.log(mousepos,this.track.getStartTime(),this.track.startTime);
+      // console.log(mousepos,this.track.getStartTime(),this.track.startTime);
       if (mousepos >= this.track.getStartTime() && mousepos <= this.track.getEndTime()) {
         if (this.hoveringover == "fadein")
           this.track.ee.emit('fadein', mousepos - this.track.getStartTime(), this.track);
@@ -81,6 +88,9 @@ export default class {
       
       document.body.style.cursor = "pointer";
     }
+    else if (this.action == "scrolldragging"){
+      this.track.ee.emit("scrolldragging",e.movementX);
+    }
     else if (Math.abs(mousepos-this.track.startTime) < .4){
       this.action = "dragable"
       document.body.style.cursor = "e-resize";
@@ -88,6 +98,10 @@ export default class {
     else if (Math.abs(mousepos-this.track.endTime) < .4){
       this.action = "dragable"
       document.body.style.cursor = "w-resize";
+    }
+    else if (mousepos < this.track.startTime || mousepos > this.track.endTime){
+      document.body.style.cursor = "grab";
+      this.action = "scrolldraggable";
     }
     else{
       this.action = null;
@@ -126,6 +140,10 @@ export default class {
   mouseup(e) {
     if (this.action == "dragginghandle"){
       this.action = null;
+    }
+    else if (this.action == "scrolldragging"){
+      this.action = null;
+      this.track.ee.emit("scrolldraggingend");
     }
     else if (this.action == "droppable") {
       e.preventDefault();

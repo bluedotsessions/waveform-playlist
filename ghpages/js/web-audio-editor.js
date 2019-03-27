@@ -4,7 +4,7 @@ var playlist = WaveformPlaylist.init({
   container: document.getElementById("playlist"),
   state: 'interactive',
   bpm:121,
-  qunatize:1,
+  quantize:1,
   colors: {
     waveOutlineColor: '#E0EFF1',
     timeColor: 'grey',
@@ -50,7 +50,7 @@ playlist.load([
   {
     "src": "media/audio/Guitar30.mp3",
     "name": "Guitar",
-    "start": 23.5,
+    "start": 53.5,
     "fadeOut": {
       "shape": "linear",
       "duration": 0.5

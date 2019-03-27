@@ -29,6 +29,7 @@ export default class {
     this.scrollLeft = 0;
     this.scrollTimer = undefined;
     this.showTimescale = false;
+    this.scrolldragging = false;
     // whether a user is scrolling the waveform
     this.isScrolling = false;
 
@@ -319,6 +320,24 @@ export default class {
         this.isScrolling = false;
       }, 200);
     });
+    ee.on('scrolldragging',amount=>{
+      if (!this.scrolldragging)return;
+      // console.log("scrolldragging",amount);
+      this.scrollLeft -= pixelsToSeconds(
+        amount,
+        this.samplesPerPixel,
+        this.sampleRate,
+      );
+      this.ee.emit('scroll');
+    })
+    ee.on('scrolldraggingstart',()=>{
+      this.scrolldragging = true;
+      document.body.style.cursor = "grabbing";
+    })
+    ee.on('scrolldraggingend',()=>{
+      this.scrolldragging = false;
+      document.body.style.cursor =  "auto";
+    })
   }
 
   load(trackList) {
@@ -856,7 +875,7 @@ export default class {
 
   renderTimeScale() {
     const controlWidth = this.controls.show ? this.controls.width : 0;
-    const timeScale = new TimeScale(this.duration, this.scrollLeft,
+    const timeScale = new TimeScale(this.ee,this.duration, this.scrollLeft,
       this.samplesPerPixel, this.sampleRate, controlWidth);
 
     return timeScale.render();
@@ -907,6 +926,7 @@ export default class {
 
     return h('div.playlist',
       {
+        onselectstart:event=>event.preventDefault(),
         attributes: {
           style: 'overflow: hidden; position: relative;',
         },
