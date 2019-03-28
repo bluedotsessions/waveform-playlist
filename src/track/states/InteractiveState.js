@@ -24,7 +24,7 @@ export default class {
   mousedown(e) {
     e.preventDefault();
     const mousepos = pixelsToSeconds(e.offsetX, this.samplesPerPixel, this.sampleRate);
-
+    console.log("mousedown",this.action);
     if (this.action == "fadedraggable"){
       // console.log("trueeer");
       this.action = "dragginghandle";
@@ -90,7 +90,7 @@ export default class {
     }
     else if (this.action == "scrolldragging" || this.action == "scrolldraggingcandidate"){
       this.track.ee.emit("scrolldragging",e.movementX);
-      this.action == "scrolldragging";
+      this.action = "scrolldragging";
     }
     else if (Math.abs(mousepos-this.track.startTime) < .4){
       this.action = "dragable"
@@ -115,7 +115,7 @@ export default class {
 
   seekTo(e) {
     e.preventDefault();
-
+    console.log("seek");
     const startX = e.offsetX;
     const startTime = pixelsToSeconds(startX, this.samplesPerPixel, this.sampleRate);
 

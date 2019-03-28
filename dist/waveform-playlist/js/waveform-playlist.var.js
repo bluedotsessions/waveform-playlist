@@ -7714,7 +7714,7 @@ var WaveformPlaylist =
 	    value: function mousedown(e) {
 	      e.preventDefault();
 	      var mousepos = (0, _conversions.pixelsToSeconds)(e.offsetX, this.samplesPerPixel, this.sampleRate);
-	
+	      console.log("mousedown", this.action);
 	      if (this.action == "fadedraggable") {
 	        // console.log("trueeer");
 	        this.action = "dragginghandle";
@@ -7774,7 +7774,7 @@ var WaveformPlaylist =
 	        document.body.style.cursor = "pointer";
 	      } else if (this.action == "scrolldragging" || this.action == "scrolldraggingcandidate") {
 	        this.track.ee.emit("scrolldragging", e.movementX);
-	        this.action == "scrolldragging";
+	        this.action = "scrolldragging";
 	      } else if (Math.abs(mousepos - this.track.startTime) < .4) {
 	        this.action = "dragable";
 	        document.body.style.cursor = "e-resize";
@@ -7795,7 +7795,7 @@ var WaveformPlaylist =
 	    key: 'seekTo',
 	    value: function seekTo(e) {
 	      e.preventDefault();
-	
+	      console.log("seek");
 	      var startX = e.offsetX;
 	      var startTime = (0, _conversions.pixelsToSeconds)(startX, this.samplesPerPixel, this.sampleRate);
 	
