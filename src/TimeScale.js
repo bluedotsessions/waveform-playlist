@@ -1,6 +1,6 @@
 import h from 'virtual-dom/h';
 
-import { secondsToPixels } from './utils/conversions';
+import { secondsToPixels,pixelsToSeconds } from './utils/conversions';
 import TimeScaleHook from './render/TimeScaleHook';
 
 class TimeScale {
@@ -89,6 +89,14 @@ class TimeScale {
 
     return `${m}:${s}`;
   }
+  seekTo(e) {
+    e.preventDefault();
+
+    const startX = e.offsetX;
+    const startTime = pixelsToSeconds(startX, this.samplesPerPixel, this.sampleRate);
+
+    this.ee.emit('select', startTime, startTime);
+  }
 
   render() {
     const widthX = secondsToPixels(this.duration, this.samplesPerPixel, this.sampleRate);
@@ -131,11 +139,17 @@ class TimeScale {
       {
         onmousedown : () => {
           this.ee.emit('scrolldraggingstart');
+          this.moved = false;
         },
         onmousemove : ({movementX}) => {
             this.ee.emit('scrolldragging',movementX);
+            this.moved = true;
         },
-        onmouseup : () => {
+        onmouseup : e => {
+          console.log(this.moved);
+          if (this.moved == false){
+            this.seekTo(e);
+          }
           this.ee.emit('scrolldraggingend');
         },
         attributes: {

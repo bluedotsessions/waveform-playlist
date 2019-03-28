@@ -5321,6 +5321,16 @@ var WaveformPlaylist =
 	    */
 	
 	  }, {
+	    key: 'seekTo',
+	    value: function seekTo(e) {
+	      e.preventDefault();
+	
+	      var startX = e.offsetX;
+	      var startTime = (0, _conversions.pixelsToSeconds)(startX, this.samplesPerPixel, this.sampleRate);
+	
+	      this.ee.emit('select', startTime, startTime);
+	    }
+	  }, {
 	    key: 'render',
 	    value: function render() {
 	      var _this = this;
@@ -5361,13 +5371,19 @@ var WaveformPlaylist =
 	      return (0, _h2.default)('div.playlist-time-scale', {
 	        onmousedown: function onmousedown() {
 	          _this.ee.emit('scrolldraggingstart');
+	          _this.moved = false;
 	        },
 	        onmousemove: function onmousemove(_ref) {
 	          var movementX = _ref.movementX;
 	
 	          _this.ee.emit('scrolldragging', movementX);
+	          _this.moved = true;
 	        },
-	        onmouseup: function onmouseup() {
+	        onmouseup: function onmouseup(e) {
+	          console.log(_this.moved);
+	          if (_this.moved == false) {
+	            _this.seekTo(e);
+	          }
 	          _this.ee.emit('scrolldraggingend');
 	        },
 	        attributes: {
@@ -7717,7 +7733,7 @@ var WaveformPlaylist =
 	      }
 	      if (this.action == "scrolldraggable") {
 	        if (mousepos < this.track.startTime || mousepos > this.track.endTime) {
-	          this.action = "scrolldragging";
+	          this.action = "scrolldraggingcandidate";
 	          this.track.ee.emit("scrolldraggingstart");
 	        }
 	      }
@@ -7739,7 +7755,7 @@ var WaveformPlaylist =
 	    value: function mousemove(e) {
 	
 	      var mousepos = (0, _conversions.pixelsToSeconds)(this.correctOffset(e), this.samplesPerPixel, this.sampleRate);
-	      // console.log(this.action);
+	      console.log(this.action);
 	      if (this.action == "dragginghandle") {
 	        // console.log(mousepos,this.track.getStartTime(),this.track.startTime);
 	        if (mousepos >= this.track.getStartTime() && mousepos <= this.track.getEndTime()) {
@@ -7756,8 +7772,9 @@ var WaveformPlaylist =
 	        this.hoveringover = e.target.classList.contains('fadein') ? "fadein" : "fadeout";
 	
 	        document.body.style.cursor = "pointer";
-	      } else if (this.action == "scrolldragging") {
+	      } else if (this.action == "scrolldragging" || this.action == "scrolldraggingcandidate") {
 	        this.track.ee.emit("scrolldragging", e.movementX);
+	        this.action == "scrolldragging";
 	      } else if (Math.abs(mousepos - this.track.startTime) < .4) {
 	        this.action = "dragable";
 	        document.body.style.cursor = "e-resize";
@@ -7765,7 +7782,7 @@ var WaveformPlaylist =
 	        this.action = "dragable";
 	        document.body.style.cursor = "w-resize";
 	      } else if (mousepos < this.track.startTime || mousepos > this.track.endTime) {
-	        document.body.style.cursor = "grab";
+	        // document.body.style.cursor = "grab";
 	        this.action = "scrolldraggable";
 	      } else {
 	        this.action = null;
@@ -7773,6 +7790,16 @@ var WaveformPlaylist =
 	        this.mouseup();
 	      }
 	      // console.log(this.action);
+	    }
+	  }, {
+	    key: 'seekTo',
+	    value: function seekTo(e) {
+	      e.preventDefault();
+	
+	      var startX = e.offsetX;
+	      var startTime = (0, _conversions.pixelsToSeconds)(startX, this.samplesPerPixel, this.sampleRate);
+	
+	      this.track.ee.emit('select', startTime, startTime, this.track);
 	    }
 	  }, {
 	    key: 'updateDrag',
@@ -7801,6 +7828,10 @@ var WaveformPlaylist =
 	    key: 'mouseup',
 	    value: function mouseup(e) {
 	      if (this.action == "dragginghandle") {
+	        this.action = null;
+	      } else if (this.action == "scrolldraggingcandidate") {
+	        this.seekTo(e);
+	        this.track.ee.emit("scrolldraggingend");
 	        this.action = null;
 	      } else if (this.action == "scrolldragging") {
 	        this.action = null;

@@ -44,7 +44,7 @@ export default class {
     }
     if (this.action == "scrolldraggable"){
       if (mousepos < this.track.startTime || mousepos > this.track.endTime){
-        this.action = "scrolldragging";
+        this.action = "scrolldraggingcandidate";
         this.track.ee.emit("scrolldraggingstart");
       }
     }
@@ -64,7 +64,7 @@ export default class {
   mousemove(e) {
  
     const mousepos = pixelsToSeconds(this.correctOffset(e), this.samplesPerPixel, this.sampleRate);
-    // console.log(this.action);
+    console.log(this.action);
     if (this.action == "dragginghandle"){
       // console.log(mousepos,this.track.getStartTime(),this.track.startTime);
       if (mousepos >= this.track.getStartTime() && mousepos <= this.track.getEndTime()) {
@@ -88,8 +88,9 @@ export default class {
       
       document.body.style.cursor = "pointer";
     }
-    else if (this.action == "scrolldragging"){
+    else if (this.action == "scrolldragging" || this.action == "scrolldraggingcandidate"){
       this.track.ee.emit("scrolldragging",e.movementX);
+      this.action == "scrolldragging";
     }
     else if (Math.abs(mousepos-this.track.startTime) < .4){
       this.action = "dragable"
@@ -100,7 +101,7 @@ export default class {
       document.body.style.cursor = "w-resize";
     }
     else if (mousepos < this.track.startTime || mousepos > this.track.endTime){
-      document.body.style.cursor = "grab";
+      // document.body.style.cursor = "grab";
       this.action = "scrolldraggable";
     }
     else{
@@ -109,6 +110,16 @@ export default class {
       this.mouseup();
     }
     // console.log(this.action);
+  }
+
+
+  seekTo(e) {
+    e.preventDefault();
+
+    const startX = e.offsetX;
+    const startTime = pixelsToSeconds(startX, this.samplesPerPixel, this.sampleRate);
+
+    this.track.ee.emit('select', startTime, startTime, this.track);
   }
 
   mouseleave = e => {
@@ -139,6 +150,11 @@ export default class {
   }
   mouseup(e) {
     if (this.action == "dragginghandle"){
+      this.action = null;
+    }
+    else if (this.action == "scrolldraggingcandidate"){
+      this.seekTo(e);
+      this.track.ee.emit("scrolldraggingend");
       this.action = null;
     }
     else if (this.action == "scrolldragging"){
