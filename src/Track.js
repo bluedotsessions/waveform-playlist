@@ -38,6 +38,7 @@ export default class {
 
   setEventEmitter(ee) {
     this.ee = ee;
+    console.log('ee', ee);
   }
 
   setName(name) {
@@ -635,13 +636,23 @@ export default class {
 
     channelChildren.push(waveform);
 
+    // const closeIcon = h('i.fa.fa-times');
+    const btnClose = h('div.btn-close', {
+      onclick: () => {
+        this.ee.emit('remove', this);
+      },
+    }, [
+      h('i.fa.fa-times'),
+    ]);
+    channelChildren.push(btnClose);
+
     const audibleClass = data.shouldPlay ? '' : '.silent';
     const customClass = (this.customClass === undefined) ? '' : `.${this.customClass}`;
 
     return h(`div.channel-wrapper${audibleClass}${customClass}`,
       {
         attributes: {
-          style: `margin-left: ${channelMargin}px; height: ${data.height * numChan}px;`,
+          style: `margin-left: ${channelMargin}px; height: ${data.height * numChan}px; display: flex`,
         },
       },
       channelChildren,

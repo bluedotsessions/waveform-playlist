@@ -330,7 +330,6 @@ ee.on("mastervolumechange", function(volume) {
   displaySoundStatus("Master volume now has volume " + volume + ".");
 });
 
-
 var audioStates = ["uninitialized", "loading", "decoding", "finished"];
 
 ee.on("audiorequeststatechange", function(state, src) {

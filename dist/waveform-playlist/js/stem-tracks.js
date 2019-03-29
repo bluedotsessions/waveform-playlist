@@ -12,7 +12,7 @@ var playlist = WaveformPlaylist.init({
     show: true, //whether or not to include the track controls
     width: 200 //width of controls in pixels
   },
-  zoomLevels: [500, 1000, 3000, 5000]
+  zoomLevels: [500, 1000, 3000, 5000],
 });
 
 playlist.load([
@@ -38,13 +38,4 @@ playlist.load([
   }
 ]).then(function() {
   //can do stuff with the playlist.
-  $('div.channel-wrapper').each(function(index) {
-    $(this).attr('id', 'audio'+index);
-    $(this).css('display', 'flex');
-    $(this).append('<div class="btn-close" data="'+ index +'"><i class="fa fa-times" aria-hidden="true"></i></div>');
-  });
-  $('div.btn-close').click(function() {
-    let id = $(this).attr('data');
-    $('#audio'+id).remove();
-  })
 });

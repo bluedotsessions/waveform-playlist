@@ -338,6 +338,15 @@ export default class {
       this.scrolldragging = false;
       document.body.style.cursor =  "auto";
     })
+    ee.on('remove', (track) => {      
+      console.log('Remove track', track);
+      
+      this.muteTrack(track);
+      this.adjustTrackPlayout();
+      this.drawRequest();
+
+      this.removeTrack(track);
+    });
   }
 
   load(trackList) {
@@ -573,6 +582,16 @@ export default class {
       this.soloedTracks = [track];
     } else {
       this.soloedTracks.push(track);
+    }
+  }
+
+  removeTrack(track) {
+    const index = this.tracks.indexOf(track);
+
+    if (index > -1) {
+      this.tracks.splice(index, 1);
+    } else {
+      this.tracks.push(track);
     }
   }
 
