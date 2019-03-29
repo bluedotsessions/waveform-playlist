@@ -7,6 +7,7 @@ var playlist = WaveformPlaylist.init({
   colors: {
     waveOutlineColor: '#E0EFF1'
   },
+  seekStyle : 'line',
   controls: {
     show: true, //whether or not to include the track controls
     width: 200 //width of controls in pixels
@@ -37,4 +38,13 @@ playlist.load([
   }
 ]).then(function() {
   //can do stuff with the playlist.
+  $('div.channel-wrapper').each(function(index) {
+    $(this).attr('id', 'audio'+index);
+    $(this).css('display', 'flex');
+    $(this).append('<div class="btn-close" data="'+ index +'"><i class="fa fa-times" aria-hidden="true"></i></div>');
+  });
+  $('div.btn-close').click(function() {
+    let id = $(this).attr('data');
+    $('#audio'+id).remove();
+  })
 });
