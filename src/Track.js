@@ -362,7 +362,19 @@ export default class {
           style: `height: ${numChan * data.height}px; width: ${data.controls.width}px; position: absolute; left: 0; z-index: 10;`,
         },
       }, [
-        h('header', [this.name]),
+        h('header', [
+          this.name,
+          h('span', [
+            h('i.fa.fa-times', {
+              attributes: {
+                style: `float: right; cursor: pointer; padding: 2px;`,
+              },
+              onclick: () => {
+                this.ee.emit('remove', this);
+              }
+            })
+          ])
+        ]),
         h('div.btn-group', [
           h(`span.btn.btn-default.btn-xs.btn-mute${muteClass}`, {
             onclick: () => {
@@ -637,14 +649,14 @@ export default class {
     channelChildren.push(waveform);
 
     // const closeIcon = h('i.fa.fa-times');
-    const btnClose = h('div.btn-close', {
-      onclick: () => {
-        this.ee.emit('remove', this);
-      },
-    }, [
-      h('i.fa.fa-times'),
-    ]);
-    channelChildren.push(btnClose);
+    // const btnClose = h('div.btn-close', {
+    //   onclick: () => {
+    //     this.ee.emit('remove', this);
+    //   },
+    // }, [
+    //   h('i.fa.fa-times'),
+    // ]);
+    // channelChildren.push(btnClose);
 
     const audibleClass = data.shouldPlay ? '' : '.silent';
     const customClass = (this.customClass === undefined) ? '' : `.${this.customClass}`;
