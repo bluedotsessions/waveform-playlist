@@ -379,11 +379,15 @@ export default class {
         const playout = new Playout(this.ac, audioBuffer);
 
         const track = new Track();
-        track.src = info.src;
+        track.src = info.src;   
+
+
         track.setBuffer(audioBuffer);
         track.setName(name);
         track.setEventEmitter(this.ee);
-        track.setEnabledStates(states);
+        track.setEnabledStates(states);      
+
+
         track.setCues(cueIn, cueOut);
         track.setCustomClass(customClass);
         track.setWaveOutlineColor(waveOutlineColor);
@@ -421,6 +425,26 @@ export default class {
 
         // extract peaks with AudioContext for now.
         track.calculatePeaks(this.samplesPerPixel, this.sampleRate);
+
+        let curPeak = track.peaks.data[0];
+        let startX = 0;
+        for (let i = 0; i < track.peaks.length; i += 1) {
+          if(curPeak[i * 2] != 0) {
+            startX = i; break;
+          }
+        }
+        if (startX > 0) {
+          let startSec = pixelsToSeconds(startX, this.samplesPerPixel, this.sampleRate);
+          console.log('startX', startX, startSec, startSec, cueOut);
+          console.log('(startSec + start + cueIn)', startSec, start, cueIn, startSec + start + cueIn);
+          // if(start < startSec) {
+            track.setStartTime(startSec + start);
+            // track.setStartTime(start);
+            track.setCues(startSec + cueIn, cueOut);          
+            track.calculatePeaks(this.samplesPerPixel, this.sampleRate);
+          // }
+          
+        }
 
         track.bpm = this.bpm;
         track.quantize = this.quantize;
@@ -539,6 +563,7 @@ export default class {
     this.state = state;
 
     this.tracks.forEach((track) => {
+      console.log(state);
       track.setState(state);
     });
   }

@@ -38,7 +38,6 @@ export default class {
 
   setEventEmitter(ee) {
     this.ee = ee;
-    console.log('ee', ee);
   }
 
   setName(name) {
@@ -176,7 +175,6 @@ export default class {
   calculatePeaks(samplesPerPixel, sampleRate) {
     const cueIn = secondsToSamples(this.cueIn, sampleRate);
     const cueOut = secondsToSamples(this.cueOut, sampleRate);
-
     this.setPeaks(extractPeaks(this.buffer, samplesPerPixel, this.peakData.mono, cueIn, cueOut));
   }
 
@@ -330,7 +328,7 @@ export default class {
 
     const config = {
       attributes: {
-        style: `position: absolute; top: 0; right: 0; bottom: 0; left: 0; width: ${channelPixels+30}px; z-index: 8;`,
+        style: `position: absolute; top: 0; right: 0; bottom: 0; left: 0; width: ${channelPixels}px; z-index: 8;`,
       },
     };
 
