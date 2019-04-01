@@ -1602,19 +1602,19 @@ var WaveformPlaylist =
 	
 	var _Track2 = _interopRequireDefault(_Track);
 	
-	var _Playout = __webpack_require__(81);
+	var _Playout = __webpack_require__(82);
 	
 	var _Playout2 = _interopRequireDefault(_Playout);
 	
-	var _AnnotationList = __webpack_require__(82);
+	var _AnnotationList = __webpack_require__(83);
 	
 	var _AnnotationList2 = _interopRequireDefault(_AnnotationList);
 	
-	var _recorderWorker = __webpack_require__(88);
+	var _recorderWorker = __webpack_require__(89);
 	
 	var _recorderWorker2 = _interopRequireDefault(_recorderWorker);
 	
-	var _exportWavWorker = __webpack_require__(89);
+	var _exportWavWorker = __webpack_require__(90);
 	
 	var _exportWavWorker2 = _interopRequireDefault(_exportWavWorker);
 	
@@ -1638,6 +1638,7 @@ var WaveformPlaylist =
 	    this.scrollTimer = undefined;
 	    this.showTimescale = false;
 	    this.scrolldragging = false;
+	    this.seekClicking = true;
 	    // whether a user is scrolling the waveform
 	    this.isScrolling = false;
 	
@@ -1796,9 +1797,22 @@ var WaveformPlaylist =
 	        track.calculatePeaks(_this2.samplesPerPixel, _this2.sampleRate);
 	        _this2.drawRequest();
 	      });
+	      ee.on('redraw', function () {
+	        _this2.drawRequest();
+	      });
 	
 	      ee.on('automaticscroll', function (val) {
 	        _this2.isAutomaticScroll = val;
+	      });
+	
+	      ee.on('destroy', function (track) {
+	        for (var a in _this2.tracks) {
+	          if (_this2.tracks[a] == track) {
+	            _this2.tracks.splice(a, 1);
+	            break;
+	          }
+	        }
+	        _this2.drawRequest();
 	      });
 	
 	      ee.on('durationformat', function (format) {
@@ -1949,16 +1963,27 @@ var WaveformPlaylist =
 	      });
 	      ee.on('scrolldragging', function (amount) {
 	        if (!_this2.scrolldragging) return;
+	        _this2.seekClicking = false;
 	        // console.log("scrolldragging",amount);
 	        _this2.scrollLeft -= (0, _conversions.pixelsToSeconds)(amount, _this2.samplesPerPixel, _this2.sampleRate);
 	        _this2.ee.emit('scroll');
 	      });
 	      ee.on('scrolldraggingstart', function () {
 	        _this2.scrolldragging = true;
+	        _this2.seekClicking = true;
 	        document.body.style.cursor = "grabbing";
 	      });
-	      ee.on('scrolldraggingend', function () {
+	      ee.on('scrolldraggingend', function (e) {
 	        _this2.scrolldragging = false;
+	        if (_this2.seekClicking) {
+	          var startX = e.offsetX;
+	          var startTime = (0, _conversions.pixelsToSeconds)(startX, _this2.samplesPerPixel, _this2.sampleRate);
+	          if (e.from == "TimeScale") {
+	            startTime += _this2.scrollLeft;
+	          }
+	
+	          _this2.ee.emit('select', startTime, startTime);
+	        }
 	        document.body.style.cursor = "auto";
 	      });
 	    }
@@ -5197,9 +5222,7 @@ var WaveformPlaylist =
 	      var left = (0, _conversions.secondsToPixels)(playlist.scrollLeft, playlist.samplesPerPixel, playlist.sampleRate);
 	
 	      el.scrollLeft = left;
-	      el.addEventListener('mouseleave', function () {
-	        return playlist.ee.emit('scrolldraggingend');
-	      });
+	      // el.addEventListener('mouseleave',e => playlist.ee.emit('scrolldraggingend',e));
 	    }
 	  }]);
 
@@ -5371,20 +5394,15 @@ var WaveformPlaylist =
 	      return (0, _h2.default)('div.playlist-time-scale', {
 	        onmousedown: function onmousedown() {
 	          _this.ee.emit('scrolldraggingstart');
-	          _this.moved = false;
 	        },
 	        onmousemove: function onmousemove(_ref) {
 	          var movementX = _ref.movementX;
 	
 	          _this.ee.emit('scrolldragging', movementX);
-	          _this.moved = true;
 	        },
 	        onmouseup: function onmouseup(e) {
-	          console.log(_this.moved);
-	          if (_this.moved == false) {
-	            _this.seekTo(e);
-	          }
-	          _this.ee.emit('scrolldraggingend');
+	          e.from = "TimeScale";
+	          _this.ee.emit('scrolldraggingend', e);
 	        },
 	        attributes: {
 	          style: 'position: relative; left: 0; right: 0; margin-left: ' + this.marginLeft + 'px;'
@@ -5526,6 +5544,10 @@ var WaveformPlaylist =
 	
 	var _VolumeSliderHook2 = _interopRequireDefault(_VolumeSliderHook);
 	
+	var _PanKnobHook = __webpack_require__(81);
+	
+	var _PanKnobHook2 = _interopRequireDefault(_PanKnobHook);
+	
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
@@ -5547,6 +5569,7 @@ var WaveformPlaylist =
 	    };
 	
 	    this.cueIn = 0;
+	    this.pan = 0;
 	    this.cueOut = 0;
 	    this.duration = 0;
 	    this.startTime = 0;
@@ -5924,7 +5947,11 @@ var WaveformPlaylist =
 	        attributes: {
 	          style: 'height: ' + numChan * data.height + 'px; width: ' + data.controls.width + 'px; position: absolute; left: 0; z-index: 10;'
 	        }
-	      }, [(0, _h2.default)('header', [this.name]), (0, _h2.default)('div.btn-group', [(0, _h2.default)('span.btn.btn-default.btn-xs.btn-mute' + muteClass, {
+	      }, [(0, _h2.default)('header', [this.name]), (0, _h2.default)('div.btn-group', [(0, _h2.default)('span.btn.btn-default.btn-xs.destroyButton', {
+	        onclick: function onclick() {
+	          _this2.ee.emit('destroy', _this2);
+	        }
+	      }, ['X']), (0, _h2.default)('span.btn.btn-default.btn-xs.btn-mute' + muteClass, {
 	        onclick: function onclick() {
 	          _this2.ee.emit('mute', _this2);
 	        }
@@ -5932,7 +5959,14 @@ var WaveformPlaylist =
 	        onclick: function onclick() {
 	          _this2.ee.emit('solo', _this2);
 	        }
-	      }, ['Solo'])]), (0, _h2.default)('label', [(0, _h2.default)('input.volume-slider', {
+	      }, ['Solo']), (0, _h2.default)('canvas.knobCanvas', {
+	        attributes: {
+	          width: 25,
+	          height: 25,
+	          "data-ringbgcolor": '#EEE'
+	        },
+	        hook: new _PanKnobHook2.default(this.pan, this)
+	      })]), (0, _h2.default)('label', [(0, _h2.default)('input.volume-slider', {
 	        attributes: {
 	          type: 'range',
 	          min: 0,
@@ -7687,6 +7721,7 @@ var WaveformPlaylist =
 	    this.mouseleave = function (e) {
 	      _this.mouseup(e);
 	      _this.mousemove(e);
+	      document.body.style.cursor = "auto";
 	    };
 	
 	    this.track = track;
@@ -7830,12 +7865,12 @@ var WaveformPlaylist =
 	      if (this.action == "dragginghandle") {
 	        this.action = null;
 	      } else if (this.action == "scrolldraggingcandidate") {
-	        this.seekTo(e);
-	        this.track.ee.emit("scrolldraggingend");
+	        // this.seekTo(e);
+	        this.track.ee.emit("scrolldraggingend", e);
 	        this.action = null;
 	      } else if (this.action == "scrolldragging") {
 	        this.action = null;
-	        this.track.ee.emit("scrolldraggingend");
+	        this.track.ee.emit("scrolldraggingend", e);
 	      } else if (this.action == "droppable") {
 	        e.preventDefault();
 	        this.updateDrag(e);
@@ -8082,6 +8117,103 @@ var WaveformPlaylist =
 
 /***/ }),
 /* 81 */
+/***/ (function(module, exports) {
+
+	'use strict';
+	
+	Object.defineProperty(exports, "__esModule", {
+	    value: true
+	});
+	
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+	
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+	
+	var _class = function () {
+	    function _class(pan, track) {
+	        _classCallCheck(this, _class);
+	
+	        this.pan = pan;
+	        this.track = track;
+	
+	        this.lineWidth = 5;
+	        this.gap = Math.PI * .14; //This is doubled
+	        this.gapPosition = Math.PI * .5;
+	    }
+	
+	    _createClass(_class, [{
+	        key: 'setupEvents',
+	        value: function setupEvents(canvas) {
+	            var _this = this;
+	
+	            //pan Change
+	            canvas.addEventListener('click', function (e) {
+	                var offsetX = e.offsetX,
+	                    offsetY = e.offsetY;
+	
+	                var center = { x: canvas.width / 2, y: canvas.height / 2 };
+	                var TAU = Math.PI * 2;
+	
+	                var angle = Math.atan2(offsetY - center.y, offsetX - center.x);
+	
+	                var top = _this.gapPosition - 3 * Math.PI;
+	
+	                var dangle = (angle - top) % TAU;
+	
+	                var adjustedNegatives = dangle > Math.PI ? dangle - TAU : dangle;
+	
+	                var amount = adjustedNegatives / (Math.PI - _this.gap);
+	
+	                var realamount = amount > 1 ? 1 : amount < -1 ? -1 : amount; //clamping to -1 to 1
+	
+	                // console.log(adjustedNegatives*180/Math.PI);
+	                // console.log(realamount);
+	                _this.track.pan = realamount;
+	
+	                _this.track.ee.emit('redraw');
+	            });
+	        }
+	    }, {
+	        key: 'draw',
+	        value: function draw(g, canvas) {
+	            var center = { x: canvas.width / 2, y: canvas.height / 2 };
+	            var TAU = Math.PI * 2;
+	            //Background
+	            g.lineWidth = this.lineWidth;
+	            g.strokeStyle = canvas.getAttribute('data-ringbgcolor') || '#EEE';
+	            g.clearRect(0, 0, canvas.width, canvas.height);
+	            g.beginPath();
+	            g.arc(center.x, center.y, center.x - this.lineWidth, this.gap + this.gapPosition, TAU - this.gap + this.gapPosition);
+	            g.stroke();
+	
+	            //Pan Amount
+	
+	            g.strokeStyle = canvas.getAttribute('data-ringcolor') || 'black';
+	
+	            g.beginPath();
+	            g.arc(center.x, center.y, center.x - this.lineWidth, this.gapPosition + Math.PI, this.pan * (Math.PI - this.gap) + this.gapPosition + Math.PI, this.pan < 0);
+	            g.stroke();
+	
+	            // console.log('drawing pan',g.strokeStyle,center);
+	        }
+	    }, {
+	        key: 'hook',
+	        value: function hook(canvas, _, prev) {
+	            if (prev && prev.pan == this.pan) return;
+	
+	            this.setupEvents(canvas);
+	            var g = canvas.getContext('2d');
+	            this.draw(g, canvas);
+	        }
+	    }]);
+
+	    return _class;
+	}();
+
+	exports.default = _class;
+
+/***/ }),
+/* 82 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -8242,7 +8374,7 @@ var WaveformPlaylist =
 	exports.default = _class;
 
 /***/ }),
-/* 82 */
+/* 83 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -8257,25 +8389,25 @@ var WaveformPlaylist =
 	
 	var _h2 = _interopRequireDefault(_h);
 	
-	var _aeneas = __webpack_require__(83);
+	var _aeneas = __webpack_require__(84);
 	
 	var _aeneas2 = _interopRequireDefault(_aeneas);
 	
-	var _aeneas3 = __webpack_require__(84);
+	var _aeneas3 = __webpack_require__(85);
 	
 	var _aeneas4 = _interopRequireDefault(_aeneas3);
 	
 	var _conversions = __webpack_require__(56);
 	
-	var _DragInteraction = __webpack_require__(85);
+	var _DragInteraction = __webpack_require__(86);
 	
 	var _DragInteraction2 = _interopRequireDefault(_DragInteraction);
 	
-	var _ScrollTopHook = __webpack_require__(86);
+	var _ScrollTopHook = __webpack_require__(87);
 	
 	var _ScrollTopHook2 = _interopRequireDefault(_ScrollTopHook);
 	
-	var _timeformat = __webpack_require__(87);
+	var _timeformat = __webpack_require__(88);
 	
 	var _timeformat2 = _interopRequireDefault(_timeformat);
 	
@@ -8544,7 +8676,7 @@ var WaveformPlaylist =
 	exports.default = AnnotationList;
 
 /***/ }),
-/* 83 */
+/* 84 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -8572,7 +8704,7 @@ var WaveformPlaylist =
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 /***/ }),
-/* 84 */
+/* 85 */
 /***/ (function(module, exports) {
 
 	"use strict";
@@ -8592,7 +8724,7 @@ var WaveformPlaylist =
 	};
 
 /***/ }),
-/* 85 */
+/* 86 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -8683,7 +8815,7 @@ var WaveformPlaylist =
 	exports.default = _class;
 
 /***/ }),
-/* 86 */
+/* 87 */
 /***/ (function(module, exports) {
 
 	'use strict';
@@ -8709,7 +8841,7 @@ var WaveformPlaylist =
 	exports.default = Hook;
 
 /***/ }),
-/* 87 */
+/* 88 */
 /***/ (function(module, exports) {
 
 	'use strict';
@@ -8757,7 +8889,7 @@ var WaveformPlaylist =
 	};
 
 /***/ }),
-/* 88 */
+/* 89 */
 /***/ (function(module, exports) {
 
 	'use strict';
@@ -8872,7 +9004,7 @@ var WaveformPlaylist =
 	};
 
 /***/ }),
-/* 89 */
+/* 90 */
 /***/ (function(module, exports) {
 
 	'use strict';
