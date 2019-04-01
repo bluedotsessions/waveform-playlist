@@ -285,6 +285,8 @@ export default class {
       const track = this.getActiveTrack();
       const timeSelection = this.getTimeSelection();
 
+      console.log(timeSelection.start, timeSelection.end);
+
       track.trim(timeSelection.start, timeSelection.end);
       track.calculatePeaks(this.samplesPerPixel, this.sampleRate);
 
@@ -427,23 +429,26 @@ export default class {
         track.calculatePeaks(this.samplesPerPixel, this.sampleRate);
 
         let curPeak = track.peaks.data[0];
-        let startX = 0;
+        let startX = 0, endX = track.peaks.length - 1;
         for (let i = 0; i < track.peaks.length; i += 1) {
           if(curPeak[i * 2] != 0) {
             startX = i; break;
           }
         }
-        if (startX > 0) {
+        for (let i = track.peaks.length - 1, j = 0; i >= 0; i -= 1) {
+          if(curPeak[i * 2] != 0) {
+            endX = i; break;
+          }
+        }
+        if (startX > cueIn || endX < cueOut) {
           let startSec = pixelsToSeconds(startX, this.samplesPerPixel, this.sampleRate);
-          console.log('startX', startX, startSec, startSec, cueOut);
-          console.log('(startSec + start + cueIn)', startSec, start, cueIn, startSec + start + cueIn);
-          // if(start < startSec) {
-            track.setStartTime(startSec + start);
-            // track.setStartTime(start);
-            track.setCues(startSec + cueIn, cueOut);          
-            track.calculatePeaks(this.samplesPerPixel, this.sampleRate);
-          // }
-          
+          let endSec = pixelsToSeconds(endX, this.samplesPerPixel, this.sampleRate);
+          if (endSec > cueOut) endSec = cueOut;
+          if (startSec < cueIn) startSec = cueIn;
+          console.log(startSec + cueIn, endSec, cueOut);
+          // track.setStartTime(startSec + start);
+          track.trim(startSec, endSec);
+          track.calculatePeaks(this.samplesPerPixel, this.sampleRate);          
         }
 
         track.bpm = this.bpm;

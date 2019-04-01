@@ -622,7 +622,7 @@ export default class {
 
       waveformChildren.push(h(`div.selection${cClassName}`, {
         attributes: {
-          style: `position: absolute; width: ${cWidth}px; bottom: 0; top: 0; left: ${cStartX}px; z-index: 4;`,
+          style: `position: absolute; width: ${cWidth}px; bottom: 0; top: 0; left: ${cStartX}px; z-index: 9;`,
         },
       }));
     }
@@ -645,16 +645,6 @@ export default class {
     }
 
     channelChildren.push(waveform);
-
-    // const closeIcon = h('i.fa.fa-times');
-    // const btnClose = h('div.btn-close', {
-    //   onclick: () => {
-    //     this.ee.emit('remove', this);
-    //   },
-    // }, [
-    //   h('i.fa.fa-times'),
-    // ]);
-    // channelChildren.push(btnClose);
 
     const audibleClass = data.shouldPlay ? '' : '.silent';
     const customClass = (this.customClass === undefined) ? '' : `.${this.customClass}`;
