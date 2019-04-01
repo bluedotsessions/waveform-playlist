@@ -125,6 +125,7 @@ export default class {
   mouseleave = e => {
     this.mouseup(e);
     this.mousemove(e);
+    document.body.style.cursor = "auto";
   };
 
   updateDrag(e){

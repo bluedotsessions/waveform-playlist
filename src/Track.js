@@ -13,6 +13,7 @@ import stateClasses from './track/states';
 import CanvasHook from './render/CanvasHook';
 import FadeCanvasHook from './render/FadeCanvasHook';
 import VolumeSliderHook from './render/VolumeSliderHook';
+import PanKnob from './render/PanKnobHook';
 
 const MAX_CANVAS_WIDTH = 1000;
 
@@ -30,6 +31,7 @@ export default class {
     };
 
     this.cueIn = 0;
+    this.pan = 0;
     this.cueOut = 0;
     this.duration = 0;
     this.startTime = 0;
@@ -363,6 +365,11 @@ export default class {
       }, [
         h('header', [this.name]),
         h('div.btn-group', [
+          h('span.btn.btn-default.btn-xs.destroyButton',{
+            onclick: ()=>{
+              this.ee.emit('destroy',this);
+            }
+          },['X']),
           h(`span.btn.btn-default.btn-xs.btn-mute${muteClass}`, {
             onclick: () => {
               this.ee.emit('mute', this);
@@ -373,6 +380,14 @@ export default class {
               this.ee.emit('solo', this);
             },
           }, ['Solo']),
+          h(`canvas.knobCanvas`,{
+            attributes:{
+                width: 25,
+                height: 25,
+                "data-ringbgcolor": '#EEE',
+            },
+            hook: new PanKnob(this.pan,this)
+          })
         ]),
         h('label', [
           h('input.volume-slider', {

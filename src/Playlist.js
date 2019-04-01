@@ -170,10 +170,23 @@ export default class {
       track.calculatePeaks(this.samplesPerPixel, this.sampleRate);
       this.drawRequest();
     });
+    ee.on('redraw',()=>{
+      this.drawRequest();
+    })
 
     ee.on('automaticscroll', (val) => {
       this.isAutomaticScroll = val;
     });
+
+    ee.on('destroy',track=>{
+      for (var a in this.tracks){
+        if (this.tracks[a] == track){
+          this.tracks.splice(a,1);
+          break;
+        }
+      }
+      this.drawRequest();
+    })
 
     ee.on('durationformat', (format) => {
       this.durationFormat = format;
