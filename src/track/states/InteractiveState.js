@@ -153,13 +153,13 @@ export default class {
       this.action = null;
     }
     else if (this.action == "scrolldraggingcandidate"){
-      this.seekTo(e);
-      this.track.ee.emit("scrolldraggingend");
+      // this.seekTo(e);
+      this.track.ee.emit("scrolldraggingend",e);
       this.action = null;
     }
     else if (this.action == "scrolldragging"){
       this.action = null;
-      this.track.ee.emit("scrolldraggingend");
+      this.track.ee.emit("scrolldraggingend",e);
     }
     else if (this.action == "droppable") {
       e.preventDefault();

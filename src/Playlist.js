@@ -30,6 +30,7 @@ export default class {
     this.scrollTimer = undefined;
     this.showTimescale = false;
     this.scrolldragging = false;
+    this.seekClicking = true;
     // whether a user is scrolling the waveform
     this.isScrolling = false;
 
@@ -322,6 +323,7 @@ export default class {
     });
     ee.on('scrolldragging',amount=>{
       if (!this.scrolldragging)return;
+      this.seekClicking = false;
       // console.log("scrolldragging",amount);
       this.scrollLeft -= pixelsToSeconds(
         amount,
@@ -332,10 +334,20 @@ export default class {
     })
     ee.on('scrolldraggingstart',()=>{
       this.scrolldragging = true;
+      this.seekClicking = true;
       document.body.style.cursor = "grabbing";
     })
-    ee.on('scrolldraggingend',()=>{
+    ee.on('scrolldraggingend',e => {
       this.scrolldragging = false;
+      if (this.seekClicking){
+        const startX = e.offsetX;
+        let startTime = pixelsToSeconds(startX, this.samplesPerPixel, this.sampleRate);
+        if (e.from == "TimeScale"){
+          startTime += this.scrollLeft;
+        }
+    
+        this.ee.emit('select', startTime, startTime);
+      }
       document.body.style.cursor =  "auto";
     })
   }

@@ -28,6 +28,6 @@ export default class {
     );
 
     el.scrollLeft = left;
-    el.addEventListener('mouseleave',()=>playlist.ee.emit('scrolldraggingend'));
+    // el.addEventListener('mouseleave',e => playlist.ee.emit('scrolldraggingend',e));
   }
 }

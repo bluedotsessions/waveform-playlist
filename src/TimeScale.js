@@ -139,18 +139,13 @@ class TimeScale {
       {
         onmousedown : () => {
           this.ee.emit('scrolldraggingstart');
-          this.moved = false;
         },
         onmousemove : ({movementX}) => {
             this.ee.emit('scrolldragging',movementX);
-            this.moved = true;
         },
         onmouseup : e => {
-          console.log(this.moved);
-          if (this.moved == false){
-            this.seekTo(e);
-          }
-          this.ee.emit('scrolldraggingend');
+          e.from = "TimeScale"
+          this.ee.emit('scrolldraggingend',e);
         },
         attributes: {
           style: `position: relative; left: 0; right: 0; margin-left: ${this.marginLeft}px;`,
