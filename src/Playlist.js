@@ -440,16 +440,27 @@ export default class {
             endX = i; break;
           }
         }
+        if (this.bpm === undefined) this.bpm = 120;
+        if (this.quantize === undefined) this.quantize = 4;
+        if (this.initialbeat === undefined) this.initialbeat = 0;
+
+        let startSec = 0, endSec = pixelsToSeconds(track.peaks.length - 1, this.samplesPerPixel, this.sampleRate);
         if (startX > cueIn || endX < cueOut) {
-          let startSec = pixelsToSeconds(startX, this.samplesPerPixel, this.sampleRate);
-          let endSec = pixelsToSeconds(endX, this.samplesPerPixel, this.sampleRate);
-          if (endSec > cueOut) endSec = cueOut;
-          if (startSec < cueIn) startSec = cueIn;
-          console.log(startSec + cueIn, endSec, cueOut);
-          // track.setStartTime(startSec + start);
-          track.trim(startSec, endSec);
-          track.calculatePeaks(this.samplesPerPixel, this.sampleRate);          
+          let startSec2 = pixelsToSeconds(startX, this.samplesPerPixel, this.sampleRate);
+          let endSec2 = pixelsToSeconds(endX, this.samplesPerPixel, this.sampleRate);
+          if (endSec2 > cueOut) endSec2 = cueOut;
+          if (startSec2 < cueIn) startSec2 = cueIn;
+          if (startSec < startSec2) startSec = startSec2;
+          if (endSec > endSec2) endSec = endSec2;          
         }
+        let beat = 60 / this.bpm;
+        startSec -= this.initialbeat + beat;
+        endSec -= this.initialbeat + beat;
+
+        console.log('------->', startSec, endSec);
+        
+        track.trim(startSec, endSec);
+        track.calculatePeaks(this.samplesPerPixel, this.sampleRate);
 
         track.bpm = this.bpm;
         track.quantize = this.quantize;
