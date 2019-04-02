@@ -440,9 +440,11 @@ export default class {
             endX = i; break;
           }
         }
+        console.log('pre: ', 'bpm: ', this.bpm, 'quatize: ', this.quantize, 'initialbeat', this.initialbeat);
         if (this.bpm === undefined) this.bpm = 120;
         if (this.quantize === undefined) this.quantize = 4;
-        if (this.initialbeat === undefined) this.initialbeat = 0;
+        if (this.initialbeat === undefined) this.initialbeat = 1;
+        console.log('pre: ', 'bpm: ', this.bpm, 'quatize: ', this.quantize, 'initialbeat', this.initialbeat);
 
         let startSec = 0, endSec = pixelsToSeconds(track.peaks.length - 1, this.samplesPerPixel, this.sampleRate);
         if (startX > cueIn || endX < cueOut) {
@@ -453,12 +455,15 @@ export default class {
           if (startSec < startSec2) startSec = startSec2;
           if (endSec > endSec2) endSec = endSec2;          
         }
+
         let beat = 60 / this.bpm;
         startSec -= this.initialbeat + beat;
         endSec -= this.initialbeat + beat;
 
-        console.log('------->', startSec, endSec);
-        
+        const quantizeTime = (( 60 / this.bpm ) * this.quantize);
+
+        startSec = Math.floor(startSec / quantizeTime) * quantizeTime + this.initialbeat + beat;
+        endSec = Math.ceil(endSec / quantizeTime) * quantizeTime + this.initialbeat + beat;        
         track.trim(startSec, endSec);
         track.calculatePeaks(this.samplesPerPixel, this.sampleRate);
 
