@@ -224,6 +224,14 @@ export default class {
   setMasterGainLevel(level) {
     this.playout.setMasterGainLevel(level);
   }
+  setPan(value){
+    if (value){
+      this.playout.setPan(value);
+    }
+    else{
+      this.playout.setPan(this.pan);
+    }
+  }
 
   /*
     startTime, endTime in seconds (float).
@@ -317,6 +325,7 @@ export default class {
     playoutSystem.setVolumeGainLevel(this.gain);
     playoutSystem.setShouldPlay(options.shouldPlay);
     playoutSystem.setMasterGainLevel(options.masterGain);
+    playoutSystem.setPan(this.pan);
     playoutSystem.play(when, start, duration);
 
     return sourcePromise;

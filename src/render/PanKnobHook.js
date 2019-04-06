@@ -31,14 +31,16 @@ export default class {
             // console.log(realamount);
             this.track.pan = realamount;
 
-            this.track.ee.emit('redraw');
+            this.track.ee.emit('panknob',this.track);
 
         });
     }
     draw(g,canvas){
         const center = {x:canvas.width/2,y:canvas.height/2};
         const TAU = Math.PI*2;
+
         //Background
+
         g.lineWidth = this.lineWidth;
         g.strokeStyle = canvas.getAttribute('data-ringbgcolor') || '#EEE';
         g.clearRect(0,0,canvas.width,canvas.height);

@@ -170,7 +170,8 @@ export default class {
       track.calculatePeaks(this.samplesPerPixel, this.sampleRate);
       this.drawRequest();
     });
-    ee.on('redraw',()=>{
+    ee.on('panknob',track=>{
+      track.setPan(track.pan);
       this.drawRequest();
     })
 
@@ -181,6 +182,7 @@ export default class {
     ee.on('destroy',track=>{
       for (var a in this.tracks){
         if (this.tracks[a] == track){
+          this.tracks[a].scheduleStop();
           this.tracks.splice(a,1);
           break;
         }
@@ -407,9 +409,15 @@ export default class {
         if (fadeIn !== undefined) {
           track.setFadeIn(fadeIn.duration, fadeIn.shape);
         }
+        else if (this.getState() == 'interactive'){
+          track.setFadeIn(0.01, "logarithmic");
+        }
 
         if (fadeOut !== undefined) {
           track.setFadeOut(fadeOut.duration, fadeOut.shape);
+        }
+        else if (this.getState() == 'interactive'){
+          track.setFadeOut(0.01, "logarithmic");
         }
 
         if (selection !== undefined) {
