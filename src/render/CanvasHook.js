@@ -2,12 +2,15 @@
 * virtual-dom hook for drawing to the canvas element.
 */
 class CanvasHook {
-  constructor(peaks, offset, bits, color) {
+  constructor(peaks, offset, bits, color, cueoffset) {
+    this.cueoffset = cueoffset;
     this.peaks = peaks;
     // http://stackoverflow.com/questions/6081483/maximum-size-of-a-canvas-element
     this.offset = offset;
     this.color = color;
     this.bits = bits;
+    this.bufferedwaveform = undefined;
+    this.bwc = undefined; // BufferedWaveformContext
   }
 
   static drawFrame(cc, h2, x, minPeak, maxPeak) {
@@ -20,19 +23,10 @@ class CanvasHook {
     cc.fillRect(x, h2 + min, 1, h2 - min);
   }
 
-  hook(canvas, prop, prev) {
-    // canvas is up to date
-    if (prev !== undefined &&
-      (prev.peaks === this.peaks)) {
-      return;
-    }
-
-    const len = canvas.width;
-    const cc = canvas.getContext('2d');
-    const h2 = canvas.height / 2;
+  drawCanvas (cc, len, h2){
     const maxValue = 2 ** (this.bits - 1);
 
-    cc.clearRect(0, 0, canvas.width, canvas.height);
+    cc.clearRect(0, 0, len, h2*2);
     cc.fillStyle = this.color;
 
     for (let i = 0; i < len; i += 1) {
@@ -40,6 +34,28 @@ class CanvasHook {
       const maxPeak = this.peaks[((i + this.offset) * 2) + 1] / maxValue;
       CanvasHook.drawFrame(cc, h2, i, minPeak, maxPeak);
     }
+  }
+
+  hook(canvas, prop, prev) {
+    // canvas is up to date
+
+    const len = canvas.width;
+    const cc = canvas.getContext('2d');
+    const h2 = canvas.height / 2;
+
+    if (this.bufferedwaveform && this.cueoffset == prev.cueoffset){
+      cc.drawImage(this.bufferedwaveform,-this.cueoffset,0);
+    }
+    else{
+      this.bufferedwaveform = document.createElement('canvas');
+      this.bwc = this.bufferedwaveform.getContext('2d');
+
+      this.drawCanvas(this.bwc,len,h2);
+      cc.clearRect(0,0,canvas.width,canvas.height);
+      cc.drawImage(this.bufferedwaveform,-this.cueoffset,0);
+      console.log("cueOffset",this.cueoffset);
+    }
+    
   }
 }
 

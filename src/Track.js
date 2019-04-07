@@ -462,9 +462,22 @@ export default class {
           attributes: {
             width: currentWidth,
             height: data.height,
-            style: 'float: left; position: relative; margin: 0; padding: 0; z-index: 3;pointer-events: none;',
+            style: `
+              float: left;
+              position: relative;
+              margin: 0;
+              padding: 0;
+              z-index: 3;
+              pointer-events: none;
+            `,
           },
-          hook: new CanvasHook(peaks, offset, this.peaks.bits, canvasColor),
+          hook: new CanvasHook(
+            peaks, 
+            offset, 
+            this.peaks.bits, 
+            canvasColor,
+            secondsToPixels(this.cueIn, data.resolution, data.sampleRate)
+            ),
         }));
 
         totalWidth -= currentWidth;
@@ -612,11 +625,19 @@ export default class {
           ],
         ));
       }
-
       return h(`div.channel.channel-${channelNum}`,
         {
           attributes: {
-            style: `height: ${data.height}px; width: ${width}px; top: ${channelNum * data.height}px; left: ${startX}px; position: absolute; margin: 0; padding: 0; z-index: 9;pointer-events:none;`,
+            style: `height: ${data.height}px; 
+                    width: ${secondsToPixels(this.endTime - this.startTime, data.resolution, data.sampleRate)}px; 
+                    top: ${channelNum * data.height}px; 
+                    left: ${startX}px; 
+                    position: absolute; 
+                    margin: 0;
+                    padding: 0;
+                    z-index: 9;
+                    pointer-events:none;
+                    `,
           },
         },
         channelChildren,

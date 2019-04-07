@@ -2,7 +2,7 @@ export default class {
     constructor (pan,track){
         this.pan = pan;
         this.track = track;
-
+        this.id = Math.random()*100|0;
         this.lineWidth = 5;
         this.gap = Math.PI*.14; //This is doubled
         this.gapPosition = Math.PI*.5;
@@ -10,7 +10,8 @@ export default class {
     }
     setupEvents(canvas){
         //pan Change
-        canvas.addEventListener('click',e=>{
+        canvas.onclick = e => {
+            console.log(this.id);
             const {offsetX,offsetY} = e;
             const center = {x:canvas.width/2,y:canvas.height/2};
             const TAU = Math.PI*2;
@@ -33,7 +34,7 @@ export default class {
 
             this.track.ee.emit('panknob',this.track);
 
-        });
+        };
     }
     draw(g,canvas){
         const center = {x:canvas.width/2,y:canvas.height/2};

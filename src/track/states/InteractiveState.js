@@ -148,6 +148,7 @@ export default class {
       this.track.endTime = mousepos;   
     }
     this.track.ee.emit("interactive",this.track);
+
   }
   mouseup(e) {
     if (this.action == "dragginghandle"){
