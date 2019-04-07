@@ -53,7 +53,7 @@ class CanvasHook {
       this.drawCanvas(this.bwc,len,h2);
       cc.clearRect(0,0,canvas.width,canvas.height);
       cc.drawImage(this.bufferedwaveform,-this.cueoffset,0);
-      console.log("cueOffset",this.cueoffset);
+      // console.log("cueOffset",this.cueoffset);
     }
     
   }

@@ -476,7 +476,7 @@ export default class {
             offset, 
             this.peaks.bits, 
             canvasColor,
-            secondsToPixels(this.cueIn, data.resolution, data.sampleRate)
+            secondsToPixels(0, data.resolution, data.sampleRate)
             ),
         }));
 
