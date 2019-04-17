@@ -1,15 +1,20 @@
 /*
 * virtual-dom hook for drawing to the canvas element.
 */
+import { secondsToPixels, secondsToSamples } from '../utils/conversions';
+
+
 class CanvasHook {
-  constructor(peaks, offset, bits, color, cueoffset) {
-    this.cueoffset = cueoffset;
+  constructor(peaks, offset, bits, color, cueIn, resolution, sampleRate, image) {
+    this.cueIn = cueIn;
+    this.resolution = resolution;
+    this.sampleRate = sampleRate;
     this.peaks = peaks;
     // http://stackoverflow.com/questions/6081483/maximum-size-of-a-canvas-element
     this.offset = offset;
     this.color = color;
     this.bits = bits;
-    this.bufferedwaveform = undefined;
+    this.bufferedwaveform = image;
     this.bwc = undefined; // BufferedWaveformContext
   }
 
@@ -36,6 +41,20 @@ class CanvasHook {
     }
   }
 
+  getImage() {
+    return this.bufferedwaveform;
+  }
+  setupImage(width, height){
+    this.bufferedwaveform = document.createElement('canvas');
+    this.bufferedwaveform.width = width;
+    this.bufferedwaveform.height = height;
+    // console.log(this.bufferedwaveform);
+    console.log("new canvas");
+    this.bwc = this.bufferedwaveform.getContext('2d');
+    this.drawCanvas(this.bwc,width,height/2);
+    return this.bufferedwaveform;
+  }
+
   hook(canvas, prop, prev) {
     // canvas is up to date
 
@@ -43,18 +62,13 @@ class CanvasHook {
     const cc = canvas.getContext('2d');
     const h2 = canvas.height / 2;
 
-    if (this.bufferedwaveform && this.cueoffset == prev.cueoffset){
-      cc.drawImage(this.bufferedwaveform,-this.cueoffset,0);
-    }
-    else{
-      this.bufferedwaveform = document.createElement('canvas');
-      this.bwc = this.bufferedwaveform.getContext('2d');
+    if (!this.bufferedwaveform)
+      this.setupImage(len,h2*2);
 
-      this.drawCanvas(this.bwc,len,h2);
-      cc.clearRect(0,0,canvas.width,canvas.height);
-      cc.drawImage(this.bufferedwaveform,-this.cueoffset,0);
-      // console.log("cueOffset",this.cueoffset);
-    }
+    cc.clearRect(0,0,canvas.width,canvas.height);
+    const offsettotal = secondsToPixels(-this.cueIn,this.resolution,this.sampleRate);
+    // console.log(offsettotal);
+    cc.drawImage(this.bufferedwaveform,offsettotal,0);
     
   }
 }

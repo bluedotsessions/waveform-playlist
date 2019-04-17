@@ -24,7 +24,7 @@ export default class {
   mousedown(e) {
     e.preventDefault();
     const mousepos = pixelsToSeconds(e.offsetX, this.samplesPerPixel, this.sampleRate);
-    console.log("mousedown",this.action);
+    // console.log("mousedown",this.action);
     if (this.action == "fadedraggable"){
       // console.log("trueeer");
       this.action = "dragginghandle";
@@ -64,7 +64,7 @@ export default class {
   mousemove(e) {
  
     const mousepos = pixelsToSeconds(this.correctOffset(e), this.samplesPerPixel, this.sampleRate);
-    console.log(this.action);
+    // console.log(this.action);
     if (this.action == "dragginghandle"){
       // console.log(mousepos,this.track.getStartTime(),this.track.startTime);
       if (mousepos >= this.track.getStartTime() && mousepos <= this.track.getEndTime()) {

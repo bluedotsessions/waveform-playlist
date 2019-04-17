@@ -167,7 +167,7 @@ export default class {
     const ee = this.ee;
 
     ee.on ('interactive', (track) => {
-      //track.calculatePeaks(this.samplesPerPixel, this.sampleRate);
+      // track.calculatePeaks(this.samplesPerPixel, this.sampleRate);
       this.drawRequest();
     });
     ee.on('panknob',track=>{

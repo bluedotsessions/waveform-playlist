@@ -36,6 +36,7 @@ export default class {
     this.duration = 0;
     this.startTime = 0;
     this.endTime = 0;
+    this.images = [];
   }
 
   setEventEmitter(ee) {
@@ -177,8 +178,8 @@ export default class {
   calculatePeaks(samplesPerPixel, sampleRate) {
     const cueIn = secondsToSamples(this.cueIn, sampleRate);
     const cueOut = secondsToSamples(this.cueOut, sampleRate);
-
-    this.setPeaks(extractPeaks(this.buffer, samplesPerPixel, this.peakData.mono, cueIn, cueOut));
+    this.setPeaks(extractPeaks(this.buffer, samplesPerPixel, this.peakData.mono));
+    console.log(this.peaks);
   }
 
   setPeaks(peaks) {
@@ -439,7 +440,6 @@ export default class {
         },
       }),
     ];
-
     const channels = Object.keys(this.peaks.data).map((channelNum) => {
       const channelChildren = [
         h('div.channel-progress', {
@@ -449,18 +449,37 @@ export default class {
         }),
       ];
       let offset = 0;
+      
       let totalWidth = width;
       const peaks = this.peaks.data[channelNum];
-
+      let i = 0;
       while (totalWidth > 0) {
         const currentWidth = Math.min(totalWidth, MAX_CANVAS_WIDTH);
         const canvasColor = this.waveOutlineColor
           ? this.waveOutlineColor
           : data.colors.waveOutlineColor;
 
+        const canvashook = new CanvasHook(
+          peaks, 
+          offset, 
+          this.peaks.bits, 
+          canvasColor,
+          this.cueIn,
+          data.resolution,
+          data.sampleRate,
+          this.images[i]
+          );
+        if (!this.images[i]){
+          this.images[i] = canvashook.setupImage(
+            secondsToPixels(currentWidth, data.resolution, data.sampleRate),
+            data.height
+          )
+
+        }
+        
         channelChildren.push(h('canvas', {
           attributes: {
-            width: currentWidth,
+            width: secondsToPixels(currentWidth, data.resolution, data.sampleRate),
             height: data.height,
             style: `
               float: left;
@@ -471,17 +490,12 @@ export default class {
               pointer-events: none;
             `,
           },
-          hook: new CanvasHook(
-            peaks, 
-            offset, 
-            this.peaks.bits, 
-            canvasColor,
-            secondsToPixels(0, data.resolution, data.sampleRate)
-            ),
+          hook: canvashook,
         }));
 
         totalWidth -= currentWidth;
         offset += MAX_CANVAS_WIDTH;
+        i++;
       }
 
       // if there are fades, display them.
@@ -636,6 +650,7 @@ export default class {
                     margin: 0;
                     padding: 0;
                     z-index: 9;
+                    overflow: hidden;
                     pointer-events:none;
                     `,
           },
