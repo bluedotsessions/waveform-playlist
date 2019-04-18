@@ -1794,10 +1794,11 @@ var WaveformPlaylist =
 	      var ee = this.ee;
 	
 	      ee.on('interactive', function (track) {
-	        track.calculatePeaks(_this2.samplesPerPixel, _this2.sampleRate);
+	        // track.calculatePeaks(this.samplesPerPixel, this.sampleRate);
 	        _this2.drawRequest();
 	      });
-	      ee.on('redraw', function () {
+	      ee.on('panknob', function (track) {
+	        track.setPan(track.pan);
 	        _this2.drawRequest();
 	      });
 	
@@ -1808,6 +1809,7 @@ var WaveformPlaylist =
 	      ee.on('destroy', function (track) {
 	        for (var a in _this2.tracks) {
 	          if (_this2.tracks[a] == track) {
+	            _this2.tracks[a].scheduleStop();
 	            _this2.tracks.splice(a, 1);
 	            break;
 	          }
@@ -2032,10 +2034,14 @@ var WaveformPlaylist =
 	
 	          if (fadeIn !== undefined) {
 	            track.setFadeIn(fadeIn.duration, fadeIn.shape);
+	          } else if (_this3.getState() == 'interactive') {
+	            track.setFadeIn(0.01, "logarithmic");
 	          }
 	
 	          if (fadeOut !== undefined) {
 	            track.setFadeOut(fadeOut.duration, fadeOut.shape);
+	          } else if (_this3.getState() == 'interactive') {
+	            track.setFadeOut(0.01, "logarithmic");
 	          }
 	
 	          if (selection !== undefined) {
@@ -5574,6 +5580,7 @@ var WaveformPlaylist =
 	    this.duration = 0;
 	    this.startTime = 0;
 	    this.endTime = 0;
+	    this.images = [];
 	  }
 	
 	  _createClass(_class, [{
@@ -5740,8 +5747,8 @@ var WaveformPlaylist =
 	    value: function calculatePeaks(samplesPerPixel, sampleRate) {
 	      var cueIn = (0, _conversions.secondsToSamples)(this.cueIn, sampleRate);
 	      var cueOut = (0, _conversions.secondsToSamples)(this.cueOut, sampleRate);
-	
-	      this.setPeaks((0, _webaudioPeaks2.default)(this.buffer, samplesPerPixel, this.peakData.mono, cueIn, cueOut));
+	      this.setPeaks((0, _webaudioPeaks2.default)(this.buffer, samplesPerPixel, this.peakData.mono));
+	      console.log(this.peaks);
 	    }
 	  }, {
 	    key: 'setPeaks',
@@ -5795,6 +5802,15 @@ var WaveformPlaylist =
 	    key: 'setMasterGainLevel',
 	    value: function setMasterGainLevel(level) {
 	      this.playout.setMasterGainLevel(level);
+	    }
+	  }, {
+	    key: 'setPan',
+	    value: function setPan(value) {
+	      if (value) {
+	        this.playout.setPan(value);
+	      } else {
+	        this.playout.setPan(this.pan);
+	      }
 	    }
 	
 	    /*
@@ -5894,6 +5910,7 @@ var WaveformPlaylist =
 	      playoutSystem.setVolumeGainLevel(this.gain);
 	      playoutSystem.setShouldPlay(options.shouldPlay);
 	      playoutSystem.setMasterGainLevel(options.masterGain);
+	      playoutSystem.setPan(this.pan);
 	      playoutSystem.play(when, start, duration);
 	
 	      return sourcePromise;
@@ -6004,7 +6021,6 @@ var WaveformPlaylist =
 	          style: 'position: absolute; width: 1px; margin: 0; padding: 0; top: 0; left: ' + playbackX + 'px; bottom: 0; z-index: 5;'
 	        }
 	      })];
-	
 	      var channels = Object.keys(this.peaks.data).map(function (channelNum) {
 	        var channelChildren = [(0, _h2.default)('div.channel-progress', {
 	          attributes: {
@@ -6012,24 +6028,31 @@ var WaveformPlaylist =
 	          }
 	        })];
 	        var offset = 0;
+	
 	        var totalWidth = width;
 	        var peaks = _this3.peaks.data[channelNum];
-	
+	        var i = 0;
 	        while (totalWidth > 0) {
 	          var currentWidth = Math.min(totalWidth, MAX_CANVAS_WIDTH);
 	          var canvasColor = _this3.waveOutlineColor ? _this3.waveOutlineColor : data.colors.waveOutlineColor;
 	
+	          var canvashook = new _CanvasHook2.default(peaks, offset, _this3.peaks.bits, canvasColor, _this3.cueIn, data.resolution, data.sampleRate, _this3.images[i]);
+	          if (!_this3.images[i]) {
+	            _this3.images[i] = canvashook.setupImage((0, _conversions.secondsToPixels)(currentWidth, data.resolution, data.sampleRate), data.height);
+	          }
+	
 	          channelChildren.push((0, _h2.default)('canvas', {
 	            attributes: {
-	              width: currentWidth,
+	              width: (0, _conversions.secondsToPixels)(currentWidth, data.resolution, data.sampleRate),
 	              height: data.height,
-	              style: 'float: left; position: relative; margin: 0; padding: 0; z-index: 3;pointer-events: none;'
+	              style: '\n              float: left;\n              position: relative;\n              margin: 0;\n              padding: 0;\n              z-index: 3;\n              pointer-events: none;\n            '
 	            },
-	            hook: new _CanvasHook2.default(peaks, offset, _this3.peaks.bits, canvasColor)
+	            hook: canvashook
 	          }));
 	
 	          totalWidth -= currentWidth;
 	          offset += MAX_CANVAS_WIDTH;
+	          i++;
 	        }
 	
 	        // if there are fades, display them.
@@ -6100,10 +6123,9 @@ var WaveformPlaylist =
 	            hook: new _FadeCanvasHook2.default(fadeOut.type, fadeOut.shape, fadeOut.end - fadeOut.start, data.resolution)
 	          })]));
 	        }
-	
 	        return (0, _h2.default)('div.channel.channel-' + channelNum, {
 	          attributes: {
-	            style: 'height: ' + data.height + 'px; width: ' + width + 'px; top: ' + channelNum * data.height + 'px; left: ' + startX + 'px; position: absolute; margin: 0; padding: 0; z-index: 9;pointer-events:none;'
+	            style: 'height: ' + data.height + 'px; \n                    width: ' + (0, _conversions.secondsToPixels)(_this3.endTime - _this3.startTime, data.resolution, data.sampleRate) + 'px; \n                    top: ' + channelNum * data.height + 'px; \n                    left: ' + startX + 'px; \n                    position: absolute; \n                    margin: 0;\n                    padding: 0;\n                    z-index: 9;\n                    overflow: hidden;\n                    pointer-events:none;\n                    '
 	          }
 	        }, channelChildren);
 	      });
@@ -7749,7 +7771,7 @@ var WaveformPlaylist =
 	    value: function mousedown(e) {
 	      e.preventDefault();
 	      var mousepos = (0, _conversions.pixelsToSeconds)(e.offsetX, this.samplesPerPixel, this.sampleRate);
-	      console.log("mousedown", this.action);
+	      // console.log("mousedown",this.action);
 	      if (this.action == "fadedraggable") {
 	        // console.log("trueeer");
 	        this.action = "dragginghandle";
@@ -7790,7 +7812,7 @@ var WaveformPlaylist =
 	    value: function mousemove(e) {
 	
 	      var mousepos = (0, _conversions.pixelsToSeconds)(this.correctOffset(e), this.samplesPerPixel, this.sampleRate);
-	      console.log(this.action);
+	      // console.log(this.action);
 	      if (this.action == "dragginghandle") {
 	        // console.log(mousepos,this.track.getStartTime(),this.track.startTime);
 	        if (mousepos >= this.track.getStartTime() && mousepos <= this.track.getEndTime()) {
@@ -7897,7 +7919,7 @@ var WaveformPlaylist =
 
 /***/ }),
 /* 78 */
-/***/ (function(module, exports) {
+/***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
@@ -7905,38 +7927,37 @@ var WaveformPlaylist =
 	  value: true
 	});
 	
-	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }(); /*
+	                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     * virtual-dom hook for drawing to the canvas element.
+	                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     */
+	
+	
+	var _conversions = __webpack_require__(56);
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
-	/*
-	* virtual-dom hook for drawing to the canvas element.
-	*/
 	var CanvasHook = function () {
-	  function CanvasHook(peaks, offset, bits, color) {
+	  function CanvasHook(peaks, offset, bits, color, cueIn, resolution, sampleRate, image) {
 	    _classCallCheck(this, CanvasHook);
 	
+	    this.cueIn = cueIn;
+	    this.resolution = resolution;
+	    this.sampleRate = sampleRate;
 	    this.peaks = peaks;
 	    // http://stackoverflow.com/questions/6081483/maximum-size-of-a-canvas-element
 	    this.offset = offset;
 	    this.color = color;
 	    this.bits = bits;
+	    this.bufferedwaveform = image;
+	    this.bwc = undefined; // BufferedWaveformContext
 	  }
 	
 	  _createClass(CanvasHook, [{
-	    key: 'hook',
-	    value: function hook(canvas, prop, prev) {
-	      // canvas is up to date
-	      if (prev !== undefined && prev.peaks === this.peaks) {
-	        return;
-	      }
-	
-	      var len = canvas.width;
-	      var cc = canvas.getContext('2d');
-	      var h2 = canvas.height / 2;
+	    key: 'drawCanvas',
+	    value: function drawCanvas(cc, len, h2) {
 	      var maxValue = Math.pow(2, this.bits - 1);
 	
-	      cc.clearRect(0, 0, canvas.width, canvas.height);
+	      cc.clearRect(0, 0, len, h2 * 2);
 	      cc.fillStyle = this.color;
 	
 	      for (var i = 0; i < len; i += 1) {
@@ -7944,6 +7965,39 @@ var WaveformPlaylist =
 	        var maxPeak = this.peaks[(i + this.offset) * 2 + 1] / maxValue;
 	        CanvasHook.drawFrame(cc, h2, i, minPeak, maxPeak);
 	      }
+	    }
+	  }, {
+	    key: 'getImage',
+	    value: function getImage() {
+	      return this.bufferedwaveform;
+	    }
+	  }, {
+	    key: 'setupImage',
+	    value: function setupImage(width, height) {
+	      this.bufferedwaveform = document.createElement('canvas');
+	      this.bufferedwaveform.width = width;
+	      this.bufferedwaveform.height = height;
+	      // console.log(this.bufferedwaveform);
+	      console.log("new canvas");
+	      this.bwc = this.bufferedwaveform.getContext('2d');
+	      this.drawCanvas(this.bwc, width, height / 2);
+	      return this.bufferedwaveform;
+	    }
+	  }, {
+	    key: 'hook',
+	    value: function hook(canvas, prop, prev) {
+	      // canvas is up to date
+	
+	      var len = canvas.width;
+	      var cc = canvas.getContext('2d');
+	      var h2 = canvas.height / 2;
+	
+	      if (!this.bufferedwaveform) this.setupImage(len, h2 * 2);
+	
+	      cc.clearRect(0, 0, canvas.width, canvas.height);
+	      var offsettotal = (0, _conversions.secondsToPixels)(-this.cueIn, this.resolution, this.sampleRate);
+	      // console.log(offsettotal);
+	      cc.drawImage(this.bufferedwaveform, offsettotal, 0);
 	    }
 	  }], [{
 	    key: 'drawFrame',
@@ -8135,7 +8189,7 @@ var WaveformPlaylist =
 	
 	        this.pan = pan;
 	        this.track = track;
-	
+	        this.id = Math.random() * 100 | 0;
 	        this.lineWidth = 5;
 	        this.gap = Math.PI * .14; //This is doubled
 	        this.gapPosition = Math.PI * .5;
@@ -8147,7 +8201,8 @@ var WaveformPlaylist =
 	            var _this = this;
 	
 	            //pan Change
-	            canvas.addEventListener('click', function (e) {
+	            canvas.onclick = function (e) {
+	                console.log(_this.id);
 	                var offsetX = e.offsetX,
 	                    offsetY = e.offsetY;
 	
@@ -8170,15 +8225,17 @@ var WaveformPlaylist =
 	                // console.log(realamount);
 	                _this.track.pan = realamount;
 	
-	                _this.track.ee.emit('redraw');
-	            });
+	                _this.track.ee.emit('panknob', _this.track);
+	            };
 	        }
 	    }, {
 	        key: 'draw',
 	        value: function draw(g, canvas) {
 	            var center = { x: canvas.width / 2, y: canvas.height / 2 };
 	            var TAU = Math.PI * 2;
+	
 	            //Background
+	
 	            g.lineWidth = this.lineWidth;
 	            g.strokeStyle = canvas.getAttribute('data-ringbgcolor') || '#EEE';
 	            g.clearRect(0, 0, canvas.width, canvas.height);
@@ -8297,12 +8354,14 @@ var WaveformPlaylist =
 	          _this.volumeGain.disconnect();
 	          _this.shouldPlayGain.disconnect();
 	          _this.masterGain.disconnect();
+	          _this.panner.disconnect();
 	
 	          _this.source = undefined;
 	          _this.fadeGain = undefined;
 	          _this.volumeGain = undefined;
 	          _this.shouldPlayGain = undefined;
 	          _this.masterGain = undefined;
+	          _this.panner = undefined;
 	
 	          resolve();
 	        };
@@ -8313,13 +8372,10 @@ var WaveformPlaylist =
 	      this.volumeGain = this.ac.createGain();
 	      // used for solo/mute
 	      this.shouldPlayGain = this.ac.createGain();
+	      this.panner = this.ac.createStereoPanner();
 	      this.masterGain = this.ac.createGain();
 	
-	      this.source.connect(this.fadeGain);
-	      this.fadeGain.connect(this.volumeGain);
-	      this.volumeGain.connect(this.shouldPlayGain);
-	      this.shouldPlayGain.connect(this.masterGain);
-	      this.masterGain.connect(this.destination);
+	      this.source.connect(this.fadeGain).connect(this.panner).connect(this.volumeGain).connect(this.shouldPlayGain).connect(this.masterGain).connect(this.destination);
 	
 	      return sourcePromise;
 	    }
@@ -8342,6 +8398,13 @@ var WaveformPlaylist =
 	    value: function setMasterGainLevel(level) {
 	      if (this.masterGain) {
 	        this.masterGain.gain.value = level;
+	      }
+	    }
+	  }, {
+	    key: 'setPan',
+	    value: function setPan(pan) {
+	      if (this.panner) {
+	        this.panner.pan.value = pan;
 	      }
 	    }
 	
