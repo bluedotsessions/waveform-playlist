@@ -10,6 +10,7 @@ import LoaderFactory from './track/loader/LoaderFactory';
 import ScrollHook from './render/ScrollHook';
 import TimeScale from './TimeScale';
 import Track from './Track';
+import Clip from './Clip';
 import Playout from './Playout';
 import AnnotationList from './annotation/AnnotationList';
 
@@ -19,6 +20,7 @@ import ExportWavWorkerFunction from './utils/exportWavWorker';
 export default class {
   constructor() {
     this.tracks = [];
+    this.clips = [];
     this.soloedTracks = [];
     this.mutedTracks = [];
     this.playoutPromises = [];
@@ -27,6 +29,8 @@ export default class {
     this.playbackSeconds = 0;
     this.duration = 0;
     this.scrollLeft = 0;
+
+
     this.scrollTimer = undefined;
     this.showTimescale = false;
     this.scrolldragging = false;
@@ -163,6 +167,15 @@ export default class {
     return this.ee;
   }
 
+  setTracks(tracks){
+    for ({name} of tracks){
+      let newTrack = new Track();
+      newTrack.setName(name);
+      newTrack.setEventEmitter(this.ee);
+      this.tracks.push(newTrack);
+    }
+  }
+
   setUpEventEmitter() {
     const ee = this.ee;
 
@@ -171,7 +184,7 @@ export default class {
       this.drawRequest();
     });
     ee.on('panknob',track=>{
-      track.setPan(track.pan);
+    //   track.pan = track.pan;
       this.drawRequest();
     })
 
@@ -276,13 +289,13 @@ export default class {
       });
     });
 
-    ee.on('fadein', (duration, track) => {
-      track.setFadeIn(duration, this.fadeType);
+    ee.on('fadein', (duration, clip) => {
+      clip.setFadeIn(duration, this.fadeType);
       this.drawRequest();
     });
 
-    ee.on('fadeout', (duration, track) => {
-      track.setFadeOut(duration, this.fadeType);
+    ee.on('fadeout', (duration, clip) => {
+      clip.setFadeOut(duration, this.fadeType);
       this.drawRequest();
     });
 
@@ -367,99 +380,114 @@ export default class {
     })
   }
 
-  load(trackList) {
-    const loadPromises = trackList.map((trackInfo) => {
-      const loader = LoaderFactory.createLoader(trackInfo.src, this.ac, this.ee);
+  getTrackByName(name){
+    for (var track of this.tracks)
+      if (track.name == name)
+        return track;
+    return false;
+  }
+
+  createClip(audioBuffer,info){
+    const name = info.name || 'Untitled';
+    const start = info.start || 0;
+    const states = info.states || {};
+    const fadeIn = info.fadeIn;
+    const fadeOut = info.fadeOut;
+    const cueIn = info.cuein || 0;
+    const cueOut = info.cueout || audioBuffer.duration;
+    const gain = info.gain || 1;
+    const trackname = info.track || `Clip ${name}`;
+    // const muted = info.muted || false;
+    // const soloed = info.soloed || false;
+    // const selection = info.selected;
+    const peaks = info.peaks || { type: 'WebAudio', mono: this.mono };
+    const customClass = info.customClass || undefined;
+    const waveOutlineColor = info.waveOutlineColor || undefined;
+
+    // webaudio specific playout for now.
+    const playout = new Playout(this.ac, audioBuffer);
+
+    let track = this.getTrackByName(trackname);
+    if (!track){
+      track = new Track();
+      track.name = trackname;
+      this.tracks.push(track);
+    }
+
+
+    const clip = new Clip(audioBuffer);
+    clip.src = info.src;
+    clip.setName(name);
+    clip.setEventEmitter(this.ee);
+    clip.setEnabledStates(states);
+    clip.setCues(cueIn, cueOut);
+    clip.setCustomClass(customClass);
+    clip.setWaveOutlineColor(waveOutlineColor);
+    clip.setTrack(track);
+
+    clip.bpm = this.bpm;
+    clip.quantize = this.quantize;
+
+    track.assign(clip);
+
+    if (fadeIn !== undefined) {
+      clip.setFadeIn(fadeIn.duration, fadeIn.shape);
+    }
+    else if (this.getState() == 'interactive'){
+      clip.setFadeIn(0.01, "logarithmic");
+    }
+
+    if (fadeOut !== undefined) {
+      clip.setFadeOut(fadeOut.duration, fadeOut.shape);
+    }
+    else if (this.getState() == 'interactive'){
+      clip.setFadeOut(0.01, "logarithmic");
+    }
+
+
+    if (peaks !== undefined)
+      clip.setPeakData(peaks);
+
+    clip.setState(this.getState());
+    clip.setStartTime(start);
+    clip.setPlayout(playout);
+
+    clip.setGainLevel(gain);
+
+    // extract peaks with AudioContext for now.
+    clip.calculatePeaks(this.samplesPerPixel, this.sampleRate);
+
+    return clip;
+  }
+
+  async load(clipList) {
+    const loadPromises = clipList.map((clipInfo) => {
+      const loader = LoaderFactory.createLoader(clipInfo.src, this.ac, this.ee);
       return loader.load();
     });
 
-    return Promise.all(loadPromises).then((audioBuffers) => {
-      this.ee.emit('audiosourcesloaded');
+    const audioBuffers = await Promise.all(loadPromises);
 
-      const tracks = audioBuffers.map((audioBuffer, index) => {
-        const info = trackList[index];
-        const name = info.name || 'Untitled';
-        const start = info.start || 0;
-        const states = info.states || {};
-        const fadeIn = info.fadeIn;
-        const fadeOut = info.fadeOut;
-        const cueIn = info.cuein || 0;
-        const cueOut = info.cueout || audioBuffer.duration;
-        const gain = info.gain || 1;
-        const muted = info.muted || false;
-        const soloed = info.soloed || false;
-        const selection = info.selected;
-        const peaks = info.peaks || { type: 'WebAudio', mono: this.mono };
-        const customClass = info.customClass || undefined;
-        const waveOutlineColor = info.waveOutlineColor || undefined;
+    this.ee.emit('audiosourcesloaded');
 
-        // webaudio specific playout for now.
-        const playout = new Playout(this.ac, audioBuffer);
+    const clips = audioBuffers.map(
+      (audioBuffer, index) => this.createClip(audioBuffer, clipList[index])
+    );
+    this.clips = this.clips.concat(clips);
+    this.reasignClips();
+    this.adjustDuration();
+    this.draw(this.render());
 
-        const track = new Track();
-        track.src = info.src;
-        track.setBuffer(audioBuffer);
-        track.setName(name);
-        track.setEventEmitter(this.ee);
-        track.setEnabledStates(states);
-        track.setCues(cueIn, cueOut);
-        track.setCustomClass(customClass);
-        track.setWaveOutlineColor(waveOutlineColor);
-
-        if (fadeIn !== undefined) {
-          track.setFadeIn(fadeIn.duration, fadeIn.shape);
-        }
-        else if (this.getState() == 'interactive'){
-          track.setFadeIn(0.01, "logarithmic");
-        }
-
-        if (fadeOut !== undefined) {
-          track.setFadeOut(fadeOut.duration, fadeOut.shape);
-        }
-        else if (this.getState() == 'interactive'){
-          track.setFadeOut(0.01, "logarithmic");
-        }
-
-        if (selection !== undefined) {
-          this.setActiveTrack(track);
-          this.setTimeSelection(selection.start, selection.end);
-        }
-
-        if (peaks !== undefined) {
-          track.setPeakData(peaks);
-        }
-
-        track.setState(this.getState());
-        track.setStartTime(start);
-        track.setPlayout(playout);
-
-        track.setGainLevel(gain);
-
-        if (muted) {
-          this.muteTrack(track);
-        }
-
-        if (soloed) {
-          this.soloTrack(track);
-        }
-
-        // extract peaks with AudioContext for now.
-        track.calculatePeaks(this.samplesPerPixel, this.sampleRate);
-
-        track.bpm = this.bpm;
-        track.quantize = this.quantize;
-
-        return track;
-      });
-
-      this.tracks = this.tracks.concat(tracks);
-      this.adjustDuration();
-      this.draw(this.render());
-
-      this.ee.emit('audiosourcesrendered');
-    });
+    this.ee.emit('audiosourcesrendered');
   }
 
+  reasignClips(){
+    this.tracks.forEach(track=>track.unasignAll());
+    for (var clip of this.clips)
+      for (var track of this.tracks)
+        if (clip.track.name == track.name)
+          track.assign(clip);
+  }
   /*
     track instance of Track.
   */
@@ -694,7 +722,7 @@ export default class {
     }
 
     this.tracks.forEach((track) => {
-      track.setState('cursor');
+      // track.setState('cursor');
       playoutPromises.push(track.schedulePlay(currentTime, start, end, {
         shouldPlay: this.shouldTrackPlay(track),
         masterGain: this.masterGain,

@@ -1,8 +1,8 @@
 import { pixelsToSeconds } from '../../utils/conversions';
 
 export default class {
-  constructor(track) {
-    this.track = track;
+  constructor(clip) {
+    this.clip = clip;
     // 0 : not dragging; 1 : dragging the end; -1 : dragging the begining
     this.draggingFrom = 0;
     this.action = null;
@@ -18,67 +18,61 @@ export default class {
     const deltaX = x - this.prevX;
     const deltaTime = pixelsToSeconds(deltaX, this.samplesPerPixel, this.sampleRate);
     this.prevX = x;
-    this.track.ee.emit('shift', deltaTime, this.track);
+    this.clip.ee.emit('shift', deltaTime, this.clip);
   }
 
   mousedown(e) {
     e.preventDefault();
-    const mousepos = pixelsToSeconds(e.offsetX, this.samplesPerPixel, this.sampleRate);
+    const mousepos = pixelsToSeconds(this.correctOffset(e), this.samplesPerPixel, this.sampleRate);
     // console.log("mousedown",this.action);
     if (this.action == "fadedraggable"){
-      // console.log("trueeer");
       this.action = "dragginghandle";
     }
-    if (this.action == "dragable"){
-
-      
-      if (Math.abs(mousepos-this.track.startTime) < .4){
-        this.draggingFrom = -1;
-        this.action = "droppable";
+    else if (this.action == "resizeable"){
+      if (Math.abs(mousepos) < .4){
+        this.draggingFrom = -1; // left
+        this.action = "resizing";
       }
-
-      if (Math.abs(mousepos-this.track.endTime) < .4){
-        this.draggingFrom = 1;
-        this.action = "droppable";
+      else {
+        this.draggingFrom = 1; //right
+        this.action = "resizing";
       }    
     }
-    if (this.action == "scrolldraggable"){
-      if (mousepos < this.track.startTime || mousepos > this.track.endTime){
+    else if (this.action == "scrolldraggable"){
+      if (mousepos < 0 || mousepos > this.clip.duration){
         this.action = "scrolldraggingcandidate";
-        this.track.ee.emit("scrolldraggingstart");
+        this.clip.ee.emit("scrolldraggingstart");
       }
     }
-    // console.log(this.track);
+    // console.log(this.clip);
   }
   correctOffset(e){
     if (e.target.classList.contains('playlist-overlay')){
-      return e.offsetX;
+      return e.offsetX-15;
     }
     else{
-      //sorry :/ 
-      //this is to select the div.waveform 
-      return e.pageX - e.target.parentElement.parentElement.parentElement.getBoundingClientRect().left;
+      return e.pageX - e.target.parentElement.parentElement.getBoundingClientRect().left;
     }
   }
   
   mousemove(e) {
- 
+    
     const mousepos = pixelsToSeconds(this.correctOffset(e), this.samplesPerPixel, this.sampleRate);
     // console.log(this.action);
     if (this.action == "dragginghandle"){
-      // console.log(mousepos,this.track.getStartTime(),this.track.startTime);
-      if (mousepos >= this.track.getStartTime() && mousepos <= this.track.getEndTime()) {
+      // console.log(mousepos,this.clip.getStartTime(),this.clip.startTime);
+      if (mousepos >= 0 && mousepos <= this.clip.duration) {
         if (this.hoveringover == "fadein")
-          this.track.ee.emit('fadein', mousepos - this.track.getStartTime(), this.track);
+          this.clip.ee.emit('fadein', mousepos , this.clip);
         else
-          this.track.ee.emit('fadeout', this.track.getEndTime() - mousepos, this.track);
+          this.clip.ee.emit('fadeout', this.clip.duration - mousepos, this.clip);
       }
       else{
         this.action = null;
       }
     }
-    else if (this.action == "droppable"){
-      this.updateDrag(e);
+    else if (this.action == "resizing"){
+      this.updateResizing(e);
     }
     else if (e.target.classList.contains('fadehandle')){
       // console.log('true');
@@ -89,18 +83,18 @@ export default class {
       document.body.style.cursor = "pointer";
     }
     else if (this.action == "scrolldragging" || this.action == "scrolldraggingcandidate"){
-      this.track.ee.emit("scrolldragging",e.movementX);
+      this.clip.ee.emit("scrolldragging",e.movementX);
       this.action = "scrolldragging";
     }
-    else if (Math.abs(mousepos-this.track.startTime) < .4){
-      this.action = "dragable"
+    else if (Math.abs(mousepos) < .5){
+      this.action = "resizeable"
       document.body.style.cursor = "e-resize";
     }
-    else if (Math.abs(mousepos-this.track.endTime) < .4){
-      this.action = "dragable"
+    else if (Math.abs(mousepos-this.clip.duration) < .5){
+      this.action = "resizeable"
       document.body.style.cursor = "w-resize";
     }
-    else if (mousepos < this.track.startTime || mousepos > this.track.endTime){
+    else if (mousepos < 0 || mousepos > this.clip.duration){
       // document.body.style.cursor = "grab";
       this.action = "scrolldraggable";
     }
@@ -119,7 +113,7 @@ export default class {
     const startX = e.offsetX;
     const startTime = pixelsToSeconds(startX, this.samplesPerPixel, this.sampleRate);
 
-    this.track.ee.emit('select', startTime, startTime, this.track);
+    this.clip.ee.emit('select', startTime, startTime, this.clip);
   }
 
   mouseleave = e => {
@@ -128,26 +122,24 @@ export default class {
     document.body.style.cursor = "auto";
   };
 
-  updateDrag(e){
-    let mousepos = pixelsToSeconds(e.offsetX, this.samplesPerPixel, this.sampleRate);
-    if (this.track.quantize){ 
-      const blocklength = ( 60 / this.track.bpm ) * this.track.quantize;
+  updateResizing(e){
+    let mousepos = pixelsToSeconds(this.correctOffset(e), this.samplesPerPixel, this.sampleRate);
+    if (this.clip.quantize){ 
+      const blocklength = ( 60 / this.clip.bpm ) * this.clip.quantize;
       mousepos = Math.round ( mousepos / blocklength)*blocklength;
     }
     if (this.draggingFrom == -1){
-      const oldStartTime = this.track.startTime;
-      const oldCueIn = this.track.cueIn;
-      if (oldCueIn + (mousepos - oldStartTime) < 0)return;
-      this.track.startTime = mousepos;
-      this.track.cueIn = oldCueIn + (mousepos - oldStartTime);
-      this.duration = this.track.cueOut - this.track.cueIn;
-      this.endTime = this.startTime + this.duration;
+      if (this.clip.cueIn + mousepos < 0)return;
+      const oldStartTime = this.clip.startTime;
+      const oldCueIn = this.clip.cueIn;
+      this.clip.startTime = oldStartTime + mousepos;
+      this.clip.cueIn = oldCueIn + mousepos;
     }
     if (this.draggingFrom == 1){
-      this.track.trim(this.track.getStartTime(), mousepos);
-      this.track.endTime = mousepos;   
+      if (this.clip.cueOut + mousepos - this.clip.duration > this.clip.buffer.duration)return;
+      this.clip.cueOut = this.clip.cueOut + mousepos - this.clip.duration;
     }
-    this.track.ee.emit("interactive",this.track);
+    this.clip.ee.emit("interactive",this.clip);
 
   }
   mouseup(e) {
@@ -156,16 +148,16 @@ export default class {
     }
     else if (this.action == "scrolldraggingcandidate"){
       // this.seekTo(e);
-      this.track.ee.emit("scrolldraggingend",e);
+      this.clip.ee.emit("scrolldraggingend",e);
       this.action = null;
     }
     else if (this.action == "scrolldragging"){
       this.action = null;
-      this.track.ee.emit("scrolldraggingend",e);
+      this.clip.ee.emit("scrolldraggingend",e);
     }
-    else if (this.action == "droppable") {
+    else if (this.action == "resizing") {
       e.preventDefault();
-      this.updateDrag(e);
+      this.updateResizing(e);
       this.action = null;
       // console.log("dropped");
     }

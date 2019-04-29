@@ -16,6 +16,7 @@ export function init(options = {}, ee = EventEmitter()) {
 
   const defaults = {
     ac: audioContext,
+    tracks: [],
     sampleRate: audioContext.sampleRate,
     samplesPerPixel: 4096,
     mono: true,
@@ -33,7 +34,7 @@ export function init(options = {}, ee = EventEmitter()) {
     },
     seekStyle: 'line',
     waveHeight: 128,
-    state: 'cursor',
+    state: 'interactive',
     zoomLevels: [512, 1024, 2048, 4096],
     annotationList: {
       annotations: [],
@@ -58,6 +59,9 @@ export function init(options = {}, ee = EventEmitter()) {
   playlist.setAudioContext(config.ac);
   playlist.setEventEmitter(ee);
   playlist.setUpEventEmitter();
+
+  playlist.setTracks(config.tracks);
+  
   playlist.setTimeSelection(0, 0);
   playlist.setState(config.state);
   playlist.setControlOptions(config.controls);

@@ -32,7 +32,10 @@ class CanvasHook {
     const maxValue = 2 ** (this.bits - 1);
 
     cc.clearRect(0, 0, len, h2*2);
+    // cc.fillStyle = "black";
+    // cc.fillRect(0,0,len,h2*2);
     cc.fillStyle = this.color;
+    // console.log(this.color);
 
     for (let i = 0; i < len; i += 1) {
       const minPeak = this.peaks[(i + this.offset) * 2] / maxValue;

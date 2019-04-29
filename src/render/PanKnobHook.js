@@ -6,7 +6,7 @@ export default class {
         this.lineWidth = 5;
         this.gap = Math.PI*.14; //This is doubled
         this.gapPosition = Math.PI*.5;
-
+        this.track.pan = this.pan;
     }
     setupEvents(canvas){
         //pan Change
