@@ -334,7 +334,9 @@ export default class {
     playoutSystem.setShouldPlay(options.shouldPlay);
     playoutSystem.setMasterGainLevel(options.masterGain);
     playoutSystem.setPan(this.pan);
+    console.log(when,start,duration);
     playoutSystem.play(when, start, duration);
+
 
     return sourcePromise;
   }
@@ -383,15 +385,12 @@ export default class {
       },
       [
         h('div.fadeout.fadehandle',{
-          onmousemove: this.stateObj.mousemove.bind(this.stateObj),
-          onmousedown: this.stateObj.mousedown.bind(this.stateObj),
-          onmouseup: this.stateObj.mouseup.bind(this.stateObj),
           attributes: {
             style: `position: absolute; 
                     height: 10px; 
                     width: 10px; 
                     z-index: 10; 
-                    top:-5px; 
+                    top:0; 
                     left: -5px; 
                     background-color: black;
                     border-radius: 10px;
@@ -434,15 +433,12 @@ export default class {
       }, 
       [
         h('div.fadein.fadehandle',{
-          onmousemove: this.stateObj.mousemove.bind(this.stateObj),
-          onmousedown: this.stateObj.mousedown.bind(this.stateObj),
-          onmouseup: this.stateObj.mouseup.bind(this.stateObj),
           attributes: {
             style: `position: absolute; 
                     height: 10px; 
                     width: 10px; 
                     z-index: 10; 
-                    top:-5px; 
+                    top:0; 
                     right: -5px; 
                     background-color: black;
                     border-radius: 10px;
@@ -528,7 +524,7 @@ export default class {
     
     return h('div.clipwaveform',{
       attributes:{
-        style:`background: gray;height: ${data.height}px`,
+        style:`background: gray;height: ${data.height}px;pointer-events: none;`,
         
       }
     },waveformChildren);
@@ -549,12 +545,13 @@ export default class {
     if (this.fadeOut) 
       clipChildren.push(this.renderFadeOut(data));
     
-    clipChildren.push(this.renderOverlay(data));
+    // clipChildren.push(this.renderOverlay(data));
 
     return h('div.clip',
       {
+        onmouseover: ()=>this.ee.emit("activeclip",this),
         attributes: {
-          style: `left:${convert(this.startTime)}px;height: ${data.height}px; position: absolute;`,
+          style: `left:${convert(this.startTime)}px;height: ${data.height}px; position: absolute;z-index:1`,
         },
       },
       clipChildren,

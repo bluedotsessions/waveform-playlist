@@ -6,7 +6,15 @@ export default class {
     // 0 : not dragging; 1 : dragging the end; -1 : dragging the begining
     this.draggingFrom = 0;
     this.action = null;
-    
+    this.activeClip = undefined; 
+    this.setupEventListeners();
+  }
+  
+  setupEventListeners(){
+    this.clip.ee.on("playlistmouseleave",this.mouseleave.bind(this));
+    this.clip.ee.on("playlistmouseup",this.mouseup.bind(this));
+    this.clip.ee.on("playlistmousedown",this.mousedown.bind(this));
+    this.clip.ee.on("playlistmousemove",this.mousemove.bind(this));
   }
 
   setup(samplesPerPixel, sampleRate) {
@@ -22,86 +30,77 @@ export default class {
   }
 
   mousedown(e) {
-    e.preventDefault();
-    const mousepos = pixelsToSeconds(this.correctOffset(e), this.samplesPerPixel, this.sampleRate);
-    // console.log("mousedown",this.action);
-    if (this.action == "fadedraggable"){
+    if (this.action == "fadedraggable")
       this.action = "dragginghandle";
-    }
-    else if (this.action == "resizeable"){
-      if (Math.abs(mousepos) < .4){
-        this.draggingFrom = -1; // left
-        this.action = "resizing";
-      }
-      else {
-        this.draggingFrom = 1; //right
-        this.action = "resizing";
-      }    
-    }
-    else if (this.action == "scrolldraggable"){
-      if (mousepos < 0 || mousepos > this.clip.duration){
-        this.action = "scrolldraggingcandidate";
-        this.clip.ee.emit("scrolldraggingstart");
-      }
+    else if (this.action == "resizeableleft")
+      this.action = "resizingleft";
+    else if (this.action == "resizeableright")
+      this.action = "resizingright";
+    else if (this.action == "shiftable")
+      this.action = "shifting"
+    else if (this.action == "scrolldraggable" && e.target.className == "waveform"){
+      this.action = "scrolldraggingcandidate";
+      this.clip.ee.emit("scrolldraggingstart");
     }
     // console.log(this.clip);
   }
-  correctOffset(e){
-    if (e.target.classList.contains('playlist-overlay')){
-      return e.offsetX-15;
-    }
-    else{
-      return e.pageX - e.target.parentElement.parentElement.getBoundingClientRect().left;
-    }
-  }
   
   mousemove(e) {
-    
-    const mousepos = pixelsToSeconds(this.correctOffset(e), this.samplesPerPixel, this.sampleRate);
+    // const mousepos = pixelsToSeconds(this.correctOffset(e), this.samplesPerPixel, this.sampleRate);
+    // if (!mousepos)return;
+    const mousepos = this.getMousepos(e);
+    const movementX = pixelsToSeconds(e.movementX, this.samplesPerPixel, this.sampleRate);
     // console.log(this.action);
     if (this.action == "dragginghandle"){
       // console.log(mousepos,this.clip.getStartTime(),this.clip.startTime);
-      if (mousepos >= 0 && mousepos <= this.clip.duration) {
+      // console.log(mousepos,this.activeClip.duration)
+      if (mousepos >= 0 && mousepos <= this.activeClip.duration) {
         if (this.hoveringover == "fadein")
-          this.clip.ee.emit('fadein', mousepos , this.clip);
+          this.activeClip.ee.emit('fadein', mousepos , this.activeClip);
         else
-          this.clip.ee.emit('fadeout', this.clip.duration - mousepos, this.clip);
+          this.activeClip.ee.emit('fadeout', this.activeClip.duration - mousepos, this.activeClip);
       }
       else{
         this.action = null;
       }
     }
-    else if (this.action == "resizing"){
+    else if (this.action == "resizingleft" || this.action == "resizingright"){
       this.updateResizing(e);
     }
+    else if (this.action == "shifting"){
+      this.activeClip.ee.emit("shift",movementX,this.activeClip)
+    }
     else if (e.target.classList.contains('fadehandle')){
-      // console.log('true');
       this.action = "fadedraggable";
-
       this.hoveringover = e.target.classList.contains('fadein')?"fadein":"fadeout";
       
       document.body.style.cursor = "pointer";
     }
     else if (this.action == "scrolldragging" || this.action == "scrolldraggingcandidate"){
-      this.clip.ee.emit("scrolldragging",e.movementX);
+      this.activeClip.ee.emit("scrolldragging",e.movementX);
       this.action = "scrolldragging";
     }
-    else if (Math.abs(mousepos) < .5){
-      this.action = "resizeable"
+    else if (e.target.className == "clip" && e.layerX > e.target.offsetWidth-10){
+      this.action = "resizeableright"
       document.body.style.cursor = "e-resize";
     }
-    else if (Math.abs(mousepos-this.clip.duration) < .5){
-      this.action = "resizeable"
+    else if (e.target.className == "clip" && e.layerX < 10){
+      this.action = "resizeableleft"
       document.body.style.cursor = "w-resize";
     }
-    else if (mousepos < 0 || mousepos > this.clip.duration){
-      // document.body.style.cursor = "grab";
+    else if (e.target.className == "clip"){
+      this.action = "shiftable";
+      console.log("hello")
+      document.body.style.cursor = "grab";
+
+    }
+    else if (e.target.className == "waveform"){
+      document.body.style.cursor = "auto";
       this.action = "scrolldraggable";
     }
     else{
       this.action = null;
       document.body.style.cursor = "auto";
-      this.mouseup();
     }
     // console.log(this.action);
   }
@@ -109,10 +108,9 @@ export default class {
 
   seekTo(e) {
     e.preventDefault();
-    console.log("seek");
+    // console.log("seek");
     const startX = e.offsetX;
     const startTime = pixelsToSeconds(startX, this.samplesPerPixel, this.sampleRate);
-
     this.clip.ee.emit('select', startTime, startTime, this.clip);
   }
 
@@ -122,28 +120,45 @@ export default class {
     document.body.style.cursor = "auto";
   };
 
+  getMousepos(e){
+    if(!this.activeClip)return null;
+    const waveform = document.body.querySelector(".waveform");
+    if (!waveform)return null;
+    const relative = e.pageX - waveform.getBoundingClientRect().left;
+    const seconds = pixelsToSeconds(relative, this.samplesPerPixel, this.sampleRate);
+    // console.log(relative, this.samplesPerPixel, this.sampleRate);
+    return seconds - this.activeClip.startTime;
+  } 
+
   updateResizing(e){
-    let mousepos = pixelsToSeconds(this.correctOffset(e), this.samplesPerPixel, this.sampleRate);
-    if (this.clip.quantize){ 
-      const blocklength = ( 60 / this.clip.bpm ) * this.clip.quantize;
+    let mousepos = this.getMousepos(e);
+    const activeClip = this.activeClip;
+    if (activeClip.quantize){ 
+      const blocklength = ( 60 / activeClip.bpm ) * activeClip.quantize;
       mousepos = Math.round ( mousepos / blocklength)*blocklength;
     }
-    if (this.draggingFrom == -1){
-      if (this.clip.cueIn + mousepos < 0)return;
-      const oldStartTime = this.clip.startTime;
-      const oldCueIn = this.clip.cueIn;
-      this.clip.startTime = oldStartTime + mousepos;
-      this.clip.cueIn = oldCueIn + mousepos;
+    if (this.action == "resizingleft"){
+      if (activeClip.cueIn + mousepos < 0)return;
+      const oldStartTime = activeClip.startTime;
+      const oldCueIn = activeClip.cueIn;
+      activeClip.startTime = oldStartTime + mousepos;
+      activeClip.cueIn = oldCueIn + mousepos;
     }
-    if (this.draggingFrom == 1){
-      if (this.clip.cueOut + mousepos - this.clip.duration > this.clip.buffer.duration)return;
-      this.clip.cueOut = this.clip.cueOut + mousepos - this.clip.duration;
+    if (this.action == "resizingright"){
+      if (activeClip.cueOut + mousepos - activeClip.duration > activeClip.buffer.duration)
+        return;
+      activeClip.cueOut = activeClip.cueOut + mousepos - activeClip.duration;
+      const fadeout= activeClip.fades[activeClip.fadeOut];
+      const duration = fadeout.end - fadeout.start;
+      activeClip.fades[activeClip.fadeOut].start = activeClip.endTime-duration;
+      activeClip.fades[activeClip.fadeOut].end = activeClip.endTime;
     }
-    this.clip.ee.emit("interactive",this.clip);
+    
+    activeClip.ee.emit("interactive",activeClip);
 
   }
   mouseup(e) {
-    if (this.action == "dragginghandle"){
+    if (this.action == "dragginghandle" || this.action == "shifting"){
       this.action = null;
     }
     else if (this.action == "scrolldraggingcandidate"){
@@ -155,7 +170,7 @@ export default class {
       this.action = null;
       this.clip.ee.emit("scrolldraggingend",e);
     }
-    else if (this.action == "resizing") {
+    else if (this.action == "resizingleft" || this.action == "resizingright") {
       e.preventDefault();
       this.updateResizing(e);
       this.action = null;
@@ -168,6 +183,6 @@ export default class {
   }
 
   static getEvents() {
-    return ['mousedown', 'mousemove', 'mouseup', 'mouseleave'];
+    return [];
   }
 }

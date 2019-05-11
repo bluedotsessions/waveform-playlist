@@ -17,6 +17,9 @@ import AnnotationList from './annotation/AnnotationList';
 import RecorderWorkerFunction from './utils/recorderWorker';
 import ExportWavWorkerFunction from './utils/exportWavWorker';
 
+import stateClasses from './track/states';
+
+
 export default class {
   constructor() {
     this.tracks = [];
@@ -183,6 +186,12 @@ export default class {
       // track.calculatePeaks(this.samplesPerPixel, this.sampleRate);
       this.drawRequest();
     });
+
+    ee.on('activeclip',(clip)=>{
+      console.log(clip.name);
+      this.stateObj.activeClip = clip;
+    })
+
     ee.on('panknob',track=>{
     //   track.pan = track.pan;
       this.drawRequest();
@@ -448,7 +457,7 @@ export default class {
     if (peaks !== undefined)
       clip.setPeakData(peaks);
 
-    clip.setState(this.getState());
+    // clip.setState(this.getState());
     clip.setStartTime(start);
     clip.setPlayout(playout);
 
@@ -590,9 +599,14 @@ export default class {
   setState(state) {
     this.state = state;
 
-    this.tracks.forEach((track) => {
-      track.setState(state);
-    });
+    if (state == "interactive"){
+      const StateClass = stateClasses[this.state];
+      this.stateObj = new StateClass(this);
+      this.stateObj.ee = this.ee;
+      this.stateObj.setup(this.samplesPerPixel,this.sampleRate);
+    }
+    // else
+      // this.tracks.forEach((track) => track.setState(state));
   }
 
   getState() {
@@ -762,7 +776,7 @@ export default class {
 
     this.tracks.forEach((track) => {
       track.scheduleStop();
-      track.setState(this.getState());
+      // track.setState(this.getState());
     });
 
     this.drawRequest();
@@ -809,7 +823,7 @@ export default class {
     this.mediaRecorder.start(300);
 
     this.tracks.forEach((track) => {
-      track.setState('none');
+      // track.setState('none');
       playoutPromises.push(track.schedulePlay(this.ac.currentTime, 0, undefined, {
         shouldPlay: this.shouldTrackPlay(track),
       }));
@@ -877,7 +891,7 @@ export default class {
       this.resetDrawTimer = setTimeout(() => {
         this.pausedAt = undefined;
         this.lastSeeked = undefined;
-        this.setState(this.getState());
+        // this.setState(this.getState());
 
         this.playbackSeconds = 0;
         this.draw(this.render());
@@ -988,6 +1002,10 @@ export default class {
     return h('div.playlist',
       {
         onselectstart:event=>event.preventDefault(),
+        onmouseleave:event=>this.ee.emit("playlistmouseleave",event),
+        onmousedown:event=>this.ee.emit("playlistmousedown",event),
+        onmouseup:event=>this.ee.emit("playlistmouseup",event),
+        onmousemove:event=>this.ee.emit("playlistmousemove",event),
         attributes: {
           style: 'overflow: hidden; position: relative;',
         },
