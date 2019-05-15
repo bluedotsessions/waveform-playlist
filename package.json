@@ -63,11 +63,12 @@
   },
   "scripts": {
     "clean": "rm -Rf dist && rm -Rf lib && rm -Rf styles",
-    "styles": "mkdir -p styles && cp ghpages/_sass/_playlist.scss styles/playlist.scss",
+    "styles": "mkdir -p styles && cp ghpag1es/_sass/_playlist.scss styles/playlist.scss",
     "compile": "babel src --out-dir lib",
     "jekyll": "jekyll build -s ghpages -d dist/waveform-playlist",
     "jekyll:dev": "jekyll build -s ghpages -d dist/waveform-playlist --watch &",
     "ghpages": "gh-pages --repo git@github.com:Tolumbas/waveform-playlist.git -d dist/waveform-playlist",
+    "ghpagesgalen": "gh-pages -d dist/waveform-playlist --remote galen",
     "build": "npm run clean && npm run jekyll && webpack",
     "preversion": "npm run clean",
     "version": "npm run build && git add -A dist",
