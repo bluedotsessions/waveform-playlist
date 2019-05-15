@@ -23,6 +23,7 @@ import stateClasses from './track/states';
 export default class {
   constructor() {
     this.tracks = [];
+    this.buffers= new Map;
     this.clips = [];
     this.soloedTracks = [];
     this.mutedTracks = [];
@@ -433,6 +434,7 @@ export default class {
     clip.setCustomClass(customClass);
     clip.setWaveOutlineColor(waveOutlineColor);
     clip.setTrack(track);
+    clip.setState(this.state);
 
     clip.bpm = this.bpm;
     clip.quantize = this.quantize;
@@ -471,14 +473,22 @@ export default class {
 
   async load(clipList) {
     const loadPromises = clipList.map((clipInfo) => {
-      const loader = LoaderFactory.createLoader(clipInfo.src, this.ac, this.ee);
-      return loader.load();
+      const p = this.buffers.get(clipInfo.src);
+      if (p === undefined){
+        const promise = LoaderFactory.createLoader(clipInfo.src, this.ac, this.ee).load();
+        this.buffers.set(clipInfo.src,promise);
+        return promise;
+      }  
+      else {
+        return p;
+      }
     });
 
-    const audioBuffers = await Promise.all(loadPromises);
+    let audioBuffers = await Promise.all(loadPromises);
+    console.log(audioBuffers);
 
     this.ee.emit('audiosourcesloaded');
-
+    
     const clips = audioBuffers.map(
       (audioBuffer, index) => this.createClip(audioBuffer, clipList[index])
     );
@@ -535,12 +545,14 @@ export default class {
     const currentTime = this.offlineAudioContext.currentTime;
 
     this.tracks.forEach((track) => {
-      track.setOfflinePlayout(new Playout(this.offlineAudioContext, track.buffer));
-      track.schedulePlay(currentTime, 0, 0, {
-        shouldPlay: this.shouldTrackPlay(track),
-        masterGain: 1,
-        isOffline: true,
-      });
+      track.clips.forEach(clip=>{
+        clip.setOfflinePlayout(new Playout(this.offlineAudioContext, clip.buffer));
+        clip.schedulePlay(currentTime, 0, 0, {
+          shouldPlay: this.shouldTrackPlay(clip),
+          masterGain: 1,
+          isOffline: true,
+        });
+      })
     });
 
     /*
@@ -598,16 +610,12 @@ export default class {
 
   setState(state) {
     this.state = state;
-
-    if (state == "interactive"){
-      const StateClass = stateClasses[this.state];
-      this.stateObj = new StateClass(this);
-      this.stateObj.ee = this.ee;
-      this.stateObj.setup(this.samplesPerPixel,this.sampleRate);
-    }
-    // else
-      // this.tracks.forEach((track) => track.setState(state));
-  }
+    const StateClass = stateClasses[this.state];
+    this.stateObj = new StateClass(this);
+    this.stateObj.ee = this.ee;
+    this.stateObj.setup(this.samplesPerPixel,this.sampleRate);
+    this.tracks.forEach((track) => track.setState(state));
+  }1
 
   getState() {
     return this.state;

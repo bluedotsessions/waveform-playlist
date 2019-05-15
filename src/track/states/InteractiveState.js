@@ -6,17 +6,42 @@ export default class {
     // 0 : not dragging; 1 : dragging the end; -1 : dragging the begining
     this.draggingFrom = 0;
     this.action = null;
-    this.activeClip = undefined; 
+    this._activeClip = undefined; 
     this.setupEventListeners();
   }
-  
-  setupEventListeners(){
-    this.clip.ee.on("playlistmouseleave",this.mouseleave.bind(this));
-    this.clip.ee.on("playlistmouseup",this.mouseup.bind(this));
-    this.clip.ee.on("playlistmousedown",this.mousedown.bind(this));
-    this.clip.ee.on("playlistmousemove",this.mousemove.bind(this));
+
+  set activeClip(clip){
+    if (!this.action || this.action == 'none' || this.action.includes('able'))
+      this._activeClip = clip;
+  }
+  get activeClip(){
+    return this._activeClip;
   }
 
+  setupEventListeners(){
+    const self = this;
+    this.clip.ee.on("playlistmouseleave",e=>{
+      if (this.clip && this.clip.state != 'interactive')
+        return;
+      self.mouseleave.call(self,e);
+    })
+    this.clip.ee.on("playlistmouseup",e=>{
+      if (this.clip && this.clip.state != 'interactive')
+        return;
+      self.mouseup.call(self,e);
+    })
+    this.clip.ee.on("playlistmousedown",e=>{
+      if (this.clip && this.clip.state != 'interactive')
+        return;
+      self.mousedown.call(self,e);
+    })
+    this.clip.ee.on("playlistmousemove",e=>{
+      if (this.clip && this.clip.state != 'interactive')
+        return;
+      self.mousemove.call(self,e);
+    })
+  }
+  
   setup(samplesPerPixel, sampleRate) {
     this.samplesPerPixel = samplesPerPixel;
     this.sampleRate = sampleRate;
@@ -56,9 +81,9 @@ export default class {
       // console.log(mousepos,this.activeClip.duration)
       if (mousepos >= 0 && mousepos <= this.activeClip.duration) {
         if (this.hoveringover == "fadein")
-          this.activeClip.ee.emit('fadein', mousepos , this.activeClip);
+          this.ee.emit('fadein', mousepos , this.activeClip);
         else
-          this.activeClip.ee.emit('fadeout', this.activeClip.duration - mousepos, this.activeClip);
+          this.ee.emit('fadeout', this.activeClip.duration - mousepos, this.activeClip);
       }
       else{
         this.action = null;
@@ -68,7 +93,7 @@ export default class {
       this.updateResizing(e);
     }
     else if (this.action == "shifting"){
-      this.activeClip.ee.emit("shift",movementX,this.activeClip)
+      this.ee.emit("shift",movementX,this.activeClip)
     }
     else if (e.target.classList.contains('fadehandle')){
       this.action = "fadedraggable";
@@ -77,7 +102,7 @@ export default class {
       document.body.style.cursor = "pointer";
     }
     else if (this.action == "scrolldragging" || this.action == "scrolldraggingcandidate"){
-      this.activeClip.ee.emit("scrolldragging",e.movementX);
+      this.ee.emit("scrolldragging",e.movementX);
       this.action = "scrolldragging";
     }
     else if (e.target.className == "clip" && e.layerX > e.target.offsetWidth-10){
@@ -90,7 +115,6 @@ export default class {
     }
     else if (e.target.className == "clip"){
       this.action = "shiftable";
-      console.log("hello")
       document.body.style.cursor = "grab";
 
     }

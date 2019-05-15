@@ -3,6 +3,10 @@ import { pixelsToSeconds } from '../../utils/conversions';
 export default class {
   constructor(track) {
     this.track = track;
+    this.setupEventListeners();
+  }
+  setupEventListeners(){
+    this.track.ee.on("playlistmousedown",e=>this.click.call(this,e))
   }
 
   setup(samplesPerPixel, sampleRate) {
@@ -12,6 +16,7 @@ export default class {
 
   click(e) {
     e.preventDefault();
+    console.log('cursor here');
 
     const startX = e.offsetX;
     const startTime = pixelsToSeconds(startX, this.samplesPerPixel, this.sampleRate);
@@ -21,9 +26,5 @@ export default class {
 
   static getClass() {
     return '.state-cursor';
-  }
-
-  static getEvents() {
-    return ['click'];
   }
 }

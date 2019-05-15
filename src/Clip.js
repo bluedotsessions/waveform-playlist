@@ -202,13 +202,6 @@ export default class {
 
   setState(state) {
     this.state = state;
-
-    if (this.state && this.enabledStates[this.state]) {
-      const StateClass = stateClasses[this.state];
-      this.stateObj = new StateClass(this);
-    } else {
-      this.stateObj = undefined;
-    }
   }
 
   getStartTime() {

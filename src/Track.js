@@ -69,6 +69,9 @@ export default class {
     this.startTime = start;
     this.endTime = start + this.duration;
   }
+  setOfflinePlayout(playout){
+    this.clips.forEach(clip=>clip.setOfflinePlayout(playout));
+  }
 
   setEnabledStates(enabledStates = {}) {
     const defaultStatesEnabled = {
