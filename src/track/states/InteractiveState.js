@@ -1,4 +1,4 @@
-import { pixelsToSeconds } from '../../utils/conversions';
+import { pixelsToSeconds , secondsToPixels } from '../../utils/conversions';
 
 export default class {
   constructor(clip) {
@@ -6,7 +6,8 @@ export default class {
     // 0 : not dragging; 1 : dragging the end; -1 : dragging the begining
     this.draggingFrom = 0;
     this.action = null;
-    this._activeClip = undefined; 
+    this.bufferedMovement = 0;
+    this._activeClip = {name:'_none',startTime:0}; 
     this.setupEventListeners();
   }
 
@@ -63,10 +64,13 @@ export default class {
       this.action = "resizingright";
     else if (this.action == "shiftable")
       this.action = "shifting"
-    else if (this.action == "scrolldraggable" && e.target.className == "waveform"){
-      this.action = "scrolldraggingcandidate";
-      this.clip.ee.emit("scrolldraggingstart");
+    else if (e.target.className == "waveform"){
+      this.seekTo(e);
     }
+    // else if (this.action == "scrolldraggable" && e.target.className == "waveform"){
+      //this.action = "scrolldraggingcandidate";
+      //this.clip.ee.emit("scrolldraggingstart");
+    // }
     // console.log(this.clip);
   }
   
@@ -75,7 +79,6 @@ export default class {
     // if (!mousepos)return;
     const mousepos = this.getMousepos(e);
     const movementX = pixelsToSeconds(e.movementX, this.samplesPerPixel, this.sampleRate);
-    // console.log(this.action);
     if (this.action == "dragginghandle"){
       // console.log(mousepos,this.clip.getStartTime(),this.clip.startTime);
       // console.log(mousepos,this.activeClip.duration)
@@ -93,7 +96,13 @@ export default class {
       this.updateResizing(e);
     }
     else if (this.action == "shifting"){
-      this.ee.emit("shift",movementX,this.activeClip)
+      const blocklength = (60 / this.activeClip.bpm)*this.activeClip.quantize; //in seconds
+      this.bufferedMovement += movementX; //in seconds
+      const snaps = Math.round(this.bufferedMovement/blocklength);
+      if (snaps != 0){
+        this.ee.emit("shift",snaps*blocklength,this.activeClip);
+        this.bufferedMovement = this.bufferedMovement - snaps*blocklength;
+      }
     }
     else if (e.target.classList.contains('fadehandle')){
       this.action = "fadedraggable";
@@ -101,10 +110,10 @@ export default class {
       
       document.body.style.cursor = "pointer";
     }
-    else if (this.action == "scrolldragging" || this.action == "scrolldraggingcandidate"){
-      this.ee.emit("scrolldragging",e.movementX);
-      this.action = "scrolldragging";
-    }
+    // else if (this.action == "scrolldragging" || this.action == "scrolldraggingcandidate"){
+    //   this.ee.emit("scrolldragging",e.movementX);
+    //   this.action = "scrolldragging";
+    // }
     else if (e.target.className == "clip" && e.layerX > e.target.offsetWidth-10){
       this.action = "resizeableright"
       document.body.style.cursor = "e-resize";
@@ -118,10 +127,10 @@ export default class {
       document.body.style.cursor = "grab";
 
     }
-    else if (e.target.className == "waveform"){
-      document.body.style.cursor = "auto";
-      this.action = "scrolldraggable";
-    }
+    // else if (e.target.className == "waveform"){
+    //   document.body.style.cursor = "auto";
+    //   this.action = "scrolldraggable";
+    // }
     else{
       this.action = null;
       document.body.style.cursor = "auto";
@@ -133,8 +142,8 @@ export default class {
   seekTo(e) {
     e.preventDefault();
     // console.log("seek");
-    const startX = e.offsetX;
-    const startTime = pixelsToSeconds(startX, this.samplesPerPixel, this.sampleRate);
+    const startTime = this.getMousepos(e);
+    // const startTime = pixelsToSeconds(startX, this.samplesPerPixel, this.sampleRate);
     this.clip.ee.emit('select', startTime, startTime, this.clip);
   }
 
@@ -145,7 +154,6 @@ export default class {
   };
 
   getMousepos(e){
-    if(!this.activeClip)return null;
     const waveform = document.body.querySelector(".waveform");
     if (!waveform)return null;
     const relative = e.pageX - waveform.getBoundingClientRect().left;
@@ -159,7 +167,7 @@ export default class {
     const activeClip = this.activeClip;
     if (activeClip.quantize){ 
       const blocklength = ( 60 / activeClip.bpm ) * activeClip.quantize;
-      mousepos = Math.round ( mousepos / blocklength)*blocklength;
+      mousepos = Math.round( mousepos / blocklength ) * blocklength;
     }
     if (this.action == "resizingleft"){
       if (activeClip.cueIn + mousepos < 0)return;
@@ -184,16 +192,17 @@ export default class {
   mouseup(e) {
     if (this.action == "dragginghandle" || this.action == "shifting"){
       this.action = null;
+      this.bufferedMovement = 0;
     }
-    else if (this.action == "scrolldraggingcandidate"){
-      // this.seekTo(e);
-      this.clip.ee.emit("scrolldraggingend",e);
-      this.action = null;
-    }
-    else if (this.action == "scrolldragging"){
-      this.action = null;
-      this.clip.ee.emit("scrolldraggingend",e);
-    }
+    // else if (this.action == "scrolldraggingcandidate"){
+    //   // this.seekTo(e);
+    //   this.clip.ee.emit("scrolldraggingend",e);
+    //   this.action = null;
+    // }
+    // else if (this.action == "scrolldragging"){
+    //   this.action = null;
+    //   this.clip.ee.emit("scrolldraggingend",e);
+    // }
     else if (this.action == "resizingleft" || this.action == "resizingright") {
       e.preventDefault();
       this.updateResizing(e);

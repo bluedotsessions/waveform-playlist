@@ -3,10 +3,11 @@ import _forOwn from 'lodash.forown';
 
 import h from 'virtual-dom/h';
 
-import { secondsToPixels, secondsToSamples } from './utils/conversions';
+import { secondsToPixels } from './utils/conversions';
 
 import VolumeSliderHook from './render/VolumeSliderHook';
 import PanKnob from './render/PanKnobHook';
+import GridHook from './render/GridHook';
 
 export default class {
 
@@ -17,6 +18,8 @@ export default class {
     this.gain = 1; //Track
     this._pan = 0; // Track
     this.ee = undefined;
+    this.bpm = 100;
+    this.quantize = 1;
 
     this.clips = [];
 
@@ -171,7 +174,7 @@ export default class {
 
 
   getEndTime(){
-    return this.clips.reduce((maxval, clip)=>Math.max(maxval,clip.endTime),0);
+    return this.clips.reduce((maxval,clip)=>Math.max(maxval,clip.endTime),0);
   }
 
   render(data) {
@@ -202,6 +205,16 @@ export default class {
       }),
     ];
 
+    const grid = h('canvas.grid',{
+      attributes :{
+        width,
+        height: data.height,
+        style: 'position:absolute;pointer-events:none'
+      },
+      hook: new GridHook(this.quantize,this.bpm,'lightgray',data.resolution,data.sampleRate)
+    });
+    waveformChildren.push(grid);
+
     waveformChildren.push(
       this.clips.map(
         clip=>clip.render(data)
@@ -221,6 +234,7 @@ export default class {
         },
       }));
     }
+
 
     const waveform = h('div.waveform',
       {

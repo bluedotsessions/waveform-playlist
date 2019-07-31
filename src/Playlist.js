@@ -5,7 +5,7 @@ import diff from 'virtual-dom/diff';
 import patch from 'virtual-dom/patch';
 import InlineWorker from 'inline-worker';
 
-import { pixelsToSeconds } from './utils/conversions';
+import { pixelsToSeconds, samplesToSeconds } from './utils/conversions';
 import LoaderFactory from './track/loader/LoaderFactory';
 import ScrollHook from './render/ScrollHook';
 import TimeScale from './TimeScale';
@@ -175,6 +175,8 @@ export default class {
     for ({name} of tracks){
       let newTrack = new Track();
       newTrack.setName(name);
+      newTrack.quantize = this.quantize;
+      newTrack.bpm = this.bpm;
       newTrack.setEventEmitter(this.ee);
       this.tracks.push(newTrack);
     }
@@ -359,34 +361,10 @@ export default class {
         this.isScrolling = false;
       }, 200);
     });
-    ee.on('scrolldragging',amount=>{
-      if (!this.scrolldragging)return;
-      this.seekClicking = false;
-      // console.log("scrolldragging",amount);
-      this.scrollLeft -= pixelsToSeconds(
-        amount,
-        this.samplesPerPixel,
-        this.sampleRate,
-      );
-      this.ee.emit('scroll');
-    })
-    ee.on('scrolldraggingstart',()=>{
-      this.scrolldragging = true;
-      this.seekClicking = true;
-      document.body.style.cursor = "grabbing";
-    })
-    ee.on('scrolldraggingend',e => {
-      this.scrolldragging = false;
-      if (this.seekClicking){
-        const startX = e.offsetX;
-        let startTime = pixelsToSeconds(startX, this.samplesPerPixel, this.sampleRate);
-        if (e.from == "TimeScale"){
-          startTime += this.scrollLeft;
-        }
-    
-        this.ee.emit('select', startTime, startTime);
-      }
-      document.body.style.cursor =  "auto";
+    ee.on('seek',where=>{
+      this.seek(where);
+      // console.log('yo',where);
+      
     })
   }
 
@@ -421,6 +399,9 @@ export default class {
     if (!track){
       track = new Track();
       track.name = trackname;
+      track.quantize = this.quantize;
+      track.bpm = this.bpm;
+
       this.tracks.push(track);
     }
 
@@ -467,6 +448,27 @@ export default class {
 
     // extract peaks with AudioContext for now.
     clip.calculatePeaks(this.samplesPerPixel, this.sampleRate);
+
+
+    let curPeak = clip.peaks.data[0];
+    let startX = 0;
+    for (let i = 0; i < clip.peaks.length; i += 1) {
+      if(curPeak[i * 2] != 0) {
+        startX = i; break;
+      }
+    }
+    if (startX > 0) {
+      let startSec = samplesToSeconds(startX, this.samplesPerPixel, this.sampleRate);
+      console.log('startX', startX, startSec, startSec, cueOut,clip.peaks);
+      console.log('(startSec + start + cueIn)', startSec, start, cueIn, startSec + start + cueIn);
+      // if(start < startSec) {
+        clip.setStartTime(startSec + start);
+        // clip.setStartTime(start);
+        clip.setCues(startSec + cueIn, cueOut);          
+        // clip.calculatePeaks(this.samplesPerPixel, this.sampleRate);
+      // }
+
+    }
 
     return clip;
   }
@@ -632,8 +634,9 @@ export default class {
   setZoom(zoom) {
     this.samplesPerPixel = zoom;
     this.zoomIndex = this.zoomLevels.indexOf(zoom);
-    this.tracks.forEach((track) => {
-      track.calculatePeaks(zoom, this.sampleRate);
+    this.stateObj.setup(this.samplesPerPixel,this.sampleRate);
+    this.tracks.forEach(track => {
+      track.clips.forEach(clip=>clip.calculatePeaks(zoom, this.sampleRate));
     });
   }
 

@@ -192,6 +192,12 @@ export default class {
   calculatePeaks(samplesPerPixel, sampleRate) {
     const cueIn = secondsToSamples(this.cueIn, sampleRate);
     const cueOut = secondsToSamples(this.cueOut, sampleRate);
+    if (samplesPerPixel != this.samplesPerPixel || sampleRate != this.sampleRate){
+      this.images = [];
+      
+      this.sampleRate = sampleRate;
+      this.samplesPerPixel = samplesPerPixel;
+    }
     this.setPeaks(extractPeaks(this.buffer, samplesPerPixel, this.peakData.mono));
     console.log(this.peaks);
   }
@@ -463,57 +469,45 @@ export default class {
   renderWaveform(data){
     const convert = w => secondsToPixels(w, data.resolution, data.sampleRate);
 
-    const width = this.peaks.length;
+    const sampleWidth = this.peaks.length; 
     const peaks = this.peaks.data[0];
 
-    let offset = 0;
-    let totalWidth = width;
     let waveformChildren = [];
+    const canvasColor = this.waveOutlineColor
+      ? this.waveOutlineColor
+      : data.colors.waveOutlineColor;
 
-    let i = 0;
-    while (totalWidth > 0) {
-      const currentWidth = Math.min(totalWidth, MAX_CANVAS_WIDTH);
-      const canvasColor = this.waveOutlineColor
-        ? this.waveOutlineColor
-        : data.colors.waveOutlineColor;
-
-      const canvashook = new CanvasHook(
+    const canvashook = new CanvasHook(
         peaks, 
-        offset, 
+        0, 
         this.peaks.bits, 
         canvasColor,
         this.cueIn,
         data.resolution,
         data.sampleRate,
-        this.images[i]
-      );
-      if (!this.images[i]){
-        this.images[i] = canvashook.setupImage(
-          currentWidth,
-          data.height
-        )
-      }
-      
-      waveformChildren.push(h('canvas', {
-        attributes: {
-          width: convert(this.duration),
-          height: data.height,
-          style: `
-            float: left;
-            position: relative;
-            margin: 0;
-            padding: 0;
-            z-index: 3;
-            pointer-events: none;
-          `,
-        },
-        hook: canvashook,
-      }));
-
-      totalWidth -= currentWidth;
-      offset += MAX_CANVAS_WIDTH;
-      i++;
+        this.images[0]
+    );
+    if (!this.images[0]){
+      this.images[0] = canvashook.setupImage(
+        sampleWidth,
+        data.height
+      )
     }
+    waveformChildren.push(h('canvas', {
+      attributes: {
+        width: convert(this.duration),
+        height: data.height,
+        style: `
+          float: left;
+          position: relative;
+          margin: 0;
+          padding: 0;
+          z-index: 3;
+          pointer-events: none;
+        `,
+      },
+      hook: canvashook,
+    }));
     
     return h('div.clipwaveform',{
       attributes:{
@@ -525,7 +519,6 @@ export default class {
 
 
   render(data) {
-
     const convert = w => secondsToPixels(w, data.resolution, data.sampleRate);
 
     let clipChildren = [];
@@ -542,6 +535,7 @@ export default class {
 
     return h('div.clip',
       {
+        onmouseleave : ()=>this.ee.emit("activeclip",{name:'_none',startTime:0}),
         onmouseover: ()=>this.ee.emit("activeclip",this),
         attributes: {
           style: `left:${convert(this.startTime)}px;height: ${data.height}px; position: absolute;z-index:1`,

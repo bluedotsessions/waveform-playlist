@@ -36,10 +36,9 @@ class CanvasHook {
     // cc.fillRect(0,0,len,h2*2);
     cc.fillStyle = this.color;
     // console.log(this.color);
-
     for (let i = 0; i < len; i += 1) {
-      const minPeak = this.peaks[(i + this.offset) * 2] / maxValue;
-      const maxPeak = this.peaks[((i + this.offset) * 2) + 1] / maxValue;
+      const minPeak = this.peaks[i * 2] / maxValue;
+      const maxPeak = this.peaks[i * 2 + 1] / maxValue;
       CanvasHook.drawFrame(cc, h2, i, minPeak, maxPeak);
     }
   }
@@ -66,11 +65,11 @@ class CanvasHook {
     const h2 = canvas.height / 2;
 
     if (!this.bufferedwaveform)
-      this.setupImage(len,h2*2);
+      this.setupImage(this.peaks.length,h2*2);
 
     cc.clearRect(0,0,canvas.width,canvas.height);
     const offsettotal = secondsToPixels(-this.cueIn,this.resolution,this.sampleRate);
-    // console.log(offsettotal);
+
     cc.drawImage(this.bufferedwaveform,offsettotal,0);
     
   }
