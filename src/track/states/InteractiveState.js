@@ -104,6 +104,9 @@ export default class {
         this.bufferedMovement = this.bufferedMovement - snaps*blocklength;
       }
     }
+    else if (this.action == "split"){
+      document.body.style.cursor = "text";
+    }
     else if (e.target.classList.contains('fadehandle')){
       this.action = "fadedraggable";
       this.hoveringover = e.target.classList.contains('fadein')?"fadein":"fadeout";
@@ -114,11 +117,11 @@ export default class {
     //   this.ee.emit("scrolldragging",e.movementX);
     //   this.action = "scrolldragging";
     // }
-    else if (e.target.className == "clip" && e.layerX > e.target.offsetWidth-10){
+    else if (e.target.className == "handleContainer right"){
       this.action = "resizeableright"
       document.body.style.cursor = "e-resize";
     }
-    else if (e.target.className == "clip" && e.layerX < 10){
+    else if (e.target.className == "handleContainer left"){
       this.action = "resizeableleft"
       document.body.style.cursor = "w-resize";
     }
@@ -190,19 +193,19 @@ export default class {
 
   }
   mouseup(e) {
-    if (this.action == "dragginghandle" || this.action == "shifting"){
+    if (this.action == "split"){
+      if (e.target.className == 'clip'){
+        const time = this.getMousepos(e);
+        this.ee.emit('splitAt',{clip:this.activeClip,at:time});
+      }
+ 
+      this.action = null; 
+      
+    }
+    else if (this.action == "dragginghandle" || this.action == "shifting"){
       this.action = null;
       this.bufferedMovement = 0;
     }
-    // else if (this.action == "scrolldraggingcandidate"){
-    //   // this.seekTo(e);
-    //   this.clip.ee.emit("scrolldraggingend",e);
-    //   this.action = null;
-    // }
-    // else if (this.action == "scrolldragging"){
-    //   this.action = null;
-    //   this.clip.ee.emit("scrolldraggingend",e);
-    // }
     else if (this.action == "resizingleft" || this.action == "resizingright") {
       e.preventDefault();
       this.updateResizing(e);

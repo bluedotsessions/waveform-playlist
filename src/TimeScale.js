@@ -138,17 +138,7 @@ class TimeScale {
     return h('div.playlist-time-scale',
       {
         onmousedown : e => {
-          this.ee.emit('scrolldraggingstart');
-          e.from = "TimeScale"
-          this.ee.emit('scrolldraggingend',e);
-
-        },
-        onmousemove : ({movementX}) => {
-            // this.ee.emit('scrolldragging',movementX);
-        },
-        onmouseup : e => {
-          e.from = "TimeScale"
-          // this.ee.emit('scrolldraggingend',e);
+          this.seekTo(e);
         },
         attributes: {
           style: `position: relative; left: 0; right: 0; margin-left: ${this.marginLeft}px;`,

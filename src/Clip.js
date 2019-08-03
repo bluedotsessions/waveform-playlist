@@ -40,6 +40,8 @@ export default class {
     this.startTime = 0; // Clip
     this.images = []; // Clip
 
+    this.showMenu = false;
+
     console.log(this);
   }
 
@@ -53,6 +55,10 @@ export default class {
   
   get endTime(){
     return this.startTime + this.duration;
+  }
+  set endTime(time){
+    let duration = time - this.startTime
+    this.cueOut = this.cueIn + duration; 
   }
 
   setEventEmitter(ee) {
@@ -378,6 +384,20 @@ export default class {
     );
     return h('div.wp-fade.wp-fadeout',
       {
+        onmousedown: e=>{
+          this.clickhandle = true;
+
+        },
+        onmosemove: e=>{
+          this.clickhandle =false;
+        },
+        onmouseup: e=>{
+          console.log(fadeOut.end - fadeOut.start);
+          if(this.clickhandle && fadeOut.end - fadeOut.start < 0.2){
+            this.setFadeOut(2);
+            this.ee.emit("interactive",this);
+          }
+        },
         attributes: {
           style: `position: absolute; height: ${data.height}px; width: ${fadeWidth}px; top: 0; right: 0; z-index: 10;pointer-events:none;`,
         },
@@ -386,11 +406,11 @@ export default class {
         h('div.fadeout.fadehandle',{
           attributes: {
             style: `position: absolute; 
-                    height: 10px; 
-                    width: 10px; 
+                    height: 15px; 
+                    width: 15px; 
                     z-index: 10; 
-                    top:0; 
-                    left: -5px; 
+                    top:10px; 
+                    right: ${Math.max(fadeWidth,15) - 5}px; 
                     background-color: black;
                     border-radius: 10px;
                     pointer-events:initial;
@@ -432,15 +452,29 @@ export default class {
       }, 
       [
         h('div.fadein.fadehandle',{
+          onmousedown: e=>{
+            this.clickhandle = true;
+
+          },
+          onmosemove: e=>{
+            this.clickhandle =false;
+          },
+          onmouseup: e=>{
+            console.log(fadeIn.end - fadeIn.start);
+            if(this.clickhandle && fadeIn.end - fadeIn.start < 0.2){
+              this.setFadeIn(2);
+              this.ee.emit("interactive",this);
+            }
+          },
           attributes: {
             style: `position: absolute; 
-                    height: 10px; 
-                    width: 10px; 
+                    height: 15px; 
+                    width: 15px; 
                     z-index: 10; 
-                    top:0; 
-                    right: -5px; 
+                    top:10px; 
+                    left: ${Math.max(fadeWidth,15) - 5}px; 
                     background-color: black;
-                    border-radius: 10px;
+                    border-radius: 15px;
                     pointer-events:initial;
                     `
           }
@@ -451,7 +485,9 @@ export default class {
               width: fadeWidth,
               height: data.height,
               style: 
-                `pointer-events: none;`
+                `pointer-events: none;
+                ${fadeWidth<0.2?'display:none;':''}
+                `
               ,
             },
             hook: new FadeCanvasHook(
@@ -517,6 +553,132 @@ export default class {
     },waveformChildren);
   }
 
+  renderHandle(){
+    return h('div.handle',{
+      attributes:{
+        style:`
+          width:5px;
+          height:100%;
+          margin-left:2px;
+          display:inline-block;
+          background-color:black;
+          border-radius:15px;
+          pointer-events:none;
+        `
+      }
+    });
+  }
+
+  renderLeftShiftHandles(data){
+    let handles = [this.renderHandle(),this.renderHandle()];
+    return h('div.handleContainer.left',{
+      attributes:{
+        style:`
+          z-index: 3;
+          height:${(data.height*.5|0) - 4 }px;
+          position:absolute;
+          top:${data.height*.25|0 + 2}px;
+          left:9.8px;
+        `
+      }
+    },handles);
+  }
+
+  renderRightShiftHandles(data){
+    let handles = [this.renderHandle(),this.renderHandle()];
+    // const endPixel = secondsToPixels(this.endTime,data.resolution,data.sampleRate);
+    return h('div.handleContainer.right',{
+      attributes:{
+        style:`
+          z-index: 3;
+          height:${(data.height*.5|0) - 4 }px;
+          position:absolute;
+          top:${data.height*.25|0 + 2}px;
+          right:12px;
+        `
+      }
+    },handles);
+  }
+
+  renderMenuButton(data){
+    return h('div.menuButton',{
+      onclick:e=>{
+        console.log('showMenu',this.showMenu);
+        this.showMenu = !this.showMenu;
+        this.ee.emit('interactive');
+      },
+      attributes:{
+        style:`
+          z-index:3;
+          text-align:center;
+          font-size:1em;
+          line-height:7px;
+          color:white;
+          background-color:black;
+          position:absolute;
+          bottom:10px;
+          left: 10px;
+          width:15px;
+          height:15px;
+          border-radius:15px;
+          user-select: none;
+          cursor:pointer;
+        `
+      }
+    },'..');
+  }
+
+  renderMenu(data){
+    const buttonStyle = `
+          height:20px;
+          cursor:pointer;
+          user-select:none;
+    `
+    
+    return h('div.menuContainer',{
+      attributes:{
+        style:`
+        position:absolute;
+        z-index:4;
+        width:70px;
+        background-color: darkgray;
+
+        `
+      }
+    },[
+      h('div.buttonSplit',{
+        onclick:e=>{
+          this.ee.emit('splitStart',this);
+          this.showMenu = false;
+          this.ee.emit('interactive');
+        },
+        attributes:{
+          style:buttonStyle
+        }
+      },"Split"),
+      h('div.buttonDuplicate',{
+        onclick:e=>{
+          this.ee.emit('duplicate',this);
+          this.showMenu = false;
+          this.ee.emit('interactive');
+        },
+        attributes:{
+          style:buttonStyle
+        }
+      },"Duplicate"),
+      h('div.buttonDelete',{
+        onclick:e=>{
+          this.ee.emit('delete',this);
+          this.showMenu = false;
+          this.ee.emit('interactive');
+        },
+        attributes:{
+          style:buttonStyle
+        }
+      },"Delete")
+    ])
+
+  }
 
   render(data) {
     const convert = w => secondsToPixels(w, data.resolution, data.sampleRate);
@@ -530,7 +692,15 @@ export default class {
 
     if (this.fadeOut) 
       clipChildren.push(this.renderFadeOut(data));
-    
+
+    clipChildren.push(this.renderLeftShiftHandles(data));
+    clipChildren.push(this.renderRightShiftHandles(data));
+
+    clipChildren.push(this.renderMenuButton(data));
+
+    if(this.showMenu)
+      clipChildren.push(this.renderMenu(data));
+   
     // clipChildren.push(this.renderOverlay(data));
 
     return h('div.clip',
@@ -538,7 +708,13 @@ export default class {
         onmouseleave : ()=>this.ee.emit("activeclip",{name:'_none',startTime:0}),
         onmouseover: ()=>this.ee.emit("activeclip",this),
         attributes: {
-          style: `left:${convert(this.startTime)}px;height: ${data.height}px; position: absolute;z-index:1`,
+          style: `
+            left:${convert(this.startTime)}px;
+            height: ${data.height}px; 
+            position: absolute;
+            z-index:${this.showMenu?2:1};
+            overflow:visible;
+          `,
         },
       },
       clipChildren,
@@ -551,6 +727,8 @@ export default class {
       start: this.startTime,
       end: this.endTime,
       name: this.name,
+      track:this.track,
+
       customClass: this.customClass,
       cuein: this.cueIn,
       cueout: this.cueOut,

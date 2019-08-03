@@ -365,6 +365,36 @@ export default class {
       this.seek(where);
       // console.log('yo',where);
       
+    });
+    ee.on('splitStart',clip=>{
+      this.stateObj.action = "split";
+    })
+    ee.on('splitAt',({clip,at})=>{
+      let info = clip.getTrackDetails();
+      info.track=info.track.name;
+      info.name = "Copy of " + info.name;
+      info.start = clip.startTime + at;
+      info.cuein = clip.cueIn+at;
+      info.cueout = clip.cueOut;
+      this.createClip(clip.buffer,info);
+
+      clip.endTime = clip.startTime + at;
+
+      this.ee.emit('interactive');
+    })
+    ee.on('duplicate',clip=>{
+      let info = clip.getTrackDetails();
+      info.track=info.track.name;
+      info.name = "Copy of " + info.name;
+      info.start = clip.endTime;
+      info.end = clip.endTime + clip.duration; 
+      this.createClip(clip.buffer,info);
+      this.ee.emit('interactive');
+    })
+    ee.on('delete',clip=>{
+      const t = clip.track.clips.indexOf(clip);
+      clip.track.clips.splice(t,1);
+      this.ee.emit('interactive');
     })
   }
 
