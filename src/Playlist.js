@@ -4,6 +4,7 @@ import h from 'virtual-dom/h';
 import diff from 'virtual-dom/diff';
 import patch from 'virtual-dom/patch';
 import InlineWorker from 'inline-worker';
+import Tuna from 'tunajs';
 
 import { pixelsToSeconds, samplesToSeconds } from './utils/conversions';
 import LoaderFactory from './track/loader/LoaderFactory';
@@ -22,6 +23,7 @@ import stateClasses from './track/states';
 
 export default class {
   constructor() {
+    console.log(Tuna);
     this.tracks = [];
     this.buffers= new Map;
     this.clips = [];
@@ -431,6 +433,7 @@ export default class {
       track.name = trackname;
       track.quantize = this.quantize;
       track.bpm = this.bpm;
+      track.setEventEmitter(this.ee);
 
       this.tracks.push(track);
     }

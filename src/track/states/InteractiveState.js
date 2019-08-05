@@ -58,10 +58,15 @@ export default class {
   mousedown(e) {
     if (this.action == "fadedraggable")
       this.action = "dragginghandle";
-    else if (this.action == "resizeableleft")
+    else if (this.action == "resizeableleft"){
+      this.startAt = this.getMousepos(e);
       this.action = "resizingleft";
-    else if (this.action == "resizeableright")
+    }
+    else if (this.action == "resizeableright"){
+      this.startAt = this.getMousepos(e);
+      this.oldCueOutForResising = this.activeClip.cueOut;
       this.action = "resizingright";
+    }
     else if (this.action == "shiftable")
       this.action = "shifting"
     else if (e.target.className == "waveform"){
@@ -77,20 +82,17 @@ export default class {
   mousemove(e) {
     // const mousepos = pixelsToSeconds(this.correctOffset(e), this.samplesPerPixel, this.sampleRate);
     // if (!mousepos)return;
+    // console.log(this.action);
     const mousepos = this.getMousepos(e);
     const movementX = pixelsToSeconds(e.movementX, this.samplesPerPixel, this.sampleRate);
     if (this.action == "dragginghandle"){
       // console.log(mousepos,this.clip.getStartTime(),this.clip.startTime);
       // console.log(mousepos,this.activeClip.duration)
-      if (mousepos >= 0 && mousepos <= this.activeClip.duration) {
+      const clampped = Math.min( Math.max(mousepos, 0),this.activeClip.duration);
         if (this.hoveringover == "fadein")
-          this.ee.emit('fadein', mousepos , this.activeClip);
+          this.ee.emit('fadein', clampped , this.activeClip);
         else
-          this.ee.emit('fadeout', this.activeClip.duration - mousepos, this.activeClip);
-      }
-      else{
-        this.action = null;
-      }
+          this.ee.emit('fadeout', this.activeClip.duration - clampped);
     }
     else if (this.action == "resizingleft" || this.action == "resizingright"){
       this.updateResizing(e);
@@ -166,23 +168,31 @@ export default class {
   } 
 
   updateResizing(e){
-    let mousepos = this.getMousepos(e);
+    let mousepos = this.getMousepos(e) - this.startAt ;
+    // console.log("mousepos",mousepos,this.startAt);
     const activeClip = this.activeClip;
     if (activeClip.quantize){ 
       const blocklength = ( 60 / activeClip.bpm ) * activeClip.quantize;
       mousepos = Math.round( mousepos / blocklength ) * blocklength;
     }
     if (this.action == "resizingleft"){
-      if (activeClip.cueIn + mousepos < 0)return;
+      // console.log(activeClip.cueIn + mousepos);
+      if (activeClip.cueIn + mousepos <= 0)
+        mousepos = -activeClip.cueIn;
+      if (activeClip.cueIn + mousepos - activeClip.cueOut >= -4)
+        mousepos = -4 + activeClip.cueOut - activeClip.cueIn;
       const oldStartTime = activeClip.startTime;
       const oldCueIn = activeClip.cueIn;
       activeClip.startTime = oldStartTime + mousepos;
       activeClip.cueIn = oldCueIn + mousepos;
     }
     if (this.action == "resizingright"){
-      if (activeClip.cueOut + mousepos - activeClip.duration > activeClip.buffer.duration)
-        return;
-      activeClip.cueOut = activeClip.cueOut + mousepos - activeClip.duration;
+      if (this.oldCueOutForResising + mousepos > activeClip.buffer.duration)
+        mousepos = activeClip.buffer.duration - this.oldCueOutForResising;
+      if (this.oldCueOutForResising + mousepos - activeClip.cueIn < 4) 
+        mousepos = 4 + activeClip.cueIn - this.oldCueOutForResising;
+      
+      activeClip.cueOut = this.oldCueOutForResising + mousepos;
       const fadeout= activeClip.fades[activeClip.fadeOut];
       const duration = fadeout.end - fadeout.start;
       activeClip.fades[activeClip.fadeOut].start = activeClip.endTime-duration;

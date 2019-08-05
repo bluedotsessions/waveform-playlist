@@ -145,6 +145,52 @@ export default class {
               this.ee.emit('solo', this);
             },
           }, ['Solo']),
+          h('div.btn.btn-default.dropdown-toggle.btn-xs.btn-effects',{
+              onclick: e=>{
+                this.showmenu = !this.showmenu;
+                this.ee.emit('interactive');
+              }
+            },[
+            "effects",
+            h(`div.effectsmenu`,{
+              attributes:{
+                style:`
+                  position:absolite;
+                  top:0;
+                  left:10;
+                  ${this.showmenu?'':"display:none;"}
+                `
+              }
+            },[
+              h("div.effect.btn.btn-default",{
+                onclick:e=>{
+                  this.clips.forEach(clip=>{
+                    clip.playout.toggleDelay = !clip.playout.toggleDelay;
+                  });
+                },
+                attributes:{style:`
+                width:50px;height:20px;display:inline-block;
+              `}},"delay"),
+              h("div.effect.btn.btn-default",{
+                onclick:e=>{
+                  this.clips.forEach(clip=>{
+                    clip.playout.togglePhaser = !clip.playout.togglePhaser;
+                  });
+                },
+                attributes:{style:`
+                width:50px;height:20px;display:inline-block;
+              `}},"phaser"),
+              h("div.effect.btn.btn-default",{
+                onclick:e=>{
+                  this.clips.forEach(clip=>{
+                    clip.playout.toggleLowpass = !clip.playout.toggleLowpass;
+                  });
+                },
+                attributes:{style:`
+                width:50px;height:20px;display:inline-block;
+              `}},"lowpass"),
+            ])
+          ]),
           h(`canvas.knobCanvas`,{
             attributes:{
                 width: 25,
