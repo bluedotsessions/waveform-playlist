@@ -92,7 +92,7 @@ export default class {
         if (this.hoveringover == "fadein")
           this.ee.emit('fadein', clampped , this.activeClip);
         else
-          this.ee.emit('fadeout', this.activeClip.duration - clampped);
+          this.ee.emit('fadeout', this.activeClip.duration - clampped,this.activeClip);
     }
     else if (this.action == "resizingleft" || this.action == "resizingright"){
       this.updateResizing(e);
