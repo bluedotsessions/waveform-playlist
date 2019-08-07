@@ -141,6 +141,9 @@ export default class {
       shape,
       start: 0,
       end: duration,
+      getDuration : function(){
+        return this.end - this.start;
+      }
     };
 
     if (this.fadeIn) {
@@ -160,6 +163,9 @@ export default class {
       shape,
       start: this.duration - duration,
       end: this.duration,
+      getDuration : function(){
+        return this.end - this.start;
+      }
     };
 
     if (this.fadeOut) {
@@ -178,6 +184,9 @@ export default class {
       shape,
       start,
       end,
+      getDuration : function(){
+        return this.end - this.start;
+      }
     };
 
     return id;

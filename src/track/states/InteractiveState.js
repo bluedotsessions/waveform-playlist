@@ -88,11 +88,14 @@ export default class {
     if (this.action == "dragginghandle"){
       // console.log(mousepos,this.clip.getStartTime(),this.clip.startTime);
       // console.log(mousepos,this.activeClip.duration)
-      const clampped = Math.min( Math.max(mousepos, 0),this.activeClip.duration);
+      const fadeout= this.activeClip.fades[this.activeClip.fadeOut];
+      const fadein= this.activeClip.fades[this.activeClip.fadeIn];
+
+      
         if (this.hoveringover == "fadein")
-          this.ee.emit('fadein', clampped , this.activeClip);
+          this.ee.emit('fadein', Math.min( Math.max(mousepos, 0),this.activeClip.duration - fadeout.getDuration() - 0.5) , this.activeClip);
         else
-          this.ee.emit('fadeout', this.activeClip.duration - clampped,this.activeClip);
+          this.ee.emit('fadeout', this.activeClip.duration - Math.min( Math.max(mousepos, fadein.getDuration() + 0.5),this.activeClip.duration),this.activeClip);
     }
     else if (this.action == "resizingleft" || this.action == "resizingright"){
       this.updateResizing(e);
@@ -185,6 +188,18 @@ export default class {
       const oldCueIn = activeClip.cueIn;
       activeClip.startTime = oldStartTime + mousepos;
       activeClip.cueIn = oldCueIn + mousepos;
+
+      const fadeout= activeClip.fades[activeClip.fadeOut];
+      const fadein= activeClip.fades[activeClip.fadeIn];
+      this.ee.emit('fadein',Math.min(
+        fadein.getDuration(),
+        this.activeClip.duration - fadeout.getDuration() - 0.5
+      ),activeClip)
+      this.ee.emit('fadeout',Math.min(
+        fadeout.getDuration(),
+        activeClip.duration - 0.5
+      ),activeClip)
+
     }
     if (this.action == "resizingright"){
       if (this.oldCueOutForResising + mousepos > activeClip.buffer.duration)
@@ -193,10 +208,19 @@ export default class {
         mousepos = 4 + activeClip.cueIn - this.oldCueOutForResising;
       
       activeClip.cueOut = this.oldCueOutForResising + mousepos;
+      
       const fadeout= activeClip.fades[activeClip.fadeOut];
-      const duration = fadeout.end - fadeout.start;
-      activeClip.fades[activeClip.fadeOut].start = activeClip.endTime-duration;
-      activeClip.fades[activeClip.fadeOut].end = activeClip.endTime;
+      const fadein= activeClip.fades[activeClip.fadeIn];
+      this.ee.emit('fadeout',Math.min(
+        fadeout.getDuration(),
+        Math.max( activeClip.duration - fadein.getDuration() - 0.5,0.1)
+      ),activeClip)
+      this.ee.emit('fadein',Math.min(
+        fadein.getDuration(),
+        this.activeClip.duration - 0.5
+      ),activeClip)
+
+     
     }
     
     activeClip.ee.emit("interactive",activeClip);

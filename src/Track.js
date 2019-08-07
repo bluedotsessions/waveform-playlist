@@ -179,7 +179,7 @@ export default class {
                 },
                 attributes:{style:`
                 width:50px;height:20px;display:inline-block;
-              `}},"phaser"),
+              `}},"bitcrusher"),
               h("div.effect.btn.btn-default",{
                 onclick:e=>{
                   this.clips.forEach(clip=>{
