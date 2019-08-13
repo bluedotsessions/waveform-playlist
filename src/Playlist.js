@@ -29,6 +29,7 @@ export default class {
     this.soloedTracks = [];
     this.mutedTracks = [];
     this.playoutPromises = [];
+    this.tracksids = 0;
 
     this.cursor = 0;
     this.playbackSeconds = 0;
@@ -61,7 +62,7 @@ export default class {
     this.mediaRecorder = new window.MediaRecorder(stream);
 
     this.mediaRecorder.onstart = () => {
-      const track = new Track();
+      const track = new Track(this.tracksids ++);
       track.setName('Recording');
       track.setEnabledStates();
       track.setEventEmitter(this.ee);
@@ -174,7 +175,7 @@ export default class {
 
   setTracks(tracks){
     for ({name} of tracks){
-      let newTrack = new Track();
+      let newTrack = new Track(this.tracksids++);
       newTrack.setName(name);
       newTrack.quantize = this.quantize;
       newTrack.bpm = this.bpm;
@@ -428,7 +429,7 @@ export default class {
 
     let track = this.getTrackByName(trackname);
     if (!track){
-      track = new Track();
+      track = new Track(this.tracksids++);
       track.name = trackname;
       track.quantize = this.quantize;
       track.bpm = this.bpm;
@@ -480,7 +481,7 @@ export default class {
 
     // extract peaks with AudioContext for now.
     clip.calculatePeaks(this.samplesPerPixel, this.sampleRate);
-
+/*
 
     let curPeak = clip.peaks.data[0];
     let startX = 0;
@@ -490,18 +491,20 @@ export default class {
       }
     }
     if (startX > 0) {
-      let startSec = samplesToSeconds(startX, this.samplesPerPixel, this.sampleRate);
-      console.log('startX', startX, startSec, startSec, cueOut,clip.peaks);
+      let startSec = pixelsToSeconds(startX, this.resolution, this.sampleRate);
+      console.log('startX',clip.name, startX, startSec, startSec, cueOut,clip.peaks);
       console.log('(startSec + start + cueIn)', startSec, start, cueIn, startSec + start + cueIn);
       // if(start < startSec) {
-        clip.setStartTime(startSec + start);
+        // clip.setStartTime(startSec + start);
         // clip.setStartTime(start);
-        clip.setCues(startSec + cueIn, cueOut);          
+        clip.startTime = startSec + start;
+        clip.cueIn = startSec + cueIn;
+        // clip.setCues(startSec + cueIn, cueOut);          
         // clip.calculatePeaks(this.samplesPerPixel, this.sampleRate);
       // }
 
     }
-
+    */
     return clip;
   }
 

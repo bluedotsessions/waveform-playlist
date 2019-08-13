@@ -8,10 +8,11 @@ import { secondsToPixels } from './utils/conversions';
 import VolumeSliderHook from './render/VolumeSliderHook';
 import PanKnob from './render/PanKnobHook';
 import GridHook from './render/GridHook';
+import EffectKnobHook from './render/EffectKnobHook';
 
 export default class {
 
-  constructor() {
+  constructor(id) {
     this.name = 'Untitled'; // Track
     this.customClass = undefined; //Track
     this.waveOutlineColor = undefined; //Track
@@ -19,7 +20,12 @@ export default class {
     this._pan = 0; // Track
     this.ee = undefined;
     this.bpm = 100;
+    this.id = id;
     this.quantize = 1;
+
+    this.delay = 1;
+    this.bitcrusher = 1;
+    this.lowpass = 10;
 
     this.clips = [];
 
@@ -118,88 +124,118 @@ export default class {
     this.clips.forEach(clip=>clip.setPan(this.pan));      
   }
 
-  renderControls(data) {
+  renderButtons(data){
     const muteClass = data.muted ? '.active' : '';
     const soloClass = data.soloed ? '.active' : '';
+    return h('div.btn-group', [
+      h('span.btn.btn-default.btn-xs.destroyButton',{
+        onclick: ()=>{
+          this.ee.emit('destroy',this);
+        }
+      },['X']),
+      h(`span.btn.btn-default.btn-xs.btn-mute${muteClass}`, {
+        onclick: () => {
+          this.ee.emit('mute', this);
+        },
+      }, ['Mute']),
+      h(`span.btn.btn-default.btn-xs.btn-solo${soloClass}`, {
+        onclick: () => {
+          this.ee.emit('solo', this);
+        },
+      }, ['Solo']),
+      h('div.btn.btn-default.dropdown-toggle.btn-xs.btn-effects',{
+          onclick: e=>{
+            this.showmenu = !this.showmenu;
+            this.ee.emit('interactive');
+          }
+        },[
+        "effects",]),
+      h(`canvas.knobCanvas`,{
+        attributes:{
+            width: 25,
+            height: 25,
+            "data-ringbgcolor": '#EEE',
+        },
+        hook: new PanKnob(this.pan,this)
+      })
+    ])
+  }
 
+  renderSingleEffect(data,name,hook){
+    return h("div.effectBox",{attributes:{style:`
+      display:inline-block;
+    `}},[
+      h(`canvas.effect.${name}`,{
+        hook,
+        attributes:{
+          width: '40px',
+          height: '40px',
+          style:`
+            display:inline-block;
+            margin:0 10px;
+          `
+        }
+      }),
+      h('div.effectlabel',name)
+    ])
+  }
+
+  renderEffects(data){
+    return h(`div.effectsmenu`,{
+      attributes:{
+        style:`
+          position:absolute;
+          top:60px;
+          width:100%;
+          height:70px;
+          background-color:lightgray;
+          z-index:31;
+          ${this.showmenu?'':"visibility:hidden;"}
+        `
+      }
+    },[
+      this.renderSingleEffect(data,'delay',new EffectKnobHook(this.ee,this.delay,(value)=>{
+          this.delay = value;
+          this.clips.forEach(clip=>{
+            clip.playout.toggleDelay = value > 1;
+            clip.playout.delay.delayTime.value = value;
+          })
+        },1,10)),
+      this.renderSingleEffect(data,'bitcrusher', new EffectKnobHook(this.ee,this.bitcrusher,(value)=>{
+          this.bitcrusher = value;
+          this.clips.forEach(clip=>{
+            clip.playout.togglePhaser = value > 1
+            clip.playout.bitcrusher.bits = value;
+          })
+      },1,16)),
+      this.renderSingleEffect(data,'lowpass', new EffectKnobHook(this.ee,this.lowpass,(value)=>{
+          this.lowpass = value;
+          this.clips.forEach(clip=>{
+            clip.playout.toggleLowpass = value > 10;
+            clip.playout.lowpass.frequency.value = value;
+            console.log(clip.playout.lowpass.Q);
+          })
+        },10,440))
+    ])
+  }
+
+
+  renderControls(data) {
     return h('div.controls',
       {
         attributes: {
-          style: `height: ${data.height}px; width: ${data.controls.width}px; position: absolute; left: 0; z-index: 10;`,
+          style: `
+            height: ${data.height}px; 
+            width: ${data.controls.width}px; 
+            position: absolute; 
+            overflow:visible;
+            left: 0; 
+            z-index: ${30 - this.id};`,
         },
       }, [
         h('header', [this.name]),
-        h('div.btn-group', [
-          h('span.btn.btn-default.btn-xs.destroyButton',{
-            onclick: ()=>{
-              this.ee.emit('destroy',this);
-            }
-          },['X']),
-          h(`span.btn.btn-default.btn-xs.btn-mute${muteClass}`, {
-            onclick: () => {
-              this.ee.emit('mute', this);
-            },
-          }, ['Mute']),
-          h(`span.btn.btn-default.btn-xs.btn-solo${soloClass}`, {
-            onclick: () => {
-              this.ee.emit('solo', this);
-            },
-          }, ['Solo']),
-          h('div.btn.btn-default.dropdown-toggle.btn-xs.btn-effects',{
-              onclick: e=>{
-                this.showmenu = !this.showmenu;
-                this.ee.emit('interactive');
-              }
-            },[
-            "effects",
-            h(`div.effectsmenu`,{
-              attributes:{
-                style:`
-                  position:absolite;
-                  top:0;
-                  left:10;
-                  ${this.showmenu?'':"display:none;"}
-                `
-              }
-            },[
-              h("div.effect.btn.btn-default",{
-                onclick:e=>{
-                  this.clips.forEach(clip=>{
-                    clip.playout.toggleDelay = !clip.playout.toggleDelay;
-                  });
-                },
-                attributes:{style:`
-                width:50px;height:20px;display:inline-block;
-              `}},"delay"),
-              h("div.effect.btn.btn-default",{
-                onclick:e=>{
-                  this.clips.forEach(clip=>{
-                    clip.playout.togglePhaser = !clip.playout.togglePhaser;
-                  });
-                },
-                attributes:{style:`
-                width:50px;height:20px;display:inline-block;
-              `}},"bitcrusher"),
-              h("div.effect.btn.btn-default",{
-                onclick:e=>{
-                  this.clips.forEach(clip=>{
-                    clip.playout.toggleLowpass = !clip.playout.toggleLowpass;
-                  });
-                },
-                attributes:{style:`
-                width:50px;height:20px;display:inline-block;
-              `}},"lowpass"),
-            ])
-          ]),
-          h(`canvas.knobCanvas`,{
-            attributes:{
-                width: 25,
-                height: 25,
-                "data-ringbgcolor": '#EEE',
-            },
-            hook: new PanKnob(this.pan,this)
-          })
-        ]),
+        this.renderButtons(data),        
+        this.renderEffects(data),
         h('label', [
           h('input.volume-slider', {
             attributes: {
@@ -307,7 +343,13 @@ export default class {
     return h(`div.channel-wrapper${audibleClass}${customClass}`,
       {
         attributes: {
-          style: `margin-left: ${channelMargin}px; height: ${data.height}px;`,
+          style: `
+            margin-left: ${channelMargin}px; 
+            height: ${data.height}px;
+            z-index: ${30 - this.id}; 
+            overflow:visible;`,
+            
+
         },
       },
       channelChildren,

@@ -95,7 +95,7 @@ class TimeScale {
     const startX = e.offsetX;
     const startTime = pixelsToSeconds(startX, this.samplesPerPixel, this.sampleRate);
 
-    this.ee.emit('select', startTime, startTime);
+    this.ee.emit('select', startTime+this.offset, startTime+this.offset);
   }
 
   render() {
