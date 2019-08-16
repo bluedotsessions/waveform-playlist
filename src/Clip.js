@@ -41,8 +41,6 @@ export default class {
     this.images = []; // Clip
 
     this.showMenu = false;
-
-    console.log(this);
   }
 
   setTrack(track){
@@ -736,7 +734,7 @@ export default class {
       start: this.startTime,
       end: this.endTime,
       name: this.name,
-      track:this.track,
+      track:this.track.name,
 
       customClass: this.customClass,
       cuein: this.cueIn,

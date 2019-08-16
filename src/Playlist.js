@@ -373,12 +373,11 @@ export default class {
     })
     ee.on('splitAt',({clip,at})=>{
       let info = clip.getTrackDetails();
-      info.track=info.track.name;
       info.name = "Copy of " + info.name;
       info.start = clip.startTime + at;
       info.cuein = clip.cueIn+at;
       info.cueout = clip.cueOut;
-      this.createClip(clip.buffer,info);
+      this.createClip(clip.buffer,info,false,clip.peaks);
 
       clip.endTime = clip.startTime + at;
 
@@ -390,7 +389,7 @@ export default class {
       info.name = "Copy of " + info.name;
       info.start = clip.endTime;
       info.end = clip.endTime + clip.duration; 
-      this.createClip(clip.buffer,info);
+      this.createClip(clip.buffer,info,false,clip.peaks);
       this.ee.emit('interactive');
     })
     ee.on('delete',clip=>{
@@ -407,7 +406,7 @@ export default class {
     return false;
   }
 
-  createClip(audioBuffer,info){
+  createClip(audioBuffer,info,removeSilences=true,readypeaks){
     const name = info.name || 'Untitled';
     const start = info.start || 0;
     const states = info.states || {};
@@ -470,8 +469,7 @@ export default class {
     }
 
 
-    if (peaks !== undefined)
-      clip.setPeakData(peaks);
+
 
     // clip.setState(this.getState());
     clip.setStartTime(start);
@@ -480,32 +478,72 @@ export default class {
     clip.setGainLevel(gain);
 
     // extract peaks with AudioContext for now.
-    clip.calculatePeaks(this.samplesPerPixel, this.sampleRate);
-/*
+    if (readypeaks !== undefined)
+      clip.peaks = readypeaks;
+    else
+      clip.calculatePeaks(this.samplesPerPixel, this.sampleRate);
 
-    let curPeak = clip.peaks.data[0];
-    let startX = 0;
-    for (let i = 0; i < clip.peaks.length; i += 1) {
-      if(curPeak[i * 2] != 0) {
-        startX = i; break;
+    if(removeSilences){
+      this.removeSilences(clip);
+    }
+    this.clips.push(clip);
+    return clip;
+  }
+
+  removeSilences(clip){
+    const track = clip.track;
+    const bpm = track.bpm;
+    const minimumSilence = 5*this.sampleRate;
+    const buffer = clip.buffer;
+    const samples = buffer.getChannelData(0);
+    let startofSilence = NaN;
+    const threshhold = 0.01;
+    // debugger;
+    for (let a=0;a<samples.length;a++){
+      if(!isNaN(startofSilence) && Math.abs(samples[a])>threshhold){
+        if(a - startofSilence > minimumSilence)
+          this.removeSamples(clip,startofSilence,a);
+        startofSilence = NaN;
+      }
+      else if (isNaN(startofSilence) && Math.abs(samples[a])<=threshhold){
+        startofSilence = a;
       }
     }
-    if (startX > 0) {
-      let startSec = pixelsToSeconds(startX, this.resolution, this.sampleRate);
-      console.log('startX',clip.name, startX, startSec, startSec, cueOut,clip.peaks);
-      console.log('(startSec + start + cueIn)', startSec, start, cueIn, startSec + start + cueIn);
-      // if(start < startSec) {
-        // clip.setStartTime(startSec + start);
-        // clip.setStartTime(start);
-        clip.startTime = startSec + start;
-        clip.cueIn = startSec + cueIn;
-        // clip.setCues(startSec + cueIn, cueOut);          
-        // clip.calculatePeaks(this.samplesPerPixel, this.sampleRate);
-      // }
-
+    if (!isNaN(startofSilence) && samples.length - startofSilence > minimumSilence){
+      this.removeSamples(clip,startofSilence,samples.length);
     }
-    */
-    return clip;
+  }
+  removeSamples(clip,start,end){
+    const startSec = samplesToSeconds(start,this.sampleRate);
+    const endSec = samplesToSeconds(end,this.sampleRate);
+    if (start == 0){
+      clip.cueIn += endSec;
+      clip.startTime += endSec; 
+    }
+    else if (end == clip.buffer.length){
+      clip.cueOut = startSec;
+    }
+    else{
+      
+      let info = clip.getTrackDetails();
+      
+      info.cueout = startSec;
+      console.log(
+        clip.name,
+        this.secondsToMinutes(info.start),
+        this.secondsToMinutes(info.start+info.cueout-info.cuein),
+      );
+      if (info.cueout - info.cuein >= 0.2)
+        this.createClip(clip.buffer,info,false,clip.peaks);
+      
+      clip.startTime += endSec-clip.cueIn;
+      clip.cueIn = endSec;
+    }
+  }
+  secondsToMinutes(sec){
+    const min = sec/60|0;
+    const secs = (sec - min*60)|0;
+    return `${min}:${secs/10|0}${secs%10}`
   }
 
   async load(clipList) {
@@ -526,10 +564,9 @@ export default class {
 
     this.ee.emit('audiosourcesloaded');
     
-    const clips = audioBuffers.map(
+    audioBuffers.forEach(
       (audioBuffer, index) => this.createClip(audioBuffer, clipList[index])
-    );
-    this.clips = this.clips.concat(clips);
+    )
     this.reasignClips();
     this.adjustDuration();
     this.draw(this.render());
