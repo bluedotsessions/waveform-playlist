@@ -501,8 +501,9 @@ export default class {
     // debugger;
     for (let a=0;a<samples.length;a++){
       if(!isNaN(startofSilence) && Math.abs(samples[a])>threshhold){
-        if(a - startofSilence > minimumSilence)
+        if(a - startofSilence > minimumSilence){
           this.removeSamples(clip,startofSilence,a);
+        }
         startofSilence = NaN;
       }
       else if (isNaN(startofSilence) && Math.abs(samples[a])<=threshhold){
@@ -708,7 +709,17 @@ export default class {
     this.zoomIndex = this.zoomLevels.indexOf(zoom);
     this.stateObj.setup(this.samplesPerPixel,this.sampleRate);
     this.tracks.forEach(track => {
-      track.clips.forEach(clip=>clip.calculatePeaks(zoom, this.sampleRate));
+      track.clips.forEach((clip,index)=>{
+        let a;
+        for (a=0;a<index;a++){
+          if(track.clips[a].buffer === clip.buffer){
+            clip.setPeaks(track.clips[a].peaks);
+            break;
+          }
+        }
+        if (a==index)
+          clip.calculatePeaks(zoom, this.sampleRate)
+      });
     });
   }
 
@@ -818,6 +829,19 @@ export default class {
       return this.restartPlayFrom(start, end);
     }
 
+    /*
+    this.tracks.forEach((track) => {
+      track.clips.forEach(clip=>{
+        clip.setOfflinePlayout(new Playout(this.offlineAudioContext, clip.buffer));
+        clip.schedulePlay(currentTime, 0, 0, {
+          shouldPlay: this.shouldTrackPlay(clip),
+          masterGain: 1,
+          isOffline: true,
+        });
+      })
+    });
+    */
+
     this.tracks.forEach((track) => {
       // track.setState('cursor');
       playoutPromises.push(track.schedulePlay(currentTime, start, end, {
@@ -825,8 +849,9 @@ export default class {
         masterGain: this.masterGain,
       }));
     });
+    this.tracks.forEach(track=>track.play(this.ac.currentTime,start,end));
 
-    this.lastPlay = currentTime;
+    this.lastPlay = this.ac.currentTime;
     // use these to track when the playlist has fully stopped.
     this.playoutPromises = playoutPromises;
     this.startAnimation(start);
@@ -1040,8 +1065,12 @@ export default class {
   }
 
   renderTrackSection() {
+    const globalEndTime = this.tracks
+      .map(tr=>tr.getEndTime())
+      .reduce((a,b)=>Math.max(a,b),0);
     const trackElements = this.tracks.map(track =>
       track.render(this.getTrackRenderData({
+        globalEndTime,
         isActive: this.isActiveTrack(track),
         shouldPlay: this.shouldTrackPlay(track),
         soloed: this.soloedTracks.indexOf(track) > -1,

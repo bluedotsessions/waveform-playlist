@@ -39,8 +39,11 @@ export default class {
     returns a Promise that will resolve when the AudioBufferSource
     is either stopped or plays out naturally.
   */
-  async schedulePlay(...args) {
-    await Promise.all(this.clips.map(c=>c.schedulePlay(...args)));
+  schedulePlay(...args) {
+    return Promise.all(this.clips.map(c=>c.schedulePlay(...args)));
+  }
+  play(...args){
+    this.clips.forEach(clip=>clip.play(...args));
   }
   scheduleStop(when){
     this.clips.forEach(c=>c.scheduleStop(when));
@@ -254,7 +257,7 @@ export default class {
     );
   }
 
-
+  
   getEndTime(){
     return this.clips.reduce((maxval,clip)=>Math.max(maxval,clip.endTime),0);
   }
@@ -289,7 +292,7 @@ export default class {
 
     const grid = h('canvas.grid',{
       attributes :{
-        width,
+        width:convert(data.globalEndTime),
         height: data.height,
         style: 'position:absolute;pointer-events:none'
       },
@@ -321,7 +324,7 @@ export default class {
     const waveform = h('div.waveform',
       {
         attributes: {
-          style: `height: ${data.height}px; position: relative;`,
+          style: `height: ${data.height}px; position: relative;width:${width}px`,
         },
       },
       waveformChildren,

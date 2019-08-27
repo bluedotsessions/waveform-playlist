@@ -70,6 +70,7 @@ export default class {
     else if (this.action == "shiftable")
       this.action = "shifting"
     else if (e.target.className == "waveform"){
+      console.log('seek');
       this.seekTo(e);
     }
     // else if (this.action == "scrolldraggable" && e.target.className == "waveform"){

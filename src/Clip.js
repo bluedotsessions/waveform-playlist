@@ -346,11 +346,15 @@ export default class {
     playoutSystem.setShouldPlay(options.shouldPlay);
     playoutSystem.setMasterGainLevel(options.masterGain);
     playoutSystem.setPan(this.pan);
-    console.log(when,start,duration);
-    playoutSystem.play(when, start, duration);
-
-
+    this.readyPlayout = playoutSystem;
+    // console.log(when,start,duration);
+    // for (var a=0,b=false;a<100000000;a++)if (a%13==0)a+=1;
+    // playoutSystem.play(when, start, duration);
+    
     return sourcePromise;
+  }
+  play(now, startTime, endTime){
+    this.readyPlayout.play(now,startTime,endTime);
   }
 
   scheduleStop(when = 0) {

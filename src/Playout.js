@@ -104,7 +104,7 @@ export default class {
     this.panner = this.ac.createStereoPanner();
 
 
-    console.log('playout', this.delay);
+    // console.log('playout', this.delay);
     
     
     this.masterGain = this.ac.createGain();
