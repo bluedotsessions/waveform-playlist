@@ -354,7 +354,16 @@ export default class {
     return sourcePromise;
   }
   play(now, startTime, endTime){
-    this.readyPlayout.play(now,startTime,endTime);
+    let diff = this.startTime - startTime;
+    if (diff > 0){
+      this.readyPlayout.play(now + diff,this.cueIn,endTime);
+    }
+    else if (this.endTime > startTime){
+      if (this.cueIn < 0){
+        debugger;
+      }
+      this.readyPlayout.play(now, this.cueIn - diff,endTime);
+    }
   }
 
   scheduleStop(when = 0) {
@@ -615,8 +624,7 @@ export default class {
     return h('div.menuButton',{
       onclick:e=>{
         console.log('showMenu',this.showMenu);
-        this.showMenu = !this.showMenu;
-        this.ee.emit('interactive');
+        this.ee.emit('showMenu',this);
       },
       attributes:{
         style:`
@@ -660,7 +668,6 @@ export default class {
       h('div.buttonSplit',{
         onclick:e=>{
           this.ee.emit('splitStart',this);
-          this.showMenu = false;
           this.ee.emit('interactive');
         },
         attributes:{
@@ -670,7 +677,6 @@ export default class {
       h('div.buttonDuplicate',{
         onclick:e=>{
           this.ee.emit('duplicate',this);
-          this.showMenu = false;
           this.ee.emit('interactive');
         },
         attributes:{
@@ -680,7 +686,6 @@ export default class {
       h('div.buttonDelete',{
         onclick:e=>{
           this.ee.emit('delete',this);
-          this.showMenu = false;
           this.ee.emit('interactive');
         },
         attributes:{
@@ -739,7 +744,7 @@ export default class {
       end: this.endTime,
       name: this.name,
       track:this.track.name,
-
+      bpm:this.bpm,
       customClass: this.customClass,
       cuein: this.cueIn,
       cueout: this.cueOut,

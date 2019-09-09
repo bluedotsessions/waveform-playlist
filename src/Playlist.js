@@ -5,7 +5,7 @@ import diff from 'virtual-dom/diff';
 import patch from 'virtual-dom/patch';
 import InlineWorker from 'inline-worker';
 
-import { pixelsToSeconds, samplesToSeconds } from './utils/conversions';
+import { pixelsToSeconds, samplesToSeconds, secondsToSamples } from './utils/conversions';
 import LoaderFactory from './track/loader/LoaderFactory';
 import ScrollHook from './render/ScrollHook';
 import TimeScale from './TimeScale';
@@ -187,13 +187,30 @@ export default class {
   setUpEventEmitter() {
     const ee = this.ee;
 
+    ee.on('showMenu',clip=>{
+
+      clip.showMenu = true;
+      if(this.openedMenuClip){
+        this.openedMenuClip.showMenu = false;
+      }
+      this.openedMenuClip = clip;
+    
+      this.drawRequest();
+    })
+    ee.on('playlistmousedown',()=>{
+      if(this.openedMenuClip){
+        this.openedMenuClip.showMenu = false;
+        delete this.openedMenuClip;
+      }
+    })
+
     ee.on ('interactive', (track) => {
-      // track.calculatePeaks(this.samplesPerPixel, this.sampleRate);
       this.drawRequest();
     });
 
     ee.on('activeclip',(clip)=>{
-      console.log(clip.name);
+      const segment = 60/clip.bpm;
+      console.log(clip.name,clip.startTime/segment);
       this.stateObj.activeClip = clip;
     })
 
@@ -244,8 +261,8 @@ export default class {
       this.drawRequest();
     });
 
-    ee.on('shift', (deltaTime, track) => {
-      track.setStartTime(track.getStartTime() + deltaTime);
+    ee.on('shift', (deltaTime, clip) => {
+      clip.setStartTime(clip.getStartTime() + deltaTime);
       this.adjustDuration();
       this.drawRequest();
     });
@@ -437,7 +454,6 @@ export default class {
       this.tracks.push(track);
     }
 
-
     const clip = new Clip(audioBuffer);
     clip.src = info.src;
     clip.setName(name);
@@ -496,18 +512,45 @@ export default class {
     const minimumSilence = 5*this.sampleRate;
     const buffer = clip.buffer;
     const samples = buffer.getChannelData(0);
+    const startTime = clip.startTime;
+    const cueIn = clip.cueIn;
+    const cueOut = clip.cueOut;
+    const cueInSamp = secondsToSamples(cueIn,this.sampleRate)
+    const cueOutSamp = secondsToSamples(cueOut,this.sampleRate)
+    const secsperbeat = 60/bpm;
     let startofSilence = NaN;
+    let endofSilenece = NaN;
     const threshhold = 0.01;
-    // debugger;
-    for (let a=0;a<samples.length;a++){
+
+    for (let a=cueInSamp;a<cueOutSamp;a++){
       if(!isNaN(startofSilence) && Math.abs(samples[a])>threshhold){
         if(a - startofSilence > minimumSilence){
-          this.removeSamples(clip,startofSilence,a);
+          let qpoint = a;
+          while(qpoint>0){
+            const secs = samplesToSeconds(qpoint,this.sampleRate) + startTime - cueIn;
+            const secsprev =  samplesToSeconds(qpoint-1,this.sampleRate) + startTime - cueIn;
+            if (Math.floor(secs / secsperbeat) > Math.floor(secsprev / secsperbeat)){
+              this.removeSamples(clip,startofSilence,qpoint);
+              break;
+            }
+            qpoint --;
+          }
         }
         startofSilence = NaN;
       }
       else if (isNaN(startofSilence) && Math.abs(samples[a])<=threshhold){
-        startofSilence = a;
+        if (!track.bpm){
+          startofSilence = a;
+        }
+        else{
+          const secs = samplesToSeconds(a,this.sampleRate) + startTime - cueIn;
+          const secsprev =  samplesToSeconds(a-1,this.sampleRate) + startTime - cueIn;
+
+          const beatNumber = secs / secsperbeat;
+          if (Math.floor(secs / secsperbeat) > Math.floor(secsprev / secsperbeat)){
+            startofSilence = a;
+          }
+        }
       }
     }
     if (!isNaN(startofSilence) && samples.length - startofSilence > minimumSilence){
@@ -517,7 +560,8 @@ export default class {
   removeSamples(clip,start,end){
     const startSec = samplesToSeconds(start,this.sampleRate);
     const endSec = samplesToSeconds(end,this.sampleRate);
-    if (start == 0){
+    const cueInSamp = samplesToSeconds(clip.cueIn,this.sampleRate);
+    if (start == cueInSamp){
       clip.cueIn += endSec;
       clip.startTime += endSec; 
     }
@@ -537,7 +581,7 @@ export default class {
       if (info.cueout - info.cuein >= 0.2)
         this.createClip(clip.buffer,info,false,clip.peaks);
       
-      clip.startTime += endSec-clip.cueIn;
+      clip.startTime += endSec - clip.cueIn;
       clip.cueIn = endSec;
     }
   }
