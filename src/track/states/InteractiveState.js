@@ -92,12 +92,11 @@ export default class {
       // console.log(mousepos,this.activeClip.duration)
       const fadeout= this.activeClip.fades[this.activeClip.fadeOut];
       const fadein= this.activeClip.fades[this.activeClip.fadeIn];
-
-      
-        if (this.hoveringover == "fadein")
-          this.ee.emit('fadein', Math.min( Math.max(mousepos, 0),this.activeClip.duration - fadeout.getDuration() - 0.5) , this.activeClip);
-        else
-          this.ee.emit('fadeout', this.activeClip.duration - Math.min( Math.max(mousepos, fadein.getDuration() + 0.5),this.activeClip.duration),this.activeClip);
+      if (this.hoveringover == "fadein")
+        this.ee.emit('fadein', Math.min( Math.max(mousepos, 0),this.activeClip.duration - fadeout.getDuration() - 0.5) , this.activeClip);
+      else
+        this.ee.emit('fadeout', this.activeClip.duration - Math.min( Math.max(mousepos, fadein.getDuration() + 0.5),this.activeClip.duration),this.activeClip);
+      this.ee.emit('interactive');  
     }
     else if (this.action == "resizingleft" || this.action == "resizingright"){
       this.updateResizing(e);

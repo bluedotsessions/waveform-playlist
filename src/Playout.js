@@ -139,6 +139,9 @@ export default class {
 
     return sourcePromise;
   }
+  get dBSource(){
+    return this.masterGain;
+  }
 
   setVolumeGainLevel(level) {
     if (this.volumeGain) {

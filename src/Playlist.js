@@ -178,10 +178,23 @@ export default class {
       let newTrack = new Track(this.tracksids++);
       newTrack.setName(name);
       newTrack.quantize = this.quantize;
-      newTrack.bpm = this.bpm;
+      newTrack.bpm = this._bpm;
       newTrack.setEventEmitter(this.ee);
       this.tracks.push(newTrack);
     }
+  }
+  set bpm(bpm){
+    this._bpm = bpm;
+    this.tracks.forEach(track=>{
+      track.bpm = bpm;
+      track.clips.forEach(clip=>{
+        clip.bpm = bpm;
+      })
+    })
+    this.ee.emit('interactive');
+  }
+  get bpm(){
+    return this._bpm;
   }
 
   setUpEventEmitter() {
@@ -322,12 +335,12 @@ export default class {
 
     ee.on('fadein', (duration, clip) => {
       clip.setFadeIn(duration, this.fadeType);
-      this.drawRequest();
+      // this.drawRequest();
     });
 
     ee.on('fadeout', (duration, clip) => {
       clip.setFadeOut(duration, this.fadeType);
-      this.drawRequest();
+      // this.drawRequest();
     });
 
     ee.on('fadetype', (type) => {
@@ -446,6 +459,7 @@ export default class {
     let track = this.getTrackByName(trackname);
     if (!track){
       track = new Track(this.tracksids++);
+      track.analyzer = this.ac.createAnalyser();
       track.name = trackname;
       track.quantize = this.quantize;
       track.bpm = this.bpm;
@@ -1031,6 +1045,7 @@ export default class {
 
       this.playbackSeconds = playbackSeconds;
       this.draw(this.render());
+      this.tracks.forEach(tr=>tr.updatedBMeter());
       this.lastDraw = currentTime;
     } else {
       if ((cursorPos + elapsed) >=

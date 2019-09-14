@@ -51,7 +51,7 @@ class CanvasHook {
     this.bufferedwaveform.width = width;
     this.bufferedwaveform.height = height;
     // console.log(this.bufferedwaveform);
-    console.log("new canvas");
+    console.log("redraw");
     this.bwc = this.bufferedwaveform.getContext('2d');
     this.drawCanvas(this.bwc,width,height/2);
     return this.bufferedwaveform;

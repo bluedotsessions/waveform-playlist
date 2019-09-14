@@ -212,7 +212,7 @@ export default class {
       this.samplesPerPixel = samplesPerPixel;
     }
     this.setPeaks(extractPeaks(this.buffer, samplesPerPixel, this.peakData.mono));
-    console.log(this.peaks);
+    console.log("peaks",this.peaks);
   }
 
   setPeaks(peaks) {
@@ -309,6 +309,7 @@ export default class {
     start += this.cueIn;
     const relPos = startTime - this.startTime;
     const sourcePromise = playoutSystem.setUpSource();
+    this.track.registerPlayout(playoutSystem.dBSource);
 
     // param relPos: cursor position in seconds relative to this track.
     // can be negative if the cursor is placed before the start of this track etc.

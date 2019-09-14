@@ -9,6 +9,7 @@ import VolumeSliderHook from './render/VolumeSliderHook';
 import PanKnob from './render/PanKnobHook';
 import GridHook from './render/GridHook';
 import EffectKnobHook from './render/EffectKnobHook';
+import { relative } from 'path';
 
 export default class {
 
@@ -22,13 +23,18 @@ export default class {
     this.bpm = 100;
     this.id = id;
     this.quantize = 1;
+    
+    this.analyzer = undefined;
+    this.analyzerHook = new VolumeSliderHook(this);
 
     this.delay = 1;
     this.bitcrusher = 1;
     this.lowpass = 10;
 
     this.clips = [];
-
+  }
+  updatedBMeter(){
+    this.analyzerHook.update();
   }
   unasignAll(){
     return this.clips = [];
@@ -50,6 +56,9 @@ export default class {
   }
   assign(clip){
     return this.clips.push(clip);
+  }
+  registerPlayout(source){
+    source.connect(this.analyzer);
   }
 
   set pan(inp){
@@ -113,6 +122,7 @@ export default class {
 
   setGainLevel(level) {
     this.gain = level;
+    this.analyzerHook.update();
     this.clips.forEach(clip=>{
       clip.gain = level;
       clip.playout.setVolumeGainLevel(level);
@@ -221,6 +231,24 @@ export default class {
         },10,440))
     ])
   }
+  
+
+  renderVolumeSlider(data){
+    const width = 100;
+    return h('canvas.volume-slider', {
+        attributes:{
+          width,
+          height:30          
+        },
+        onclick:e=>{
+          const relativeX = e.layerX;
+          //canvas is larger than the slider with 7 pixels on each side, so:
+          const clamped = Math.min(Math.max(relativeX, 7), width-14);
+          this.setGainLevel((clamped-7)/(100-14))
+        },
+        hook: this.analyzerHook,
+    })
+  }
 
 
   renderControls(data) {
@@ -239,20 +267,7 @@ export default class {
         h('header', [this.name]),
         this.renderButtons(data),        
         this.renderEffects(data),
-        h('label', [
-          h('input.volume-slider', {
-            attributes: {
-              type: 'range',
-              min: 0,
-              max: 100,
-              value: 100,
-            },
-            hook: new VolumeSliderHook(this.gain),
-            oninput: (e) => {
-              this.ee.emit('volumechange', e.target.value, this);
-            },
-          }),
-        ]),
+        this.renderVolumeSlider(data),
       ],
     );
   }
@@ -268,7 +283,7 @@ export default class {
       return secondsToPixels(seconds,data.resolution, data.sampleRate);
     }
 
-    const width = convert(this.getEndTime());
+    const width = convert(data.globalEndTime);
     const playbackX = convert(data.playbackSeconds);
     const startX = convert(this.startTime);
     const endX = convert(this.endTime);
