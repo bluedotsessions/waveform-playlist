@@ -37,10 +37,30 @@ class CanvasHook {
     cc.fillStyle = this.color;
     // console.log(this.color);
     for (let i = 0; i < len; i += 1) {
-      const minPeak = this.peaks[i * 2] / maxValue;
-      const maxPeak = this.peaks[i * 2 + 1] / maxValue;
+      const minPeak = this.compressValue(this.peaks[i * 2] / maxValue);
+      const maxPeak = this.compressValue(this.peaks[i * 2 + 1] / maxValue);
+      
       CanvasHook.drawFrame(cc, h2, i, minPeak, maxPeak);
     }
+  }
+  compressValue(val){
+  
+    if (Math.abs(val) < 0.1){
+      val *= 1.6;
+    }
+    else if (Math.abs(val) < 0.2){
+      val *= 1.5;
+    }
+    else if (Math.abs(val) < 0.3){
+      val *= 1.4;
+    }
+    else if (Math.abs(val) < 0.4){
+      val *= 1.3;
+    }
+    else if (Math.abs(val) <= 0.6){
+      val *= 1.2
+    }
+    return val;
   }
 
   getImage() {

@@ -212,7 +212,7 @@ export default class {
       this.samplesPerPixel = samplesPerPixel;
     }
     this.setPeaks(extractPeaks(this.buffer, samplesPerPixel, this.peakData.mono));
-    console.log("peaks",this.peaks);
+    // console.log("peaks",this.peaks);
   }
 
   setPeaks(peaks) {
@@ -308,7 +308,7 @@ export default class {
 
     start += this.cueIn;
     const relPos = startTime - this.startTime;
-    const sourcePromise = playoutSystem.setUpSource();
+    const sourcePromise = playoutSystem.setUpSource(config.compressor);
     this.track.registerPlayout(playoutSystem.dBSource);
 
     // param relPos: cursor position in seconds relative to this track.
@@ -415,7 +415,7 @@ export default class {
         onmouseup: e=>{
           console.log(fadeOut.end - fadeOut.start);
           if(this.clickhandle && fadeOut.end - fadeOut.start < 0.2){
-            this.setFadeOut(2);
+            this.setFadeOut(2,this.fades[this.fadeOut].shape);
             this.ee.emit("interactive",this);
           }
         },
@@ -483,7 +483,7 @@ export default class {
           onmouseup: e=>{
             console.log(fadeIn.end - fadeIn.start);
             if(this.clickhandle && fadeIn.end - fadeIn.start < 0.2){
-              this.setFadeIn(2);
+              this.setFadeIn(2,this.fades[this.fadeIn].shape);
               this.ee.emit("interactive",this);
             }
           },

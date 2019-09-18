@@ -69,60 +69,52 @@ export default class {
     }
     else if (this.action == "shiftable")
       this.action = "shifting"
-    else if (e.target.className == "waveform"){
-      console.log('seek');
-      
+    else if (e.target.className == "waveform")
       this.seekTo(e);
-    }
-    // else if (this.action == "scrolldraggable" && e.target.className == "waveform"){
-      //this.action = "scrolldraggingcandidate";
-      //this.clip.ee.emit("scrolldraggingstart");
-    // }
-    // console.log(this.clip);
   }
   
+  updateDraggingFadeHandle(mousepos){
+    const fadeout= this.activeClip.fades[this.activeClip.fadeOut];
+    const fadein= this.activeClip.fades[this.activeClip.fadeIn];
+    if (this.hoveringover == "fadein")
+      this.ee.emit('fadein', Math.min( Math.max(mousepos, 0),this.activeClip.duration - fadeout.getDuration() - 0.5) , this.activeClip);
+    else
+      this.ee.emit('fadeout', this.activeClip.duration - Math.min( Math.max(mousepos, fadein.getDuration() + 0.5),this.activeClip.duration),this.activeClip);
+    this.ee.emit('interactive');  
+  }
+
+  updateShifting(movementX){
+    const blocklength = (60 / this.activeClip.bpm)*this.activeClip.quantize; //in seconds
+    this.bufferedMovement += movementX; //in seconds
+    const snaps = Math.round(this.bufferedMovement/blocklength);
+    if (snaps != 0){
+      this.ee.emit("shift",snaps*blocklength,this.activeClip);
+      this.bufferedMovement = this.bufferedMovement - snaps*blocklength;
+    }
+  }
+
   mousemove(e) {
-    // const mousepos = pixelsToSeconds(this.correctOffset(e), this.samplesPerPixel, this.sampleRate);
-    // if (!mousepos)return;
     // console.log(this.action);
     const mousepos = this.getMousepos(e);
     const movementX = pixelsToSeconds(e.movementX, this.samplesPerPixel, this.sampleRate);
     if (this.action == "dragginghandle"){
-      // console.log(mousepos,this.clip.getStartTime(),this.clip.startTime);
-      // console.log(mousepos,this.activeClip.duration)
-      const fadeout= this.activeClip.fades[this.activeClip.fadeOut];
-      const fadein= this.activeClip.fades[this.activeClip.fadeIn];
-      if (this.hoveringover == "fadein")
-        this.ee.emit('fadein', Math.min( Math.max(mousepos, 0),this.activeClip.duration - fadeout.getDuration() - 0.5) , this.activeClip);
-      else
-        this.ee.emit('fadeout', this.activeClip.duration - Math.min( Math.max(mousepos, fadein.getDuration() + 0.5),this.activeClip.duration),this.activeClip);
-      this.ee.emit('interactive');  
+      this.updateDraggingFadeHandle(mousepos);
     }
     else if (this.action == "resizingleft" || this.action == "resizingright"){
       this.updateResizing(e);
     }
     else if (this.action == "shifting"){
-      const blocklength = (60 / this.activeClip.bpm)*this.activeClip.quantize; //in seconds
-      this.bufferedMovement += movementX; //in seconds
-      const snaps = Math.round(this.bufferedMovement/blocklength);
-      if (snaps != 0){
-        this.ee.emit("shift",snaps*blocklength,this.activeClip);
-        this.bufferedMovement = this.bufferedMovement - snaps*blocklength;
-      }
+     this.updateShifting(movementX);
     }
+    //Hovering Over:
     else if (this.action == "split"){
       document.body.style.cursor = "text";
     }
     else if (e.target.classList.contains('fadehandle')){
       this.action = "fadedraggable";
       this.hoveringover = e.target.classList.contains('fadein')?"fadein":"fadeout";
-      
       document.body.style.cursor = "pointer";
     }
-    // else if (this.action == "scrolldragging" || this.action == "scrolldraggingcandidate"){
-    //   this.ee.emit("scrolldragging",e.movementX);
-    //   this.action = "scrolldragging";
-    // }
     else if (e.target.className == "handleContainer right"){
       this.action = "resizeableright"
       document.body.style.cursor = "e-resize";
@@ -136,15 +128,10 @@ export default class {
       document.body.style.cursor = "grab";
 
     }
-    // else if (e.target.className == "waveform"){
-    //   document.body.style.cursor = "auto";
-    //   this.action = "scrolldraggable";
-    // }
     else{
       this.action = null;
       document.body.style.cursor = "auto";
     }
-    // console.log(this.action);
   }
 
 

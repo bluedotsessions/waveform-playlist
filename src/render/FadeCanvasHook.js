@@ -29,7 +29,6 @@ class FadeCanvasHook {
         throw new Error('Unsupported fade type.');
       }
     }
-
     switch (shape) {
       case SCURVE: {
         curve = sCurve(width, reflection);

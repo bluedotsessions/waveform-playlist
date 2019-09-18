@@ -19,6 +19,16 @@ export default class {
         max = Math.abs(this.dataarray[a]);
       }
     }
+    //compressor
+    if (max < 0.3){
+      max *= 1.4;
+    }
+    else if (max < 0.4){
+      max *= 1.3;
+    }
+    else if (max <= 0.6){
+      max *= 1.2
+    }
     this.draw(max);
   }
   draw(max){

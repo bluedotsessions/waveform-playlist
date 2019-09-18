@@ -58,7 +58,9 @@ export default class {
     return this.clips.push(clip);
   }
   registerPlayout(source){
-    source.connect(this.analyzer);
+    if (source.context.constructor.name != "OfflineAudioContext"){
+      source.connect(this.analyzer);
+    }
   }
 
   set pan(inp){

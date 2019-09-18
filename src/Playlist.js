@@ -193,6 +193,18 @@ export default class {
     })
     this.ee.emit('interactive');
   }
+  set quantize(q){
+    this._quantize = q;
+    this.tracks.forEach(tr=>{
+      tr.quantize = q
+      tr.clips.forEach(clip=>{
+        clip.quantize = q;
+      })
+    });
+  }
+  get quantize(){
+    return this._quantize;
+  }
   get bpm(){
     return this._bpm;
   }
@@ -334,12 +346,12 @@ export default class {
     });
 
     ee.on('fadein', (duration, clip) => {
-      clip.setFadeIn(duration, this.fadeType);
+      clip.setFadeIn(duration, clip.fades[clip.fadeIn].shape);
       // this.drawRequest();
     });
 
     ee.on('fadeout', (duration, clip) => {
-      clip.setFadeOut(duration, this.fadeType);
+      clip.setFadeOut(duration, clip.fades[clip.fadeOut].shape);
       // this.drawRequest();
     });
 
@@ -414,8 +426,9 @@ export default class {
       this.ee.emit('interactive');
     })
     ee.on('duplicate',clip=>{
+
       let info = clip.getTrackDetails();
-      info.track=info.track.name;
+      // info.track;
       info.name = "Copy of " + info.name;
       info.start = clip.endTime;
       info.end = clip.endTime + clip.duration; 
@@ -488,14 +501,14 @@ export default class {
       clip.setFadeIn(fadeIn.duration, fadeIn.shape);
     }
     else if (this.getState() == 'interactive'){
-      clip.setFadeIn(0.01, "logarithmic");
+      clip.setFadeIn(0.01, "linear");
     }
 
     if (fadeOut !== undefined) {
       clip.setFadeOut(fadeOut.duration, fadeOut.shape);
     }
     else if (this.getState() == 'interactive'){
-      clip.setFadeOut(0.01, "logarithmic");
+      clip.setFadeOut(0.01, "linear");
     }
 
 
@@ -539,15 +552,20 @@ export default class {
     for (let a=cueInSamp;a<cueOutSamp;a++){
       if(!isNaN(startofSilence) && Math.abs(samples[a])>threshhold){
         if(a - startofSilence > minimumSilence){
-          let qpoint = a;
-          while(qpoint>0){
-            const secs = samplesToSeconds(qpoint,this.sampleRate) + startTime - cueIn;
-            const secsprev =  samplesToSeconds(qpoint-1,this.sampleRate) + startTime - cueIn;
-            if (Math.floor(secs / secsperbeat) > Math.floor(secsprev / secsperbeat)){
-              this.removeSamples(clip,startofSilence,qpoint);
-              break;
+          if (!clip.bpm){
+            this.removeSamples(clip,startofSilence,a);
+          }
+          else {
+            let qpoint = a;
+            while(qpoint>0){
+              const secs = samplesToSeconds(qpoint,this.sampleRate) + startTime - cueIn;
+              const secsprev =  samplesToSeconds(qpoint-1,this.sampleRate) + startTime - cueIn;
+              if (Math.floor(secs / secsperbeat) > Math.floor(secsprev / secsperbeat)){
+                this.removeSamples(clip,startofSilence,qpoint);
+                break;
+              }
+              qpoint --;
             }
-            qpoint --;
           }
         }
         startofSilence = NaN;
@@ -619,7 +637,7 @@ export default class {
     });
 
     let audioBuffers = await Promise.all(loadPromises);
-    console.log(audioBuffers);
+    // console.log(audioBuffers);
 
     this.ee.emit('audiosourcesloaded');
     
@@ -677,12 +695,15 @@ export default class {
 
     const currentTime = this.offlineAudioContext.currentTime;
 
+    const compressor = this.offlineAudioContext.createDynamicsCompressor();
+
     this.tracks.forEach((track) => {
       track.clips.forEach(clip=>{
         clip.setOfflinePlayout(new Playout(this.offlineAudioContext, clip.buffer));
         clip.schedulePlay(currentTime, 0, 0, {
           shouldPlay: this.shouldTrackPlay(clip),
           masterGain: 1,
+          compressor,
           isOffline: true,
         });
       })
@@ -899,12 +920,13 @@ export default class {
       })
     });
     */
-
+    const compressor = this.ac.createDynamicsCompressor();
     this.tracks.forEach((track) => {
       // track.setState('cursor');
       playoutPromises.push(track.schedulePlay(currentTime, start, end, {
         shouldPlay: this.shouldTrackPlay(track),
         masterGain: this.masterGain,
+        compressor,
       }));
     });
     this.tracks.forEach(track=>track.play(this.ac.currentTime,start,end));
@@ -971,6 +993,8 @@ export default class {
   clear() {
     return this.stop().then(() => {
       this.tracks = [];
+      this.clips = [];
+      this.buffers = new Map;
       this.soloedTracks = [];
       this.mutedTracks = [];
       this.playoutPromises = [];

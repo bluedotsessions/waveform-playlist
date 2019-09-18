@@ -68,7 +68,7 @@ export default class {
     this.destination = this.ac.destination;
   }
 
-  setUpSource() {
+  setUpSource(compressor) {
     this.source = this.ac.createBufferSource();
     this.source.buffer = this.buffer;
 
@@ -133,6 +133,7 @@ export default class {
     this.volumeGain
       .connect(this.shouldPlayGain)
       .connect(this.masterGain)
+      .connect(compressor)
       .connect(this.destination)
 
 
