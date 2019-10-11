@@ -708,6 +708,18 @@ export default class {
         });
       })
     });
+    this.tracks.forEach(track=>track.play(currentTime, 0, 0));
+
+    /*
+       this.tracks.forEach((track) => {
+         track.schedulePlay(currentTime, start, end, {
+           shouldPlay: this.shouldTrackPlay(track),
+           masterGain: this.masterGain,
+           compressor,
+         }));
+       });
+       this.tracks.forEach(track=>track.play(this.ac.currentTime,start,end));
+    */
 
     /*
       TODO cleanup of different audio playouts handling.

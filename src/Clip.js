@@ -355,6 +355,7 @@ export default class {
     return sourcePromise;
   }
   play(now, startTime, endTime){
+    endTime = endTime || undefined;
     let diff = this.startTime - startTime;
     if (diff > 0){
       this.readyPlayout.play(now + diff,this.cueIn,endTime);
@@ -368,7 +369,8 @@ export default class {
   }
 
   scheduleStop(when = 0) {
-    this.playout.stop(when);
+    const playout = this.readyPlayout || this.playout;
+    playout.stop(when);
   }
 
   renderOverlay(data) {
