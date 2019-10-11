@@ -1,8 +1,7 @@
 module.exports = {
   entry: ['babel-polyfill',__dirname + "/src/app.js"],
   output: {
-    path:  __dirname + "/dist/waveform-playlist/js",
-    publicPath: "/waveform-playlist/js/",
+    path:  __dirname,
     filename: 'waveform-playlist.var.js',
     library: 'WaveformPlaylist',
     libraryTarget: 'var'
