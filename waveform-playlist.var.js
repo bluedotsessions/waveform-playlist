@@ -9388,6 +9388,7 @@ var WaveformPlaylist =
 	      timeColor: 'grey',
 	      fadeColor: 'black'
 	    },
+	    name: "untitled",
 	    seekStyle: 'line',
 	    waveHeight: 128,
 	    state: 'interactive',
@@ -9434,7 +9435,7 @@ var WaveformPlaylist =
 	
 	  playlist.bpm = config.bpm; //GH  Galen
 	  playlist.quantize = config.quantize; //GH Galen
-	
+	  playlist.name = config.name;
 	  playlist.setTracks(config.tracks);
 	
 	  // take care of initial virtual dom rendering.
@@ -10890,19 +10891,19 @@ var WaveformPlaylist =
 	
 	var _Clip2 = _interopRequireDefault(_Clip);
 	
-	var _Playout = __webpack_require__(419);
+	var _Playout = __webpack_require__(414);
 	
 	var _Playout2 = _interopRequireDefault(_Playout);
 	
-	var _AnnotationList = __webpack_require__(421);
+	var _AnnotationList = __webpack_require__(416);
 	
 	var _AnnotationList2 = _interopRequireDefault(_AnnotationList);
 	
-	var _recorderWorker = __webpack_require__(427);
+	var _recorderWorker = __webpack_require__(422);
 	
 	var _recorderWorker2 = _interopRequireDefault(_recorderWorker);
 	
-	var _exportWavWorker = __webpack_require__(428);
+	var _exportWavWorker = __webpack_require__(423);
 	
 	var _exportWavWorker2 = _interopRequireDefault(_exportWavWorker);
 	
@@ -11144,7 +11145,11 @@ var WaveformPlaylist =
 	      ee.on('interactive', function (track) {
 	        _this2.drawRequest();
 	      });
-	
+	      ee.on('stopAndRollback', function (e) {
+	        _this2.stop().then(function (_) {
+	          _this2.seek(0, 0);
+	        });
+	      });
 	      ee.on('activeclip', function (clip) {
 	        var segment = 60 / clip.bpm;
 	        console.log(clip.name, clip.startTime / segment);
@@ -11209,7 +11214,7 @@ var WaveformPlaylist =
 	      });
 	
 	      ee.on('play', function (start, end) {
-	        _this2.play(start, end);
+	        if (_this2.isPlaying()) _this2.pause();else _this2.play(start, end);
 	      });
 	
 	      ee.on('pause', function () {
@@ -12114,9 +12119,7 @@ var WaveformPlaylist =
 	        this.setActiveTrack(track || this.tracks[0]);
 	        this.pausedAt = start;
 	        this.setTimeSelection(start, end);
-	        if (this.getSeekStyle() === 'fill') {
-	          this.playbackSeconds = start;
-	        }
+	        this.playbackSeconds = start;
 	      }
 	    }
 	
@@ -12248,9 +12251,6 @@ var WaveformPlaylist =
 	      });
 	
 	      return (0, _h2.default)('div.playlist-tracks', {
-	        attributes: {
-	          style: 'overflow: auto;'
-	        },
 	        onscroll: function onscroll(e) {
 	          _this15.scrollLeft = (0, _conversions.pixelsToSeconds)(e.target.scrollLeft, _this15.samplesPerPixel, _this15.sampleRate);
 	
@@ -12276,7 +12276,7 @@ var WaveformPlaylist =
 	        containerChildren.push(this.renderAnnotations());
 	      }
 	
-	      return (0, _h2.default)('div.playlist', {
+	      return (0, _h2.default)('div#playlist-rendered', {
 	        onselectstart: function onselectstart(event) {
 	          return event.preventDefault();
 	        },
@@ -12291,9 +12291,6 @@ var WaveformPlaylist =
 	        },
 	        onmousemove: function onmousemove(event) {
 	          return _this16.ee.emit("playlistmousemove", event);
-	        },
-	        attributes: {
-	          style: 'overflow: hidden; position: relative;'
 	        }
 	      }, containerChildren);
 	    }
@@ -12318,6 +12315,7 @@ var WaveformPlaylist =
 	          clip.bpm = bpm;
 	        });
 	      });
+	      this.ee.emit("bpm-change", bpm);
 	      this.ee.emit('interactive');
 	    },
 	    get: function get() {
@@ -12336,6 +12334,15 @@ var WaveformPlaylist =
 	    },
 	    get: function get() {
 	      return this._quantize;
+	    }
+	  }, {
+	    key: 'name',
+	    set: function set(str) {
+	      this.ee.emit("name-change", str);
+	      this._name = str;
+	    },
+	    get: function get() {
+	      return this._name;
 	    }
 	  }]);
 
@@ -15074,9 +15081,6 @@ var WaveformPlaylist =
 	      return (0, _h2.default)('div.playlist-time-scale', {
 	        onmousedown: function onmousedown(e) {
 	          _this.seekTo(e);
-	        },
-	        attributes: {
-	          style: 'position: relative; left: 0; right: 0; margin-left: ' + this.marginLeft + 'px;'
 	        }
 	      }, [timeMarkers, (0, _h2.default)('canvas', {
 	        attributes: {
@@ -15400,31 +15404,33 @@ var WaveformPlaylist =
 	
 	      var muteClass = data.muted ? '.active' : '';
 	      var soloClass = data.soloed ? '.active' : '';
-	      return (0, _h2.default)('div.btn-group', [(0, _h2.default)('span.btn.btn-default.btn-xs.destroyButton', {
-	        onclick: function onclick() {
-	          _this2.ee.emit('destroy', _this2);
-	        }
-	      }, ['X']), (0, _h2.default)('span.btn.btn-default.btn-xs.btn-mute' + muteClass, {
+	      return (0, _h2.default)('div.track-buttons-container', [
+	      // h('span.destroy-button',{
+	      //   onclick: ()=>{
+	      //     this.ee.emit('destroy',this);
+	      //   }
+	      // },['X']),
+	      (0, _h2.default)('span.mute-button.bordered-track-button', {
 	        onclick: function onclick() {
 	          _this2.ee.emit('mute', _this2);
 	        }
-	      }, ['Mute']), (0, _h2.default)('span.btn.btn-default.btn-xs.btn-solo' + soloClass, {
+	      }, ['M']), (0, _h2.default)('span.solo-button.bordered-track-button', {
 	        onclick: function onclick() {
 	          _this2.ee.emit('solo', _this2);
 	        }
-	      }, ['Solo']), (0, _h2.default)('div.btn.btn-default.dropdown-toggle.btn-xs.btn-effects', {
+	      }, ['S']), (0, _h2.default)('div.effects-button.bordered-track-button', {
 	        onclick: function onclick(e) {
 	          _this2.showmenu = !_this2.showmenu;
 	          _this2.ee.emit('interactive');
 	        }
-	      }, ["effects"]), (0, _h2.default)('canvas.knobCanvas', {
+	      }, ["FX"]), (0, _h2.default)('div.protectFromStreching', [(0, _h2.default)('canvas.knobCanvas', {
 	        attributes: {
 	          width: 25,
 	          height: 25,
 	          "data-ringbgcolor": '#EEE'
 	        },
 	        hook: new _PanKnobHook2.default(this.pan, this)
-	      })]);
+	      })]), this.renderVolumeSlider(data)]);
 	    }
 	  }, {
 	    key: 'renderSingleEffect',
@@ -15473,7 +15479,7 @@ var WaveformPlaylist =
 	    value: function renderVolumeSlider(data) {
 	      var _this4 = this;
 	
-	      var width = 100;
+	      var width = 75;
 	      return (0, _h2.default)('canvas.volume-slider', {
 	        attributes: {
 	          width: width,
@@ -15482,8 +15488,8 @@ var WaveformPlaylist =
 	        onclick: function onclick(e) {
 	          var relativeX = e.layerX;
 	          //canvas is larger than the slider with 7 pixels on each side, so:
-	          var clamped = Math.min(Math.max(relativeX, 7), width - 14);
-	          _this4.setGainLevel((clamped - 7) / (100 - 14));
+	          var clamped = Math.min(Math.max(relativeX, 7), width - 7);
+	          _this4.setGainLevel((clamped - 7) / (width - 14));
 	        },
 	        hook: this.analyzerHook
 	      });
@@ -15491,11 +15497,11 @@ var WaveformPlaylist =
 	  }, {
 	    key: 'renderControls',
 	    value: function renderControls(data) {
-	      return (0, _h2.default)('div.controls', {
+	      return (0, _h2.default)('div.track-controls', {
 	        attributes: {
-	          style: '\n            height: ' + data.height + 'px; \n            width: ' + data.controls.width + 'px; \n            position: absolute; \n            overflow:visible;\n            left: 0; \n            z-index: ' + (30 - this.id) + ';'
+	          style: '\n            z-index: ' + (30 - this.id) + ';'
 	        }
-	      }, [(0, _h2.default)('header', [this.name]), this.renderButtons(data), this.renderEffects(data), this.renderVolumeSlider(data)]);
+	      }, [(0, _h2.default)('header', [this.name]), this.renderButtons(data), this.renderEffects(data)]);
 	    }
 	  }, {
 	    key: 'getEndTime',
@@ -15528,7 +15534,7 @@ var WaveformPlaylist =
 	
 	      var waveformChildren = [(0, _h2.default)('div.cursor', {
 	        attributes: {
-	          style: 'position: absolute; width: 1px; margin: 0; padding: 0; top: 0; left: ' + playbackX + 'px; bottom: 0; z-index: 5;'
+	          style: 'left: ' + playbackX + 'px;'
 	        }
 	      })];
 	
@@ -15581,8 +15587,7 @@ var WaveformPlaylist =
 	
 	      return (0, _h2.default)('div.channel-wrapper' + audibleClass + customClass, {
 	        attributes: {
-	          style: '\n            margin-left: ' + channelMargin + 'px; \n            height: ' + data.height + 'px;\n            z-index: ' + (30 - this.id) + '; \n            overflow:visible;'
-	
+	          style: '\n            z-index: ' + (30 - this.id) + ';'
 	        }
 	      }, channelChildren);
 	    }
@@ -16204,7 +16209,7 @@ var WaveformPlaylist =
 	      /* VolumeSlider */
 	      g.fillStyle = "gray";
 	      g.beginPath();
-	      g.moveTo(this.track.gain * (this.canvas.width - 14) + 14, this.canvas.height / 2);
+	      g.moveTo(this.track.gain * (this.canvas.width - 14) + 7 + 7, this.canvas.height / 2);
 	      g.arc(this.track.gain * (this.canvas.width - 14) + 7, this.canvas.height / 2, 7, 0, Math.PI * 2);
 	      g.fill();
 	    }
@@ -16960,11 +16965,11 @@ var WaveformPlaylist =
 	
 	var _states2 = _interopRequireDefault(_states);
 	
-	var _CanvasHook = __webpack_require__(417);
+	var _CanvasHook = __webpack_require__(412);
 	
 	var _CanvasHook2 = _interopRequireDefault(_CanvasHook);
 	
-	var _FadeCanvasHook = __webpack_require__(418);
+	var _FadeCanvasHook = __webpack_require__(413);
 	
 	var _FadeCanvasHook2 = _interopRequireDefault(_FadeCanvasHook);
 	
@@ -18255,433 +18260,18 @@ var WaveformPlaylist =
 	  value: true
 	});
 	
-	var _CursorState = __webpack_require__(411);
-	
-	var _CursorState2 = _interopRequireDefault(_CursorState);
-	
-	var _SelectState = __webpack_require__(412);
-	
-	var _SelectState2 = _interopRequireDefault(_SelectState);
-	
-	var _ShiftState = __webpack_require__(413);
-	
-	var _ShiftState2 = _interopRequireDefault(_ShiftState);
-	
-	var _FadeInState = __webpack_require__(414);
-	
-	var _FadeInState2 = _interopRequireDefault(_FadeInState);
-	
-	var _FadeOutState = __webpack_require__(415);
-	
-	var _FadeOutState2 = _interopRequireDefault(_FadeOutState);
-	
-	var _InteractiveState = __webpack_require__(416);
+	var _InteractiveState = __webpack_require__(411);
 	
 	var _InteractiveState2 = _interopRequireDefault(_InteractiveState);
 	
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 	
 	exports.default = {
-	  cursor: _CursorState2.default,
-	  select: _SelectState2.default,
-	  shift: _ShiftState2.default,
-	  fadein: _FadeInState2.default,
-	  fadeout: _FadeOutState2.default,
 	  interactive: _InteractiveState2.default
 	};
 
 /***/ }),
 /* 411 */
-/***/ (function(module, exports, __webpack_require__) {
-
-	'use strict';
-	
-	Object.defineProperty(exports, "__esModule", {
-	  value: true
-	});
-	
-	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-	
-	var _conversions = __webpack_require__(388);
-	
-	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-	
-	var _class = function () {
-	  function _class(track) {
-	    _classCallCheck(this, _class);
-	
-	    this.track = track;
-	    this.setupEventListeners();
-	  }
-	
-	  _createClass(_class, [{
-	    key: 'setupEventListeners',
-	    value: function setupEventListeners() {
-	      var _this = this;
-	
-	      this.track.ee.on("playlistmousedown", function (e) {
-	        return _this.click.call(_this, e);
-	      });
-	    }
-	  }, {
-	    key: 'setup',
-	    value: function setup(samplesPerPixel, sampleRate) {
-	      this.samplesPerPixel = samplesPerPixel;
-	      this.sampleRate = sampleRate;
-	    }
-	  }, {
-	    key: 'click',
-	    value: function click(e) {
-	      e.preventDefault();
-	      console.log('cursor here');
-	
-	      var startX = e.offsetX;
-	      var startTime = (0, _conversions.pixelsToSeconds)(startX, this.samplesPerPixel, this.sampleRate);
-	
-	      this.track.ee.emit('select', startTime, startTime, this.track);
-	    }
-	  }], [{
-	    key: 'getClass',
-	    value: function getClass() {
-	      return '.state-cursor';
-	    }
-	  }]);
-
-	  return _class;
-	}();
-
-	exports.default = _class;
-
-/***/ }),
-/* 412 */
-/***/ (function(module, exports, __webpack_require__) {
-
-	'use strict';
-	
-	Object.defineProperty(exports, "__esModule", {
-	  value: true
-	});
-	
-	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-	
-	var _conversions = __webpack_require__(388);
-	
-	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-	
-	var _class = function () {
-	  function _class(track) {
-	    _classCallCheck(this, _class);
-	
-	    this.track = track;
-	    this.active = false;
-	  }
-	
-	  _createClass(_class, [{
-	    key: 'setup',
-	    value: function setup(samplesPerPixel, sampleRate) {
-	      this.samplesPerPixel = samplesPerPixel;
-	      this.sampleRate = sampleRate;
-	    }
-	  }, {
-	    key: 'emitSelection',
-	    value: function emitSelection(x) {
-	      var minX = Math.min(x, this.startX);
-	      var maxX = Math.max(x, this.startX);
-	      var startTime = (0, _conversions.pixelsToSeconds)(minX, this.samplesPerPixel, this.sampleRate);
-	      var endTime = (0, _conversions.pixelsToSeconds)(maxX, this.samplesPerPixel, this.sampleRate);
-	
-	      this.track.ee.emit('select', startTime, endTime, this.track);
-	    }
-	  }, {
-	    key: 'complete',
-	    value: function complete(x) {
-	      this.emitSelection(x);
-	      this.active = false;
-	    }
-	  }, {
-	    key: 'mousedown',
-	    value: function mousedown(e) {
-	      e.preventDefault();
-	      this.active = true;
-	
-	      this.startX = e.offsetX;
-	      var startTime = (0, _conversions.pixelsToSeconds)(this.startX, this.samplesPerPixel, this.sampleRate);
-	
-	      this.track.ee.emit('select', startTime, startTime, this.track);
-	    }
-	  }, {
-	    key: 'mousemove',
-	    value: function mousemove(e) {
-	      if (this.active) {
-	        e.preventDefault();
-	        this.emitSelection(e.offsetX);
-	      }
-	    }
-	  }, {
-	    key: 'mouseup',
-	    value: function mouseup(e) {
-	      if (this.active) {
-	        e.preventDefault();
-	        this.complete(e.offsetX);
-	      }
-	    }
-	  }, {
-	    key: 'mouseleave',
-	    value: function mouseleave(e) {
-	      if (this.active) {
-	        e.preventDefault();
-	        this.complete(e.offsetX);
-	      }
-	    }
-	  }], [{
-	    key: 'getClass',
-	    value: function getClass() {
-	      return '.state-select';
-	    }
-	  }, {
-	    key: 'getEvents',
-	    value: function getEvents() {
-	      return ['mousedown', 'mousemove', 'mouseup', 'mouseleave'];
-	    }
-	  }]);
-
-	  return _class;
-	}();
-
-	exports.default = _class;
-
-/***/ }),
-/* 413 */
-/***/ (function(module, exports, __webpack_require__) {
-
-	'use strict';
-	
-	Object.defineProperty(exports, "__esModule", {
-	  value: true
-	});
-	
-	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-	
-	var _conversions = __webpack_require__(388);
-	
-	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-	
-	var _class = function () {
-	  function _class(track) {
-	    _classCallCheck(this, _class);
-	
-	    this.track = track;
-	    this.active = false;
-	    this.lastqtime = undefined;
-	  }
-	
-	  _createClass(_class, [{
-	    key: 'setup',
-	    value: function setup(samplesPerPixel, sampleRate) {
-	      this.samplesPerPixel = samplesPerPixel;
-	      this.sampleRate = sampleRate;
-	    }
-	  }, {
-	    key: 'emitShift',
-	    value: function emitShift(x) {
-	      var deltaX = x - this.prevX;
-	      var deltaTime = (0, _conversions.pixelsToSeconds)(deltaX, this.samplesPerPixel, this.sampleRate);
-	
-	      var quantizeTime = 60 / this.track.bpm * this.track.quantize;
-	
-	      // debugger;
-	      if (this.track.quantize != 0) {
-	
-	        var varGHtime = Math.round(deltaTime / quantizeTime) * quantizeTime;
-	
-	        if (varGHtime != this.lastqtime) {
-	          // Galen
-	          this.prevX = x; // Galen
-	          this.track.ee.emit('shift', varGHtime, this.track); // Galen
-	          this.lastqtime = varGHtime; // Galen
-	        }
-	      } else {
-	        // Galen: if the track isn't quantized
-	        this.prevX = x; // Galen
-	        this.track.ee.emit('shift', deltaTime, this.track); // Galen
-	        this.lastqtime = varGHtime; // Galen
-	      }
-	
-	      // const deltaX = x - this.prevX;
-	      // const deltaTime = pixelsToSeconds(deltaX, this.samplesPerPixel, this.sampleRate);
-	      // this.prevX = x;
-	      // this.track.ee.emit('shift', deltaTime, this.track);
-	    }
-	  }, {
-	    key: 'complete',
-	    value: function complete(x) {
-	      this.emitShift(x);
-	      this.active = false;
-	    }
-	  }, {
-	    key: 'mousedown',
-	    value: function mousedown(e) {
-	      e.preventDefault();
-	
-	      this.active = true;
-	      this.el = e.target;
-	      this.prevX = e.offsetX;
-	    }
-	  }, {
-	    key: 'mousemove',
-	    value: function mousemove(e) {
-	      if (this.active) {
-	        e.preventDefault();
-	        this.emitShift(e.offsetX);
-	      }
-	    }
-	  }, {
-	    key: 'mouseup',
-	    value: function mouseup(e) {
-	      if (this.active) {
-	        e.preventDefault();
-	        this.complete(e.offsetX);
-	      }
-	    }
-	  }, {
-	    key: 'mouseleave',
-	    value: function mouseleave(e) {
-	      if (this.active) {
-	        e.preventDefault();
-	        this.complete(e.offsetX);
-	      }
-	    }
-	  }], [{
-	    key: 'getClass',
-	    value: function getClass() {
-	      return '.state-shift';
-	    }
-	  }, {
-	    key: 'getEvents',
-	    value: function getEvents() {
-	      return ['mousedown', 'mousemove', 'mouseup', 'mouseleave'];
-	    }
-	  }]);
-
-	  return _class;
-	}();
-
-	exports.default = _class;
-
-/***/ }),
-/* 414 */
-/***/ (function(module, exports, __webpack_require__) {
-
-	'use strict';
-	
-	Object.defineProperty(exports, "__esModule", {
-	  value: true
-	});
-	
-	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-	
-	var _conversions = __webpack_require__(388);
-	
-	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-	
-	var _class = function () {
-	  function _class(track) {
-	    _classCallCheck(this, _class);
-	
-	    this.track = track;
-	  }
-	
-	  _createClass(_class, [{
-	    key: 'setup',
-	    value: function setup(samplesPerPixel, sampleRate) {
-	      this.samplesPerPixel = samplesPerPixel;
-	      this.sampleRate = sampleRate;
-	    }
-	  }, {
-	    key: 'click',
-	    value: function click(e) {
-	      var startX = e.offsetX;
-	      var time = (0, _conversions.pixelsToSeconds)(startX, this.samplesPerPixel, this.sampleRate);
-	
-	      if (time > this.track.getStartTime() && time < this.track.getEndTime()) {
-	        this.track.ee.emit('fadein', time - this.track.getStartTime(), this.track);
-	      }
-	    }
-	  }], [{
-	    key: 'getClass',
-	    value: function getClass() {
-	      return '.state-fadein';
-	    }
-	  }, {
-	    key: 'getEvents',
-	    value: function getEvents() {
-	      return ['click'];
-	    }
-	  }]);
-
-	  return _class;
-	}();
-
-	exports.default = _class;
-
-/***/ }),
-/* 415 */
-/***/ (function(module, exports, __webpack_require__) {
-
-	'use strict';
-	
-	Object.defineProperty(exports, "__esModule", {
-	  value: true
-	});
-	
-	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-	
-	var _conversions = __webpack_require__(388);
-	
-	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-	
-	var _class = function () {
-	  function _class(track) {
-	    _classCallCheck(this, _class);
-	
-	    this.track = track;
-	  }
-	
-	  _createClass(_class, [{
-	    key: 'setup',
-	    value: function setup(samplesPerPixel, sampleRate) {
-	      this.samplesPerPixel = samplesPerPixel;
-	      this.sampleRate = sampleRate;
-	    }
-	  }, {
-	    key: 'click',
-	    value: function click(e) {
-	      var startX = e.offsetX;
-	      var time = (0, _conversions.pixelsToSeconds)(startX, this.samplesPerPixel, this.sampleRate);
-	
-	      if (time > this.track.getStartTime() && time < this.track.getEndTime()) {
-	        this.track.ee.emit('fadeout', this.track.getEndTime() - time, this.track);
-	      }
-	    }
-	  }], [{
-	    key: 'getClass',
-	    value: function getClass() {
-	      return '.state-fadeout';
-	    }
-	  }, {
-	    key: 'getEvents',
-	    value: function getEvents() {
-	      return ['click'];
-	    }
-	  }]);
-
-	  return _class;
-	}();
-
-	exports.default = _class;
-
-/***/ }),
-/* 416 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -18922,7 +18512,7 @@ var WaveformPlaylist =
 	exports.default = _class;
 
 /***/ }),
-/* 417 */
+/* 412 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -19042,7 +18632,7 @@ var WaveformPlaylist =
 	exports.default = CanvasHook;
 
 /***/ }),
-/* 418 */
+/* 413 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -19157,7 +18747,7 @@ var WaveformPlaylist =
 	exports.default = FadeCanvasHook;
 
 /***/ }),
-/* 419 */
+/* 414 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -19170,7 +18760,7 @@ var WaveformPlaylist =
 	
 	var _fadeMaker = __webpack_require__(408);
 	
-	var _tunajs = __webpack_require__(420);
+	var _tunajs = __webpack_require__(415);
 	
 	var _tunajs2 = _interopRequireDefault(_tunajs);
 	
@@ -19383,7 +18973,7 @@ var WaveformPlaylist =
 	exports.default = _class;
 
 /***/ }),
-/* 420 */
+/* 415 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*
@@ -21668,7 +21258,7 @@ var WaveformPlaylist =
 
 
 /***/ }),
-/* 421 */
+/* 416 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -21683,25 +21273,25 @@ var WaveformPlaylist =
 	
 	var _h2 = _interopRequireDefault(_h);
 	
-	var _aeneas = __webpack_require__(422);
+	var _aeneas = __webpack_require__(417);
 	
 	var _aeneas2 = _interopRequireDefault(_aeneas);
 	
-	var _aeneas3 = __webpack_require__(423);
+	var _aeneas3 = __webpack_require__(418);
 	
 	var _aeneas4 = _interopRequireDefault(_aeneas3);
 	
 	var _conversions = __webpack_require__(388);
 	
-	var _DragInteraction = __webpack_require__(424);
+	var _DragInteraction = __webpack_require__(419);
 	
 	var _DragInteraction2 = _interopRequireDefault(_DragInteraction);
 	
-	var _ScrollTopHook = __webpack_require__(425);
+	var _ScrollTopHook = __webpack_require__(420);
 	
 	var _ScrollTopHook2 = _interopRequireDefault(_ScrollTopHook);
 	
-	var _timeformat = __webpack_require__(426);
+	var _timeformat = __webpack_require__(421);
 	
 	var _timeformat2 = _interopRequireDefault(_timeformat);
 	
@@ -21970,7 +21560,7 @@ var WaveformPlaylist =
 	exports.default = AnnotationList;
 
 /***/ }),
-/* 422 */
+/* 417 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -21998,7 +21588,7 @@ var WaveformPlaylist =
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 /***/ }),
-/* 423 */
+/* 418 */
 /***/ (function(module, exports) {
 
 	"use strict";
@@ -22018,7 +21608,7 @@ var WaveformPlaylist =
 	};
 
 /***/ }),
-/* 424 */
+/* 419 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -22109,7 +21699,7 @@ var WaveformPlaylist =
 	exports.default = _class;
 
 /***/ }),
-/* 425 */
+/* 420 */
 /***/ (function(module, exports) {
 
 	'use strict';
@@ -22135,7 +21725,7 @@ var WaveformPlaylist =
 	exports.default = Hook;
 
 /***/ }),
-/* 426 */
+/* 421 */
 /***/ (function(module, exports) {
 
 	'use strict';
@@ -22183,7 +21773,7 @@ var WaveformPlaylist =
 	};
 
 /***/ }),
-/* 427 */
+/* 422 */
 /***/ (function(module, exports) {
 
 	'use strict';
@@ -22298,7 +21888,7 @@ var WaveformPlaylist =
 	};
 
 /***/ }),
-/* 428 */
+/* 423 */
 /***/ (function(module, exports) {
 
 	'use strict';
