@@ -32,6 +32,7 @@ export function init(options = {}, ee = EventEmitter()) {
       timeColor: 'grey',
       fadeColor: 'black',
     },
+    name: "untitled",
     seekStyle: 'line',
     waveHeight: 128,
     state: 'interactive',
@@ -78,7 +79,7 @@ export function init(options = {}, ee = EventEmitter()) {
 
   playlist.bpm = config.bpm;   //GH  Galen
   playlist.quantize = config.quantize;  //GH Galen
-
+  playlist.name = config.name;
   playlist.setTracks(config.tracks);
 
 

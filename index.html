@@ -9,15 +9,39 @@
   </head>
 </head>
 <body>
-  loading...
   <div id="waveform-playlist-container">
-    <div id="controlls"></div>
+    <div id="controls">
+      <div id="leftside">
+          <div id="prev-button">prev</div>
+          <div id="play-button">play</div>
+          <div id="song-cover">image</div>
+          <div id="song-menu">
+            <div id="render">render</div>
+            <div id="download">
+              <a id="download-link">download</a>
+            </div>
+            <div id="save">save</div>
+            <div id="reset">reset</div>
+          </div>
+          <div id="info">
+            <div id="name"></div>
+            <div id="bpmholder">BPM <span id="bpm"></span></div>
+            <div id="key">key</div>
+            <div id="time">time</div>
+            <div id="snap">snap</div>
+            <div id="len">len</div>
+          </div>
+      </div>
+      <div id="rightside">
+        <div id="master-volume">master volume</div>
+        <div id="escape">escape</div>
+      </div>
+    </div>
     <div id="playlist"></div>
   </div>  
-
-  <script src="//code.jquery.com/jquery-2.1.4.min.js"></script>
   <script type="text/javascript" src="waveform-playlist.var.js"></script>
   <script type="text/javascript" src="controller.js"></script>
+  <script src="emitter.js"></script>
 </body>
 </html>
   

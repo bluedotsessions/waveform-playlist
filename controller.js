@@ -1,10 +1,11 @@
-var playlist = WaveformPlaylist.init({
+let playlist = WaveformPlaylist.init({
   samplesPerPixel: 3000,
   waveHeight: 100,
   container: document.getElementById("playlist"),
   state: 'interactive',
   bpm:90,
   quantize:1,
+  name: "Um Pepino",
   colors: {
     waveOutlineColor: '#E0EFF1',
     timeColor: 'grey',
@@ -26,6 +27,7 @@ playlist.load([
     "cuein": 0,
     "waveOutlineColor": '#c0dce0'
   },
+
   {
     "src": "audio/02_Um Pepino_Vibraphone.mp3 ",
     "name": "02",

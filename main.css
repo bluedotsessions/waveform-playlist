@@ -1,8 +1,136 @@
 #waveform-playlist-container{
+    /*
+    here you can control the 
+    dimensions of the editor
+    */
     margin: 40px;
+    height: 800px;
+
+    display:flex;
+    flex-flow: column;
     border: 1px dotted blue;
+    background-color: #464646;
 }
 #playlist{
     margin: 10px;
+    height: 100%;
     border: 1px dotted red;
+    overflow:hidden;
+}
+#playlist-rendered{
+    position: relative;
+    overflow:hidden;
+    height:100%;
+    display:flex;
+    flex-flow: column;
+}
+.playlist-tracks{
+    overflow: auto;
+    flex: auto;
+}
+.playlist-time-scale{
+    height: 30px;
+    position:relative;
+    margin-left: 200px;
+}
+
+
+#controls{
+    margin-left:200px;
+    display:flex;
+    color:white;
+    padding: 10px;
+    justify-content: space-between;
+    align-items: stretch;
+    height: 100px;
+}
+#controls > div{
+    display:flex;
+    align-items: stretch;
+}
+#controls > div > div{
+    margin: 10px;
+    cursor:pointer;
+}
+#info{
+    display:grid;
+    background-color:#2e2e2e;
+    padding : 5px;
+    border-radius: 5px;
+    color:white;
+    width: 300px;
+    grid-template-areas: 
+        "name bpm key"
+        "time snap len"
+}
+#name{
+    font-weight: bold;
+    grid-area: name;
+}
+#bpmholder{
+    grid-area: bpm;
+}
+#key{
+    grid-area: key;
+}
+#time{
+    grid-area: time;
+}
+#snap{
+    grid-area: snap;
+}
+#len{
+    grid-area: len;
+}
+
+
+.channel-wrapper{
+    height: 100px;
+    overflow:visible;
+    margin-left: 200px;
+    background-color: #2e2e2e;
+}
+.track-controls{
+    background-color:#606060;
+    height: 100px; 
+    width: 200px; 
+    position: absolute; 
+    overflow:visible;
+    left: 0; 
+}
+.track-controls header{
+    padding-left:10px;
+    background-color: #464646;
+    color: white;
+}
+.track-buttons-container{
+    display:flex;
+    padding: 5px;
+}
+.track-buttons-container > *{
+    margin-left:5px;
+}
+.bordered-track-button{
+    padding:4px;
+    text-align: center;
+    height:100%;
+    color:white;
+    font-size: 0.9em;
+    background-color: #454545;
+    border-radius: 3px;
+}
+
+div.cursor{
+    /* 'left' is controled from Track.js */
+    position: absolute; 
+    width: 2px;
+    background-color: white;
+    border: 1px solid black;
+    border-bottom: none;
+    border-top: none;
+    margin: 0;
+    padding: 0;
+    top: 0;
+    bottom: 0; 
+    z-index: 5;  
 }

@@ -142,37 +142,40 @@ export default class {
   renderButtons(data){
     const muteClass = data.muted ? '.active' : '';
     const soloClass = data.soloed ? '.active' : '';
-    return h('div.btn-group', [
-      h('span.btn.btn-default.btn-xs.destroyButton',{
-        onclick: ()=>{
-          this.ee.emit('destroy',this);
-        }
-      },['X']),
-      h(`span.btn.btn-default.btn-xs.btn-mute${muteClass}`, {
+    return h('div.track-buttons-container', [
+      // h('span.destroy-button',{
+      //   onclick: ()=>{
+      //     this.ee.emit('destroy',this);
+      //   }
+      // },['X']),
+      h(`span.mute-button.bordered-track-button`, {
         onclick: () => {
           this.ee.emit('mute', this);
         },
-      }, ['Mute']),
-      h(`span.btn.btn-default.btn-xs.btn-solo${soloClass}`, {
+      }, ['M']),
+      h(`span.solo-button.bordered-track-button`, {
         onclick: () => {
           this.ee.emit('solo', this);
         },
-      }, ['Solo']),
-      h('div.btn.btn-default.dropdown-toggle.btn-xs.btn-effects',{
+      }, ['S']),
+      h('div.effects-button.bordered-track-button',{
           onclick: e=>{
             this.showmenu = !this.showmenu;
             this.ee.emit('interactive');
           }
-        },[
-        "effects",]),
-      h(`canvas.knobCanvas`,{
-        attributes:{
-            width: 25,
-            height: 25,
-            "data-ringbgcolor": '#EEE',
-        },
-        hook: new PanKnob(this.pan,this)
-      })
+        },["FX"]),
+      h(`div.protectFromStreching`,[
+        h(`canvas.knobCanvas`,{
+          attributes:{
+              width: 25,
+              height: 25,
+              "data-ringbgcolor": '#EEE',
+          },
+          hook: new PanKnob(this.pan,this)
+        }),
+      ]),
+
+      this.renderVolumeSlider(data),
     ])
   }
 
@@ -236,7 +239,7 @@ export default class {
   
 
   renderVolumeSlider(data){
-    const width = 100;
+    const width = 75;
     return h('canvas.volume-slider', {
         attributes:{
           width,
@@ -245,8 +248,8 @@ export default class {
         onclick:e=>{
           const relativeX = e.layerX;
           //canvas is larger than the slider with 7 pixels on each side, so:
-          const clamped = Math.min(Math.max(relativeX, 7), width-14);
-          this.setGainLevel((clamped-7)/(100-14))
+          const clamped = Math.min(Math.max(relativeX, 7), width-7);
+          this.setGainLevel((clamped-7)/(width-14))
         },
         hook: this.analyzerHook,
     })
@@ -254,22 +257,16 @@ export default class {
 
 
   renderControls(data) {
-    return h('div.controls',
+    return h('div.track-controls',
       {
         attributes: {
           style: `
-            height: ${data.height}px; 
-            width: ${data.controls.width}px; 
-            position: absolute; 
-            overflow:visible;
-            left: 0; 
             z-index: ${30 - this.id};`,
         },
       }, [
         h('header', [this.name]),
         this.renderButtons(data),        
         this.renderEffects(data),
-        this.renderVolumeSlider(data),
       ],
     );
   }
@@ -302,7 +299,7 @@ export default class {
     const waveformChildren = [
       h('div.cursor', {
         attributes: {
-          style: `position: absolute; width: 1px; margin: 0; padding: 0; top: 0; left: ${playbackX}px; bottom: 0; z-index: 5;`,
+          style: `left: ${playbackX}px;`,
         },
       }),
     ];
@@ -364,12 +361,7 @@ export default class {
       {
         attributes: {
           style: `
-            margin-left: ${channelMargin}px; 
-            height: ${data.height}px;
-            z-index: ${30 - this.id}; 
-            overflow:visible;`,
-            
-
+            z-index: ${30 - this.id};`
         },
       },
       channelChildren,

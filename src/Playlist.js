@@ -191,6 +191,7 @@ export default class {
         clip.bpm = bpm;
       })
     })
+    this.ee.emit("bpm-change",bpm);
     this.ee.emit('interactive');
   }
   set quantize(q){
@@ -207,6 +208,13 @@ export default class {
   }
   get bpm(){
     return this._bpm;
+  }
+  set name(str){
+    this.ee.emit("name-change",str);
+    this._name=str;
+  }
+  get name(){
+    return this._name;
   }
 
   setUpEventEmitter() {
@@ -232,7 +240,11 @@ export default class {
     ee.on ('interactive', (track) => {
       this.drawRequest();
     });
-
+    ee.on('stopAndRollback',e=>{
+      this.stop().then(_=>{
+        this.seek(0,0);
+      })
+    })
     ee.on('activeclip',(clip)=>{
       const segment = 60/clip.bpm;
       console.log(clip.name,clip.startTime/segment);
@@ -297,7 +309,10 @@ export default class {
     });
 
     ee.on('play', (start, end) => {
-      this.play(start, end);
+      if (this.isPlaying())
+        this.pause();
+      else
+        this.play(start, end);
     });
 
     ee.on('pause', () => {
@@ -1056,9 +1071,7 @@ export default class {
       this.setActiveTrack(track || this.tracks[0]);
       this.pausedAt = start;
       this.setTimeSelection(start, end);
-      if (this.getSeekStyle() === 'fill') {
-        this.playbackSeconds = start;
-      }
+      this.playbackSeconds = start;
     }
   }
 
@@ -1175,9 +1188,6 @@ export default class {
 
     return h('div.playlist-tracks',
       {
-        attributes: {
-          style: 'overflow: auto;',
-        },
         onscroll: (e) => {
           this.scrollLeft = pixelsToSeconds(
             e.target.scrollLeft,
@@ -1206,16 +1216,13 @@ export default class {
       containerChildren.push(this.renderAnnotations());
     }
 
-    return h('div.playlist',
+    return h('div#playlist-rendered',
       {
         onselectstart:event=>event.preventDefault(),
         onmouseleave:event=>this.ee.emit("playlistmouseleave",event),
         onmousedown:event=>this.ee.emit("playlistmousedown",event),
         onmouseup:event=>this.ee.emit("playlistmouseup",event),
         onmousemove:event=>this.ee.emit("playlistmousemove",event),
-        attributes: {
-          style: 'overflow: hidden; position: relative;',
-        },
       },
       containerChildren,
     );

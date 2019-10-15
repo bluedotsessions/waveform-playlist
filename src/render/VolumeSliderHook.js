@@ -62,7 +62,7 @@ export default class {
     /* VolumeSlider */
     g.fillStyle = "gray";
     g.beginPath();
-    g.moveTo(this.track.gain*(this.canvas.width-14)+14,this.canvas.height/2);
+    g.moveTo(this.track.gain*(this.canvas.width-14)+7+7,this.canvas.height/2);
     g.arc(this.track.gain*(this.canvas.width-14)+7,this.canvas.height/2,7,0,Math.PI*2);
     g.fill(); 
 

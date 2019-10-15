@@ -140,9 +140,6 @@ class TimeScale {
         onmousedown : e => {
           this.seekTo(e);
         },
-        attributes: {
-          style: `position: relative; left: 0; right: 0; margin-left: ${this.marginLeft}px;`,
-        },
       },
       [
         timeMarkers,
