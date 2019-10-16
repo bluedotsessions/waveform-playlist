@@ -9391,6 +9391,10 @@ var WaveformPlaylist =
 	    name: "untitled",
 	    seekStyle: 'line',
 	    waveHeight: 128,
+	    bpm: 0,
+	    barLength: 4,
+	    barOffset: 0,
+	    quantize: 1,
 	    state: 'interactive',
 	    zoomLevels: [512, 1024, 2048, 4096],
 	    annotationList: {
@@ -9435,6 +9439,8 @@ var WaveformPlaylist =
 	
 	  playlist.bpm = config.bpm; //GH  Galen
 	  playlist.quantize = config.quantize; //GH Galen
+	  playlist.barLength = config.barLength;
+	  playlist.barOffset = config.barOffset;
 	  playlist.name = config.name;
 	  playlist.setTracks(config.tracks);
 	
@@ -11423,6 +11429,8 @@ var WaveformPlaylist =
 	        track.quantize = this.quantize;
 	        track.bpm = this.bpm;
 	        track.setEventEmitter(this.ee);
+	        track.barLength = this.barLength;
+	        track.barOffset = this.barOffset;
 	
 	        this.tracks.push(track);
 	      }
@@ -11468,6 +11476,7 @@ var WaveformPlaylist =
 	        this.removeSilences(clip);
 	      }
 	      this.clips.push(clip);
+	      for (var slow = 0; slow < 1000000; slow += slow % 2 ? 1 : 2) {}
 	      return clip;
 	    }
 	  }, {
@@ -11475,7 +11484,7 @@ var WaveformPlaylist =
 	    value: function removeSilences(clip) {
 	      var track = clip.track;
 	      var bpm = track.bpm;
-	      var minimumSilence = 5 * this.sampleRate;
+	      var minimumSilence = 8 * this.sampleRate;
 	      var buffer = clip.buffer;
 	      var samples = buffer.getChannelData(0);
 	      var startTime = clip.startTime;
@@ -11484,9 +11493,11 @@ var WaveformPlaylist =
 	      var cueInSamp = (0, _conversions.secondsToSamples)(cueIn, this.sampleRate);
 	      var cueOutSamp = (0, _conversions.secondsToSamples)(cueOut, this.sampleRate);
 	      var secsperbeat = 60 / bpm;
+	      var secsperbar = secsperbeat * this.barLength;
+	      var offsetTime = secsperbeat * this.barOffset;
 	      var startofSilence = NaN;
 	      var endofSilenece = NaN;
-	      var threshhold = 0.01;
+	      var threshhold = 0;
 	
 	      for (var a = cueInSamp; a < cueOutSamp; a++) {
 	        if (!isNaN(startofSilence) && Math.abs(samples[a]) > threshhold) {
@@ -11495,10 +11506,11 @@ var WaveformPlaylist =
 	              this.removeSamples(clip, startofSilence, a);
 	            } else {
 	              var qpoint = a;
-	              while (qpoint > 0) {
+	              console.log("!->", this.secondsToMinutes(startofSilence / this.sampleRate), this.secondsToMinutes(a / this.sampleRate));
+	              while (qpoint >= 0 && Math.abs(samples[qpoint - 1]) <= threshhold) {
 	                var secs = (0, _conversions.samplesToSeconds)(qpoint, this.sampleRate) + startTime - cueIn;
 	                var secsprev = (0, _conversions.samplesToSeconds)(qpoint - 1, this.sampleRate) + startTime - cueIn;
-	                if (Math.floor(secs / secsperbeat) > Math.floor(secsprev / secsperbeat)) {
+	                if (Math.floor((secs - offsetTime) / secsperbar) > Math.floor((secsprev - offsetTime) / secsperbar)) {
 	                  this.removeSamples(clip, startofSilence, qpoint);
 	                  break;
 	                }
@@ -11514,8 +11526,7 @@ var WaveformPlaylist =
 	            var _secs = (0, _conversions.samplesToSeconds)(a, this.sampleRate) + startTime - cueIn;
 	            var _secsprev = (0, _conversions.samplesToSeconds)(a - 1, this.sampleRate) + startTime - cueIn;
 	
-	            var beatNumber = _secs / secsperbeat;
-	            if (Math.floor(_secs / secsperbeat) > Math.floor(_secsprev / secsperbeat)) {
+	            if (Math.floor((_secs - offsetTime) / secsperbar) > Math.floor((_secsprev - offsetTime) / secsperbar)) {
 	              startofSilence = a;
 	            }
 	          }
@@ -11530,19 +11541,22 @@ var WaveformPlaylist =
 	    value: function removeSamples(clip, start, end) {
 	      var startSec = (0, _conversions.samplesToSeconds)(start, this.sampleRate);
 	      var endSec = (0, _conversions.samplesToSeconds)(end, this.sampleRate);
-	      var cueInSamp = (0, _conversions.samplesToSeconds)(clip.cueIn, this.sampleRate);
+	      var cueInSamp = clip.cueIn * this.sampleRate;
+	      var minClip = this.barLength * 60 / this.bpm || 1;
 	      if (start == cueInSamp) {
-	        clip.cueIn += endSec;
-	        clip.startTime += endSec;
+	        if (clip.cueOut - clip.cueIn - endSec >= minClip) {
+	          clip.cueIn += endSec;
+	          clip.startTime += endSec;
+	        }
 	      } else if (end == clip.buffer.length) {
-	        clip.cueOut = startSec;
+	        if (startSec - clip.cueIn >= minClip) clip.cueOut = startSec;else clip.track.clips.pop();
 	      } else {
 	
 	        var info = clip.getTrackDetails();
 	
 	        info.cueout = startSec;
-	        console.log(clip.name, this.secondsToMinutes(info.start), this.secondsToMinutes(info.start + info.cueout - info.cuein));
-	        if (info.cueout - info.cuein >= 0.2) this.createClip(clip.buffer, info, false, clip.peaks);
+	        console.log(clip.name, this.secondsToMinutes(info.start), this.secondsToMinutes(info.start + info.cueout - info.cuein), minClip);
+	        if (info.cueout - info.cuein >= minClip) this.createClip(clip.buffer, info, false, clip.peaks);
 	
 	        clip.startTime += endSec - clip.cueIn;
 	        clip.cueIn = endSec;
@@ -11561,7 +11575,7 @@ var WaveformPlaylist =
 	      var _ref2 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee(clipList) {
 	        var _this3 = this;
 	
-	        var loadPromises, audioBuffers;
+	        var loadPromises, audioBuffers, i;
 	        return regeneratorRuntime.wrap(function _callee$(_context) {
 	          while (1) {
 	            switch (_context.prev = _context.next) {
@@ -11586,16 +11600,34 @@ var WaveformPlaylist =
 	
 	                this.ee.emit('audiosourcesloaded');
 	
-	                audioBuffers.forEach(function (audioBuffer, index) {
-	                  return _this3.createClip(audioBuffer, clipList[index]);
+	                i = 0;
+	
+	              case 6:
+	                if (!(i < audioBuffers.length)) {
+	                  _context.next = 14;
+	                  break;
+	                }
+	
+	                this.createClip(audioBuffers[i], clipList[i]);
+	                this.draw(this.render());
+	                _context.next = 11;
+	                return new Promise(function (res) {
+	                  return setTimeout(res, 0);
 	                });
+	
+	              case 11:
+	                i++;
+	                _context.next = 6;
+	                break;
+	
+	              case 14:
 	                this.reasignClips();
 	                this.adjustDuration();
 	                this.draw(this.render());
 	
 	                this.ee.emit('audiosourcesrendered');
 	
-	              case 10:
+	              case 18:
 	              case 'end':
 	                return _context.stop();
 	            }
@@ -12240,8 +12272,28 @@ var WaveformPlaylist =
 	      }).reduce(function (a, b) {
 	        return Math.max(a, b);
 	      }, 0);
-	      var trackElements = this.tracks.map(function (track) {
-	        return track.render(_this15.getTrackRenderData({
+	
+	      // const trackElements = this.tracks.map(track =>
+	      //   track.render(this.getTrackRenderData({
+	      //     globalEndTime,
+	      //     isActive: this.isActiveTrack(track),
+	      //     shouldPlay: this.shouldTrackPlay(track),
+	      //     soloed: this.soloedTracks.indexOf(track) > -1,
+	      //     muted: this.mutedTracks.indexOf(track) > -1,
+	      //   })),
+	      // );
+	
+	      var trackControls = this.tracks.map(function (track) {
+	        return track.renderControls(_this15.getTrackRenderData({
+	          globalEndTime: globalEndTime,
+	          isActive: _this15.isActiveTrack(track),
+	          shouldPlay: _this15.shouldTrackPlay(track),
+	          soloed: _this15.soloedTracks.indexOf(track) > -1,
+	          muted: _this15.mutedTracks.indexOf(track) > -1
+	        }));
+	      });
+	      var trackWaveforms = this.tracks.map(function (track) {
+	        return track.renderWaveform(_this15.getTrackRenderData({
 	          globalEndTime: globalEndTime,
 	          isActive: _this15.isActiveTrack(track),
 	          shouldPlay: _this15.shouldTrackPlay(track),
@@ -12257,7 +12309,7 @@ var WaveformPlaylist =
 	          _this15.ee.emit('scroll', _this15.scrollLeft);
 	        },
 	        hook: new _ScrollHook2.default(this)
-	      }, trackElements);
+	      }, [(0, _h2.default)('div.controls-container', trackControls), (0, _h2.default)('div.waveform-container', trackWaveforms)]);
 	    }
 	  }, {
 	    key: 'render',
@@ -12320,6 +12372,32 @@ var WaveformPlaylist =
 	    },
 	    get: function get() {
 	      return this._bpm;
+	    }
+	  }, {
+	    key: 'barLength',
+	    set: function set(barLength) {
+	      this._barLength = barLength;
+	      this.tracks.forEach(function (track) {
+	        track.barLength = barLength;
+	      });
+	      this.ee.emit("bar-length-change", bpm);
+	      this.ee.emit('interactive');
+	    },
+	    get: function get() {
+	      return this._barLength;
+	    }
+	  }, {
+	    key: 'barOffset',
+	    set: function set(barOffset) {
+	      this._barOffset = barOffset;
+	      this.tracks.forEach(function (track) {
+	        track.barOffset = barOffset;
+	      });
+	      this.ee.emit("bar-offset-change", bpm);
+	      this.ee.emit('interactive');
+	    },
+	    get: function get() {
+	      return this._barOffset;
 	    }
 	  }, {
 	    key: 'quantize',
@@ -15249,13 +15327,6 @@ var WaveformPlaylist =
 	    value: function unasignAll() {
 	      return this.clips = [];
 	    }
-	    /*
-	      startTime, endTime in seconds (float).
-	      segment is for a highlighted section in the UI.
-	      returns a Promise that will resolve when the AudioBufferSource
-	      is either stopped or plays out naturally.
-	    */
-	
 	  }, {
 	    key: 'schedulePlay',
 	    value: function schedulePlay() {
@@ -15511,8 +15582,8 @@ var WaveformPlaylist =
 	      }, 0);
 	    }
 	  }, {
-	    key: 'render',
-	    value: function render(data) {
+	    key: 'renderWaveform',
+	    value: function renderWaveform(data) {
 	
 	      function convert(seconds) {
 	        return (0, _conversions.secondsToPixels)(seconds, data.resolution, data.sampleRate);
@@ -15544,7 +15615,7 @@ var WaveformPlaylist =
 	          height: data.height,
 	          style: 'position:absolute;pointer-events:none'
 	        },
-	        hook: new _GridHook2.default(this.quantize, this.bpm, 'lightgray', data.resolution, data.sampleRate)
+	        hook: new _GridHook2.default(this.quantize, this.bpm, this.barLength, this.barOffset, 'lightgray', data.resolution, data.sampleRate)
 	      });
 	      waveformChildren.push(grid);
 	
@@ -15566,30 +15637,11 @@ var WaveformPlaylist =
 	        }));
 	      }
 	
-	      var waveform = (0, _h2.default)('div.waveform', {
+	      return (0, _h2.default)('div.waveform', {
 	        attributes: {
-	          style: 'height: ' + data.height + 'px; position: relative;width:' + width + 'px'
+	          style: 'height: ' + data.height + 'px;width:' + width + 'px'
 	        }
 	      }, waveformChildren);
-	
-	      var channelChildren = [];
-	      var channelMargin = 0;
-	
-	      if (data.controls.show) {
-	        channelChildren.push(this.renderControls(data));
-	        channelMargin = data.controls.width;
-	      }
-	
-	      channelChildren.push(waveform);
-	
-	      var audibleClass = data.shouldPlay ? '' : '.silent';
-	      var customClass = this.customClass === undefined ? '' : '.' + this.customClass;
-	
-	      return (0, _h2.default)('div.channel-wrapper' + audibleClass + customClass, {
-	        attributes: {
-	          style: '\n            z-index: ' + (30 - this.id) + ';'
-	        }
-	      }, channelChildren);
 	    }
 	  }, {
 	    key: 'getTrackDetails',
@@ -16346,7 +16398,12 @@ var WaveformPlaylist =
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
 	var _class = function () {
-	    function _class(quantizeValue, bpm, color, resolution, sampleRate) {
+	    function _class(quantizeValue, bpm, barLength) {
+	        var barOffset = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : 0;
+	        var color = arguments[4];
+	        var resolution = arguments[5];
+	        var sampleRate = arguments[6];
+	
 	        _classCallCheck(this, _class);
 	
 	        this.quantizeValue = quantizeValue;
@@ -16354,6 +16411,8 @@ var WaveformPlaylist =
 	        this.color = color;
 	        this.resolution = resolution;
 	        this.sampleRate = sampleRate;
+	        this.barLength = barLength;
+	        this.barOffset = barOffset;
 	    }
 	
 	    _createClass(_class, [{
@@ -16370,6 +16429,10 @@ var WaveformPlaylist =
 	                if (Math.floor(secs / step) > Math.floor(prevsecs / step)) {
 	                    g.moveTo(a, 0);
 	                    g.lineTo(a, canvas.height);
+	                    if (this.barLength && Math.floor(secs / step) % this.barLength == this.barOffset) {
+	                        g.moveTo(a + 1, 0);
+	                        g.lineTo(a + 1, canvas.height);
+	                    }
 	                }
 	            }
 	            g.stroke();
