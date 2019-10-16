@@ -9416,8 +9416,6 @@ var WaveformPlaylist =
 	  playlist.setEventEmitter(ee);
 	  playlist.setUpEventEmitter();
 	
-	  playlist.setTracks(config.tracks);
-	
 	  playlist.setTimeSelection(0, 0);
 	  playlist.setState(config.state);
 	  playlist.setControlOptions(config.controls);
@@ -9436,6 +9434,8 @@ var WaveformPlaylist =
 	
 	  playlist.bpm = config.bpm; //GH  Galen
 	  playlist.quantize = config.quantize; //GH Galen
+	
+	  playlist.setTracks(config.tracks);
 	
 	  // take care of initial virtual dom rendering.
 	  var tree = playlist.render();
@@ -10886,27 +10886,27 @@ var WaveformPlaylist =
 	
 	var _Track2 = _interopRequireDefault(_Track);
 	
-	var _Clip = __webpack_require__(400);
+	var _Clip = __webpack_require__(404);
 	
 	var _Clip2 = _interopRequireDefault(_Clip);
 	
-	var _Playout = __webpack_require__(415);
+	var _Playout = __webpack_require__(419);
 	
 	var _Playout2 = _interopRequireDefault(_Playout);
 	
-	var _AnnotationList = __webpack_require__(416);
+	var _AnnotationList = __webpack_require__(421);
 	
 	var _AnnotationList2 = _interopRequireDefault(_AnnotationList);
 	
-	var _recorderWorker = __webpack_require__(422);
+	var _recorderWorker = __webpack_require__(427);
 	
 	var _recorderWorker2 = _interopRequireDefault(_recorderWorker);
 	
-	var _exportWavWorker = __webpack_require__(423);
+	var _exportWavWorker = __webpack_require__(428);
 	
 	var _exportWavWorker2 = _interopRequireDefault(_exportWavWorker);
 	
-	var _states = __webpack_require__(406);
+	var _states = __webpack_require__(410);
 	
 	var _states2 = _interopRequireDefault(_states);
 	
@@ -10926,6 +10926,7 @@ var WaveformPlaylist =
 	    this.soloedTracks = [];
 	    this.mutedTracks = [];
 	    this.playoutPromises = [];
+	    this.tracksids = 0;
 	
 	    this.cursor = 0;
 	    this.playbackSeconds = 0;
@@ -10966,7 +10967,7 @@ var WaveformPlaylist =
 	      this.mediaRecorder = new window.MediaRecorder(stream);
 	
 	      this.mediaRecorder.onstart = function () {
-	        var track = new _Track2.default();
+	        var track = new _Track2.default(_this.tracksids++);
 	        track.setName('Recording');
 	        track.setEnabledStates();
 	        track.setEventEmitter(_this.ee);
@@ -11094,8 +11095,10 @@ var WaveformPlaylist =
 	        for (var _iterator = tracks[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
 	          name = _step.value.name;
 	
-	          var newTrack = new _Track2.default();
+	          var newTrack = new _Track2.default(this.tracksids++);
 	          newTrack.setName(name);
+	          newTrack.quantize = this.quantize;
+	          newTrack.bpm = this._bpm;
 	          newTrack.setEventEmitter(this.ee);
 	          this.tracks.push(newTrack);
 	        }
@@ -11121,13 +11124,30 @@ var WaveformPlaylist =
 	
 	      var ee = this.ee;
 	
+	      ee.on('showMenu', function (clip) {
+	
+	        clip.showMenu = true;
+	        if (_this2.openedMenuClip) {
+	          _this2.openedMenuClip.showMenu = false;
+	        }
+	        _this2.openedMenuClip = clip;
+	
+	        _this2.drawRequest();
+	      });
+	      ee.on('playlistmousedown', function () {
+	        if (_this2.openedMenuClip) {
+	          _this2.openedMenuClip.showMenu = false;
+	          delete _this2.openedMenuClip;
+	        }
+	      });
+	
 	      ee.on('interactive', function (track) {
-	        // track.calculatePeaks(this.samplesPerPixel, this.sampleRate);
 	        _this2.drawRequest();
 	      });
 	
 	      ee.on('activeclip', function (clip) {
-	        console.log(clip.name);
+	        var segment = 60 / clip.bpm;
+	        console.log(clip.name, clip.startTime / segment);
 	        _this2.stateObj.activeClip = clip;
 	      });
 	
@@ -11178,8 +11198,8 @@ var WaveformPlaylist =
 	        _this2.drawRequest();
 	      });
 	
-	      ee.on('shift', function (deltaTime, track) {
-	        track.setStartTime(track.getStartTime() + deltaTime);
+	      ee.on('shift', function (deltaTime, clip) {
+	        clip.setStartTime(clip.getStartTime() + deltaTime);
 	        _this2.adjustDuration();
 	        _this2.drawRequest();
 	      });
@@ -11238,13 +11258,13 @@ var WaveformPlaylist =
 	      });
 	
 	      ee.on('fadein', function (duration, clip) {
-	        clip.setFadeIn(duration, _this2.fadeType);
-	        _this2.drawRequest();
+	        clip.setFadeIn(duration, clip.fades[clip.fadeIn].shape);
+	        // this.drawRequest();
 	      });
 	
 	      ee.on('fadeout', function (duration, clip) {
-	        clip.setFadeOut(duration, _this2.fadeType);
-	        _this2.drawRequest();
+	        clip.setFadeOut(duration, clip.fades[clip.fadeOut].shape);
+	        // this.drawRequest();
 	      });
 	
 	      ee.on('fadetype', function (type) {
@@ -11297,30 +11317,42 @@ var WaveformPlaylist =
 	          _this2.isScrolling = false;
 	        }, 200);
 	      });
-	      ee.on('scrolldragging', function (amount) {
-	        if (!_this2.scrolldragging) return;
-	        _this2.seekClicking = false;
-	        // console.log("scrolldragging",amount);
-	        _this2.scrollLeft -= (0, _conversions.pixelsToSeconds)(amount, _this2.samplesPerPixel, _this2.sampleRate);
-	        _this2.ee.emit('scroll');
+	      ee.on('seek', function (where) {
+	        _this2.seek(where);
+	        // console.log('yo',where);
 	      });
-	      ee.on('scrolldraggingstart', function () {
-	        _this2.scrolldragging = true;
-	        _this2.seekClicking = true;
-	        document.body.style.cursor = "grabbing";
+	      ee.on('splitStart', function (clip) {
+	        _this2.stateObj.action = "split";
 	      });
-	      ee.on('scrolldraggingend', function (e) {
-	        _this2.scrolldragging = false;
-	        if (_this2.seekClicking) {
-	          var startX = e.offsetX;
-	          var startTime = (0, _conversions.pixelsToSeconds)(startX, _this2.samplesPerPixel, _this2.sampleRate);
-	          if (e.from == "TimeScale") {
-	            startTime += _this2.scrollLeft;
-	          }
+	      ee.on('splitAt', function (_ref) {
+	        var clip = _ref.clip,
+	            at = _ref.at;
 	
-	          _this2.ee.emit('select', startTime, startTime);
-	        }
-	        document.body.style.cursor = "auto";
+	        var info = clip.getTrackDetails();
+	        info.name = "Copy of " + info.name;
+	        info.start = clip.startTime + at;
+	        info.cuein = clip.cueIn + at;
+	        info.cueout = clip.cueOut;
+	        _this2.createClip(clip.buffer, info, false, clip.peaks);
+	
+	        clip.endTime = clip.startTime + at;
+	
+	        _this2.ee.emit('interactive');
+	      });
+	      ee.on('duplicate', function (clip) {
+	
+	        var info = clip.getTrackDetails();
+	        // info.track;
+	        info.name = "Copy of " + info.name;
+	        info.start = clip.endTime;
+	        info.end = clip.endTime + clip.duration;
+	        _this2.createClip(clip.buffer, info, false, clip.peaks);
+	        _this2.ee.emit('interactive');
+	      });
+	      ee.on('delete', function (clip) {
+	        var t = clip.track.clips.indexOf(clip);
+	        clip.track.clips.splice(t, 1);
+	        _this2.ee.emit('interactive');
 	      });
 	    }
 	  }, {
@@ -11356,6 +11388,9 @@ var WaveformPlaylist =
 	  }, {
 	    key: 'createClip',
 	    value: function createClip(audioBuffer, info) {
+	      var removeSilences = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
+	      var readypeaks = arguments[3];
+	
 	      var name = info.name || 'Untitled';
 	      var start = info.start || 0;
 	      var states = info.states || {};
@@ -11377,8 +11412,13 @@ var WaveformPlaylist =
 	
 	      var track = this.getTrackByName(trackname);
 	      if (!track) {
-	        track = new _Track2.default();
+	        track = new _Track2.default(this.tracksids++);
+	        track.analyzer = this.ac.createAnalyser();
 	        track.name = trackname;
+	        track.quantize = this.quantize;
+	        track.bpm = this.bpm;
+	        track.setEventEmitter(this.ee);
+	
 	        this.tracks.push(track);
 	      }
 	
@@ -11401,16 +11441,14 @@ var WaveformPlaylist =
 	      if (fadeIn !== undefined) {
 	        clip.setFadeIn(fadeIn.duration, fadeIn.shape);
 	      } else if (this.getState() == 'interactive') {
-	        clip.setFadeIn(0.01, "logarithmic");
+	        clip.setFadeIn(0.01, "linear");
 	      }
 	
 	      if (fadeOut !== undefined) {
 	        clip.setFadeOut(fadeOut.duration, fadeOut.shape);
 	      } else if (this.getState() == 'interactive') {
-	        clip.setFadeOut(0.01, "logarithmic");
+	        clip.setFadeOut(0.01, "linear");
 	      }
-	
-	      if (peaks !== undefined) clip.setPeakData(peaks);
 	
 	      // clip.setState(this.getState());
 	      clip.setStartTime(start);
@@ -11419,17 +11457,106 @@ var WaveformPlaylist =
 	      clip.setGainLevel(gain);
 	
 	      // extract peaks with AudioContext for now.
-	      clip.calculatePeaks(this.samplesPerPixel, this.sampleRate);
+	      if (readypeaks !== undefined) clip.peaks = readypeaks;else clip.calculatePeaks(this.samplesPerPixel, this.sampleRate);
 	
+	      if (removeSilences) {
+	        this.removeSilences(clip);
+	      }
+	      this.clips.push(clip);
 	      return clip;
+	    }
+	  }, {
+	    key: 'removeSilences',
+	    value: function removeSilences(clip) {
+	      var track = clip.track;
+	      var bpm = track.bpm;
+	      var minimumSilence = 5 * this.sampleRate;
+	      var buffer = clip.buffer;
+	      var samples = buffer.getChannelData(0);
+	      var startTime = clip.startTime;
+	      var cueIn = clip.cueIn;
+	      var cueOut = clip.cueOut;
+	      var cueInSamp = (0, _conversions.secondsToSamples)(cueIn, this.sampleRate);
+	      var cueOutSamp = (0, _conversions.secondsToSamples)(cueOut, this.sampleRate);
+	      var secsperbeat = 60 / bpm;
+	      var startofSilence = NaN;
+	      var endofSilenece = NaN;
+	      var threshhold = 0.01;
+	
+	      for (var a = cueInSamp; a < cueOutSamp; a++) {
+	        if (!isNaN(startofSilence) && Math.abs(samples[a]) > threshhold) {
+	          if (a - startofSilence > minimumSilence) {
+	            if (!clip.bpm) {
+	              this.removeSamples(clip, startofSilence, a);
+	            } else {
+	              var qpoint = a;
+	              while (qpoint > 0) {
+	                var secs = (0, _conversions.samplesToSeconds)(qpoint, this.sampleRate) + startTime - cueIn;
+	                var secsprev = (0, _conversions.samplesToSeconds)(qpoint - 1, this.sampleRate) + startTime - cueIn;
+	                if (Math.floor(secs / secsperbeat) > Math.floor(secsprev / secsperbeat)) {
+	                  this.removeSamples(clip, startofSilence, qpoint);
+	                  break;
+	                }
+	                qpoint--;
+	              }
+	            }
+	          }
+	          startofSilence = NaN;
+	        } else if (isNaN(startofSilence) && Math.abs(samples[a]) <= threshhold) {
+	          if (!track.bpm) {
+	            startofSilence = a;
+	          } else {
+	            var _secs = (0, _conversions.samplesToSeconds)(a, this.sampleRate) + startTime - cueIn;
+	            var _secsprev = (0, _conversions.samplesToSeconds)(a - 1, this.sampleRate) + startTime - cueIn;
+	
+	            var beatNumber = _secs / secsperbeat;
+	            if (Math.floor(_secs / secsperbeat) > Math.floor(_secsprev / secsperbeat)) {
+	              startofSilence = a;
+	            }
+	          }
+	        }
+	      }
+	      if (!isNaN(startofSilence) && samples.length - startofSilence > minimumSilence) {
+	        this.removeSamples(clip, startofSilence, samples.length);
+	      }
+	    }
+	  }, {
+	    key: 'removeSamples',
+	    value: function removeSamples(clip, start, end) {
+	      var startSec = (0, _conversions.samplesToSeconds)(start, this.sampleRate);
+	      var endSec = (0, _conversions.samplesToSeconds)(end, this.sampleRate);
+	      var cueInSamp = (0, _conversions.samplesToSeconds)(clip.cueIn, this.sampleRate);
+	      if (start == cueInSamp) {
+	        clip.cueIn += endSec;
+	        clip.startTime += endSec;
+	      } else if (end == clip.buffer.length) {
+	        clip.cueOut = startSec;
+	      } else {
+	
+	        var info = clip.getTrackDetails();
+	
+	        info.cueout = startSec;
+	        console.log(clip.name, this.secondsToMinutes(info.start), this.secondsToMinutes(info.start + info.cueout - info.cuein));
+	        if (info.cueout - info.cuein >= 0.2) this.createClip(clip.buffer, info, false, clip.peaks);
+	
+	        clip.startTime += endSec - clip.cueIn;
+	        clip.cueIn = endSec;
+	      }
+	    }
+	  }, {
+	    key: 'secondsToMinutes',
+	    value: function secondsToMinutes(sec) {
+	      var min = sec / 60 | 0;
+	      var secs = sec - min * 60 | 0;
+	      return min + ':' + (secs / 10 | 0) + secs % 10;
 	    }
 	  }, {
 	    key: 'load',
 	    value: function () {
-	      var _ref = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee(clipList) {
+	      var _ref2 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee(clipList) {
 	        var _this3 = this;
 	
-	        var loadPromises, audioBuffers, clips;
+	        var loadPromises, audioBuffers;
 	        return regeneratorRuntime.wrap(function _callee$(_context) {
 	          while (1) {
 	            switch (_context.prev = _context.next) {
@@ -11450,22 +11577,20 @@ var WaveformPlaylist =
 	              case 3:
 	                audioBuffers = _context.sent;
 	
-	                console.log(audioBuffers);
+	                // console.log(audioBuffers);
 	
 	                this.ee.emit('audiosourcesloaded');
 	
-	                clips = audioBuffers.map(function (audioBuffer, index) {
+	                audioBuffers.forEach(function (audioBuffer, index) {
 	                  return _this3.createClip(audioBuffer, clipList[index]);
 	                });
-	
-	                this.clips = this.clips.concat(clips);
 	                this.reasignClips();
 	                this.adjustDuration();
 	                this.draw(this.render());
 	
 	                this.ee.emit('audiosourcesrendered');
 	
-	              case 12:
+	              case 10:
 	              case 'end':
 	                return _context.stop();
 	            }
@@ -11473,8 +11598,8 @@ var WaveformPlaylist =
 	        }, _callee, this);
 	      }));
 	
-	      function load(_x) {
-	        return _ref.apply(this, arguments);
+	      function load(_x2) {
+	        return _ref2.apply(this, arguments);
 	      }
 	
 	      return load;
@@ -11583,12 +11708,15 @@ var WaveformPlaylist =
 	
 	      var currentTime = this.offlineAudioContext.currentTime;
 	
+	      var compressor = this.offlineAudioContext.createDynamicsCompressor();
+	
 	      this.tracks.forEach(function (track) {
 	        track.clips.forEach(function (clip) {
 	          clip.setOfflinePlayout(new _Playout2.default(_this4.offlineAudioContext, clip.buffer));
 	          clip.schedulePlay(currentTime, 0, 0, {
 	            shouldPlay: _this4.shouldTrackPlay(clip),
 	            masterGain: 1,
+	            compressor: compressor,
 	            isOffline: true
 	          });
 	        });
@@ -11678,8 +11806,18 @@ var WaveformPlaylist =
 	
 	      this.samplesPerPixel = zoom;
 	      this.zoomIndex = this.zoomLevels.indexOf(zoom);
+	      this.stateObj.setup(this.samplesPerPixel, this.sampleRate);
 	      this.tracks.forEach(function (track) {
-	        track.calculatePeaks(zoom, _this5.sampleRate);
+	        track.clips.forEach(function (clip, index) {
+	          var a = void 0;
+	          for (a = 0; a < index; a++) {
+	            if (track.clips[a].buffer === clip.buffer) {
+	              clip.setPeaks(track.clips[a].peaks);
+	              break;
+	            }
+	          }
+	          if (a == index) clip.calculatePeaks(zoom, _this5.sampleRate);
+	        });
 	      });
 	    }
 	  }, {
@@ -11804,15 +11942,32 @@ var WaveformPlaylist =
 	        return this.restartPlayFrom(start, end);
 	      }
 	
+	      /*
+	      this.tracks.forEach((track) => {
+	        track.clips.forEach(clip=>{
+	          clip.setOfflinePlayout(new Playout(this.offlineAudioContext, clip.buffer));
+	          clip.schedulePlay(currentTime, 0, 0, {
+	            shouldPlay: this.shouldTrackPlay(clip),
+	            masterGain: 1,
+	            isOffline: true,
+	          });
+	        })
+	      });
+	      */
+	      var compressor = this.ac.createDynamicsCompressor();
 	      this.tracks.forEach(function (track) {
 	        // track.setState('cursor');
 	        playoutPromises.push(track.schedulePlay(currentTime, start, end, {
 	          shouldPlay: _this7.shouldTrackPlay(track),
-	          masterGain: _this7.masterGain
+	          masterGain: _this7.masterGain,
+	          compressor: compressor
 	        }));
 	      });
+	      this.tracks.forEach(function (track) {
+	        return track.play(_this7.ac.currentTime, start, end);
+	      });
 	
-	      this.lastPlay = currentTime;
+	      this.lastPlay = this.ac.currentTime;
 	      // use these to track when the playlist has fully stopped.
 	      this.playoutPromises = playoutPromises;
 	      this.startAnimation(start);
@@ -11886,6 +12041,8 @@ var WaveformPlaylist =
 	
 	      return this.stop().then(function () {
 	        _this10.tracks = [];
+	        _this10.clips = [];
+	        _this10.buffers = new Map();
 	        _this10.soloedTracks = [];
 	        _this10.mutedTracks = [];
 	        _this10.playoutPromises = [];
@@ -11973,6 +12130,9 @@ var WaveformPlaylist =
 	
 	        this.playbackSeconds = playbackSeconds;
 	        this.draw(this.render());
+	        this.tracks.forEach(function (tr) {
+	          return tr.updatedBMeter();
+	        });
 	        this.lastDraw = currentTime;
 	      } else {
 	        if (cursorPos + elapsed >= (this.isSegmentSelection() ? selection.end : this.duration)) {
@@ -12058,8 +12218,14 @@ var WaveformPlaylist =
 	    value: function renderTrackSection() {
 	      var _this15 = this;
 	
+	      var globalEndTime = this.tracks.map(function (tr) {
+	        return tr.getEndTime();
+	      }).reduce(function (a, b) {
+	        return Math.max(a, b);
+	      }, 0);
 	      var trackElements = this.tracks.map(function (track) {
 	        return track.render(_this15.getTrackRenderData({
+	          globalEndTime: globalEndTime,
 	          isActive: _this15.isActiveTrack(track),
 	          shouldPlay: _this15.shouldTrackPlay(track),
 	          soloed: _this15.soloedTracks.indexOf(track) > -1,
@@ -12127,6 +12293,35 @@ var WaveformPlaylist =
 	      });
 	
 	      return info;
+	    }
+	  }, {
+	    key: 'bpm',
+	    set: function set(bpm) {
+	      this._bpm = bpm;
+	      this.tracks.forEach(function (track) {
+	        track.bpm = bpm;
+	        track.clips.forEach(function (clip) {
+	          clip.bpm = bpm;
+	        });
+	      });
+	      this.ee.emit('interactive');
+	    },
+	    get: function get() {
+	      return this._bpm;
+	    }
+	  }, {
+	    key: 'quantize',
+	    set: function set(q) {
+	      this._quantize = q;
+	      this.tracks.forEach(function (tr) {
+	        tr.quantize = q;
+	        tr.clips.forEach(function (clip) {
+	          clip.quantize = q;
+	        });
+	      });
+	    },
+	    get: function get() {
+	      return this._quantize;
 	    }
 	  }]);
 
@@ -14822,7 +15017,7 @@ var WaveformPlaylist =
 	      var startX = e.offsetX;
 	      var startTime = (0, _conversions.pixelsToSeconds)(startX, this.samplesPerPixel, this.sampleRate);
 	
-	      this.ee.emit('select', startTime, startTime);
+	      this.ee.emit('select', startTime + this.offset, startTime + this.offset);
 	    }
 	  }, {
 	    key: 'render',
@@ -14864,18 +15059,7 @@ var WaveformPlaylist =
 	
 	      return (0, _h2.default)('div.playlist-time-scale', {
 	        onmousedown: function onmousedown(e) {
-	          _this.ee.emit('scrolldraggingstart');
-	          e.from = "TimeScale";
-	          _this.ee.emit('scrolldraggingend', e);
-	        },
-	        onmousemove: function onmousemove(_ref) {
-	          // this.ee.emit('scrolldragging',movementX);
-	
-	          var movementX = _ref.movementX;
-	        },
-	        onmouseup: function onmouseup(e) {
-	          e.from = "TimeScale";
-	          // this.ee.emit('scrolldraggingend',e);
+	          _this.seekTo(e);
 	        },
 	        attributes: {
 	          style: 'position: relative; left: 0; right: 0; margin-left: ' + this.marginLeft + 'px;'
@@ -14999,14 +15183,22 @@ var WaveformPlaylist =
 	
 	var _PanKnobHook2 = _interopRequireDefault(_PanKnobHook);
 	
-	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+	var _GridHook = __webpack_require__(400);
 	
-	function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, arguments); return new Promise(function (resolve, reject) { function step(key, arg) { try { var info = gen[key](arg); var value = info.value; } catch (error) { reject(error); return; } if (info.done) { resolve(value); } else { return Promise.resolve(value).then(function (value) { step("next", value); }, function (err) { step("throw", err); }); } } return step("next"); }); }; }
+	var _GridHook2 = _interopRequireDefault(_GridHook);
+	
+	var _EffectKnobHook = __webpack_require__(401);
+	
+	var _EffectKnobHook2 = _interopRequireDefault(_EffectKnobHook);
+	
+	var _path = __webpack_require__(402);
+	
+	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
 	var _class = function () {
-	  function _class() {
+	  function _class(id) {
 	    _classCallCheck(this, _class);
 	
 	    this.name = 'Untitled'; // Track
@@ -15015,11 +15207,26 @@ var WaveformPlaylist =
 	    this.gain = 1; //Track
 	    this._pan = 0; // Track
 	    this.ee = undefined;
+	    this.bpm = 100;
+	    this.id = id;
+	    this.quantize = 1;
+	
+	    this.analyzer = undefined;
+	    this.analyzerHook = new _VolumeSliderHook2.default(this);
+	
+	    this.delay = 1;
+	    this.bitcrusher = 1;
+	    this.lowpass = 10;
 	
 	    this.clips = [];
 	  }
 	
 	  _createClass(_class, [{
+	    key: 'updatedBMeter',
+	    value: function updatedBMeter() {
+	      this.analyzerHook.update();
+	    }
+	  }, {
 	    key: 'unasignAll',
 	    value: function unasignAll() {
 	      return this.clips = [];
@@ -15033,35 +15240,26 @@ var WaveformPlaylist =
 	
 	  }, {
 	    key: 'schedulePlay',
-	    value: function () {
-	      var _ref = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee() {
-	        for (var _len = arguments.length, args = Array(_len), _key = 0; _key < _len; _key++) {
-	          args[_key] = arguments[_key];
-	        }
-	
-	        return regeneratorRuntime.wrap(function _callee$(_context) {
-	          while (1) {
-	            switch (_context.prev = _context.next) {
-	              case 0:
-	                _context.next = 2;
-	                return Promise.all(this.clips.map(function (c) {
-	                  return c.schedulePlay.apply(c, args);
-	                }));
-	
-	              case 2:
-	              case 'end':
-	                return _context.stop();
-	            }
-	          }
-	        }, _callee, this);
-	      }));
-	
-	      function schedulePlay() {
-	        return _ref.apply(this, arguments);
+	    value: function schedulePlay() {
+	      for (var _len = arguments.length, args = Array(_len), _key = 0; _key < _len; _key++) {
+	        args[_key] = arguments[_key];
 	      }
 	
-	      return schedulePlay;
-	    }()
+	      return Promise.all(this.clips.map(function (c) {
+	        return c.schedulePlay.apply(c, args);
+	      }));
+	    }
+	  }, {
+	    key: 'play',
+	    value: function play() {
+	      for (var _len2 = arguments.length, args = Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
+	        args[_key2] = arguments[_key2];
+	      }
+	
+	      this.clips.forEach(function (clip) {
+	        return clip.play.apply(clip, args);
+	      });
+	    }
 	  }, {
 	    key: 'scheduleStop',
 	    value: function scheduleStop(when) {
@@ -15073,6 +15271,13 @@ var WaveformPlaylist =
 	    key: 'assign',
 	    value: function assign(clip) {
 	      return this.clips.push(clip);
+	    }
+	  }, {
+	    key: 'registerPlayout',
+	    value: function registerPlayout(source) {
+	      if (source.context.constructor.name != "OfflineAudioContext") {
+	        source.connect(this.analyzer);
+	      }
 	    }
 	  }, {
 	    key: 'setEventEmitter',
@@ -15151,6 +15356,7 @@ var WaveformPlaylist =
 	    key: 'setGainLevel',
 	    value: function setGainLevel(level) {
 	      this.gain = level;
+	      this.analyzerHook.update();
 	      this.clips.forEach(function (clip) {
 	        clip.gain = level;
 	        clip.playout.setVolumeGainLevel(level);
@@ -15174,18 +15380,13 @@ var WaveformPlaylist =
 	      });
 	    }
 	  }, {
-	    key: 'renderControls',
-	    value: function renderControls(data) {
+	    key: 'renderButtons',
+	    value: function renderButtons(data) {
 	      var _this2 = this;
 	
 	      var muteClass = data.muted ? '.active' : '';
 	      var soloClass = data.soloed ? '.active' : '';
-	
-	      return (0, _h2.default)('div.controls', {
-	        attributes: {
-	          style: 'height: ' + data.height + 'px; width: ' + data.controls.width + 'px; position: absolute; left: 0; z-index: 10;'
-	        }
-	      }, [(0, _h2.default)('header', [this.name]), (0, _h2.default)('div.btn-group', [(0, _h2.default)('span.btn.btn-default.btn-xs.destroyButton', {
+	      return (0, _h2.default)('div.btn-group', [(0, _h2.default)('span.btn.btn-default.btn-xs.destroyButton', {
 	        onclick: function onclick() {
 	          _this2.ee.emit('destroy', _this2);
 	        }
@@ -15197,25 +15398,90 @@ var WaveformPlaylist =
 	        onclick: function onclick() {
 	          _this2.ee.emit('solo', _this2);
 	        }
-	      }, ['Solo']), (0, _h2.default)('canvas.knobCanvas', {
+	      }, ['Solo']), (0, _h2.default)('div.btn.btn-default.dropdown-toggle.btn-xs.btn-effects', {
+	        onclick: function onclick(e) {
+	          _this2.showmenu = !_this2.showmenu;
+	          _this2.ee.emit('interactive');
+	        }
+	      }, ["effects"]), (0, _h2.default)('canvas.knobCanvas', {
 	        attributes: {
 	          width: 25,
 	          height: 25,
 	          "data-ringbgcolor": '#EEE'
 	        },
 	        hook: new _PanKnobHook2.default(this.pan, this)
-	      })]), (0, _h2.default)('label', [(0, _h2.default)('input.volume-slider', {
+	      })]);
+	    }
+	  }, {
+	    key: 'renderSingleEffect',
+	    value: function renderSingleEffect(data, name, hook) {
+	      return (0, _h2.default)("div.effectBox", { attributes: { style: '\n      display:inline-block;\n    ' } }, [(0, _h2.default)('canvas.effect.' + name, {
+	        hook: hook,
 	        attributes: {
-	          type: 'range',
-	          min: 0,
-	          max: 100,
-	          value: 100
-	        },
-	        hook: new _VolumeSliderHook2.default(this.gain),
-	        oninput: function oninput(e) {
-	          _this2.ee.emit('volumechange', e.target.value, _this2);
+	          width: '40px',
+	          height: '40px',
+	          style: '\n            display:inline-block;\n            margin:0 10px;\n          '
 	        }
-	      })])]);
+	      }), (0, _h2.default)('div.effectlabel', name)]);
+	    }
+	  }, {
+	    key: 'renderEffects',
+	    value: function renderEffects(data) {
+	      var _this3 = this;
+	
+	      return (0, _h2.default)('div.effectsmenu', {
+	        attributes: {
+	          style: '\n          position:absolute;\n          top:60px;\n          width:100%;\n          height:70px;\n          background-color:lightgray;\n          z-index:31;\n          ' + (this.showmenu ? '' : "visibility:hidden;") + '\n        '
+	        }
+	      }, [this.renderSingleEffect(data, 'delay', new _EffectKnobHook2.default(this.ee, this.delay, function (value) {
+	        _this3.delay = value;
+	        _this3.clips.forEach(function (clip) {
+	          clip.playout.toggleDelay = value > 1;
+	          clip.playout.delay.delayTime.value = value;
+	        });
+	      }, 1, 10)), this.renderSingleEffect(data, 'bitcrusher', new _EffectKnobHook2.default(this.ee, this.bitcrusher, function (value) {
+	        _this3.bitcrusher = value;
+	        _this3.clips.forEach(function (clip) {
+	          clip.playout.togglePhaser = value > 1;
+	          clip.playout.bitcrusher.bits = value;
+	        });
+	      }, 1, 16)), this.renderSingleEffect(data, 'lowpass', new _EffectKnobHook2.default(this.ee, this.lowpass, function (value) {
+	        _this3.lowpass = value;
+	        _this3.clips.forEach(function (clip) {
+	          clip.playout.toggleLowpass = value > 10;
+	          clip.playout.lowpass.frequency.value = value;
+	          console.log(clip.playout.lowpass.Q);
+	        });
+	      }, 10, 440))]);
+	    }
+	  }, {
+	    key: 'renderVolumeSlider',
+	    value: function renderVolumeSlider(data) {
+	      var _this4 = this;
+	
+	      var width = 100;
+	      return (0, _h2.default)('canvas.volume-slider', {
+	        attributes: {
+	          width: width,
+	          height: 30
+	        },
+	        onclick: function onclick(e) {
+	          var relativeX = e.layerX;
+	          //canvas is larger than the slider with 7 pixels on each side, so:
+	          var clamped = Math.min(Math.max(relativeX, 7), width - 14);
+	          _this4.setGainLevel((clamped - 7) / (100 - 14));
+	        },
+	        hook: this.analyzerHook
+	      });
+	    }
+	  }, {
+	    key: 'renderControls',
+	    value: function renderControls(data) {
+	      return (0, _h2.default)('div.controls', {
+	        attributes: {
+	          style: '\n            height: ' + data.height + 'px; \n            width: ' + data.controls.width + 'px; \n            position: absolute; \n            overflow:visible;\n            left: 0; \n            z-index: ' + (30 - this.id) + ';'
+	        }
+	      }, [(0, _h2.default)('header', [this.name]), this.renderButtons(data), this.renderEffects(data), this.renderVolumeSlider(data)]);
 	    }
 	  }, {
 	    key: 'getEndTime',
@@ -15232,7 +15498,7 @@ var WaveformPlaylist =
 	        return (0, _conversions.secondsToPixels)(seconds, data.resolution, data.sampleRate);
 	      }
 	
-	      var width = convert(this.getEndTime());
+	      var width = convert(data.globalEndTime);
 	      var playbackX = convert(data.playbackSeconds);
 	      var startX = convert(this.startTime);
 	      var endX = convert(this.endTime);
@@ -15251,6 +15517,16 @@ var WaveformPlaylist =
 	          style: 'position: absolute; width: 1px; margin: 0; padding: 0; top: 0; left: ' + playbackX + 'px; bottom: 0; z-index: 5;'
 	        }
 	      })];
+	
+	      var grid = (0, _h2.default)('canvas.grid', {
+	        attributes: {
+	          width: convert(data.globalEndTime),
+	          height: data.height,
+	          style: 'position:absolute;pointer-events:none'
+	        },
+	        hook: new _GridHook2.default(this.quantize, this.bpm, 'lightgray', data.resolution, data.sampleRate)
+	      });
+	      waveformChildren.push(grid);
 	
 	      waveformChildren.push(this.clips.map(function (clip) {
 	        return clip.render(data);
@@ -15272,7 +15548,7 @@ var WaveformPlaylist =
 	
 	      var waveform = (0, _h2.default)('div.waveform', {
 	        attributes: {
-	          style: 'height: ' + data.height + 'px; position: relative;'
+	          style: 'height: ' + data.height + 'px; position: relative;width:' + width + 'px'
 	        }
 	      }, waveformChildren);
 	
@@ -15291,7 +15567,8 @@ var WaveformPlaylist =
 	
 	      return (0, _h2.default)('div.channel-wrapper' + audibleClass + customClass, {
 	        attributes: {
-	          style: 'margin-left: ' + channelMargin + 'px; height: ' + data.height + 'px;'
+	          style: '\n            margin-left: ' + channelMargin + 'px; \n            height: ' + data.height + 'px;\n            z-index: ' + (30 - this.id) + '; \n            overflow:visible;'
+	
 	        }
 	      }, channelChildren);
 	    }
@@ -15835,7 +16112,7 @@ var WaveformPlaylist =
 /* 398 */
 /***/ (function(module, exports) {
 
-	'use strict';
+	"use strict";
 	
 	Object.defineProperty(exports, "__esModule", {
 	  value: true
@@ -15847,18 +16124,83 @@ var WaveformPlaylist =
 	
 	/*
 	* virtual-dom hook for setting the volume input programmatically.
+	* ... AND dB METER
 	*/
 	var _class = function () {
-	  function _class(gain) {
+	  function _class(track) {
 	    _classCallCheck(this, _class);
 	
-	    this.gain = gain;
+	    this.track = track;
 	  }
 	
 	  _createClass(_class, [{
-	    key: 'hook',
-	    value: function hook(volumeInput) {
-	      volumeInput.setAttribute('value', this.gain * 100);
+	    key: "update",
+	    value: function update() {
+	      var NLazar = this.track.analyzer;
+	      if (!this.dataarray) this.dataarray = new Float32Array(NLazar.fftSize);
+	      NLazar.getFloatTimeDomainData(this.dataarray);
+	      // const step = canvas.width/NLazar.fftSize;
+	
+	      var max = 0;
+	      for (var a = 0; a < NLazar.fftSize; a++) {
+	        if (Math.abs(this.dataarray[a]) > max) {
+	          max = Math.abs(this.dataarray[a]);
+	        }
+	      }
+	      //compressor
+	      if (max < 0.3) {
+	        max *= 1.4;
+	      } else if (max < 0.4) {
+	        max *= 1.3;
+	      } else if (max <= 0.6) {
+	        max *= 1.2;
+	      }
+	      this.draw(max);
+	    }
+	  }, {
+	    key: "draw",
+	    value: function draw(max) {
+	      /* dB Meter */
+	      var g = this.g;
+	
+	      g.lineWidth = 10;
+	      g.lineCap = "round";
+	
+	      //background
+	      g.clearRect(0, 0, this.canvas.width, this.canvas.height);
+	
+	      g.strokeStyle = "darkgray";
+	      g.beginPath();
+	      g.moveTo(12, this.canvas.height / 2);
+	      g.lineTo(this.canvas.width - 12, this.canvas.height / 2);
+	      g.stroke();
+	
+	      //foreground
+	      if (max > 0) {
+	        g.globalCompositeOperation = "source-atop";
+	        g.lineCap = "butt";
+	        g.strokeStyle = "orange";
+	        g.beginPath();
+	        g.moveTo(7, this.canvas.height / 2);
+	        g.lineTo(max * (this.canvas.width - 7), this.canvas.height / 2);
+	        g.stroke();
+	        g.globalCompositeOperation = "source-over";
+	      }
+	
+	      /* VolumeSlider */
+	      g.fillStyle = "gray";
+	      g.beginPath();
+	      g.moveTo(this.track.gain * (this.canvas.width - 14) + 14, this.canvas.height / 2);
+	      g.arc(this.track.gain * (this.canvas.width - 14) + 7, this.canvas.height / 2, 7, 0, Math.PI * 2);
+	      g.fill();
+	    }
+	  }, {
+	    key: "hook",
+	    value: function hook(canvas) {
+	      var g = canvas.getContext('2d');
+	      this.canvas = canvas;
+	      this.g = g;
+	      this.draw(0);
 	    }
 	  }]);
 
@@ -15975,6 +16317,602 @@ var WaveformPlaylist =
 	'use strict';
 	
 	Object.defineProperty(exports, "__esModule", {
+	    value: true
+	});
+	
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+	
+	var _conversions = __webpack_require__(388);
+	
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+	
+	var _class = function () {
+	    function _class(quantizeValue, bpm, color, resolution, sampleRate) {
+	        _classCallCheck(this, _class);
+	
+	        this.quantizeValue = quantizeValue;
+	        this.bpm = bpm;
+	        this.color = color;
+	        this.resolution = resolution;
+	        this.sampleRate = sampleRate;
+	    }
+	
+	    _createClass(_class, [{
+	        key: 'draw',
+	        value: function draw(g, canvas) {
+	            // const step = secondsToPixels(60/this.bpm*this.quantizeValue,this.resolution,this.sampleRate);
+	            g.clearRect(0, 0, canvas.width, canvas.height);
+	            g.strokeStyle = this.color;
+	            g.beginPath();
+	            var step = 60 / this.bpm;
+	            for (var a = 1; a < canvas.width; a++) {
+	                var secs = (0, _conversions.pixelsToSeconds)(a, this.resolution, this.sampleRate);
+	                var prevsecs = (0, _conversions.pixelsToSeconds)(a - 1, this.resolution, this.sampleRate);
+	                if (Math.floor(secs / step) > Math.floor(prevsecs / step)) {
+	                    g.moveTo(a, 0);
+	                    g.lineTo(a, canvas.height);
+	                }
+	            }
+	            g.stroke();
+	        }
+	    }, {
+	        key: 'hook',
+	        value: function hook(canvas, _, prev) {
+	            var g = canvas.getContext('2d');
+	            this.width = canvas.width;
+	            this.height = canvas.height;
+	            if (!prev) {
+	                this.draw(g, canvas);
+	                return;
+	            } else for (var prop in this) {
+	                if (this[prop] != prev[prop]) {
+	                    this.draw(g, canvas);
+	                    return;
+	                }
+	            }
+	        }
+	    }]);
+
+	    return _class;
+	}();
+
+	exports.default = _class;
+
+/***/ }),
+/* 401 */
+/***/ (function(module, exports) {
+
+	'use strict';
+	
+	Object.defineProperty(exports, "__esModule", {
+	    value: true
+	});
+	
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+	
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+	
+	var _class = function () {
+	    function _class(ee) {
+	        var initialValue = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
+	        var callback = arguments[2];
+	        var from = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : -2;
+	        var to = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : 2;
+	
+	        _classCallCheck(this, _class);
+	
+	        this.value = (initialValue - from) / (to - from) * 2 - 1;
+	        this.id = Math.random() * 100 | 0;
+	        this.lineWidth = 5;
+	        this.ee = ee;
+	        this.gap = Math.PI * .14; //This is doubled
+	        this.gapPosition = Math.PI * .5;
+	        this.callback = callback;
+	        this.from = from;
+	        this.to = to;
+	    }
+	
+	    _createClass(_class, [{
+	        key: 'setupEvents',
+	        value: function setupEvents(canvas) {
+	            var _this = this;
+	
+	            //effect Change
+	            var from = this.from;
+	            var to = this.to;
+	            canvas.onclick = function (e) {
+	                var offsetX = e.offsetX,
+	                    offsetY = e.offsetY;
+	
+	                var center = { x: canvas.width / 2, y: canvas.height / 2 };
+	                var TAU = Math.PI * 2;
+	
+	                var angle = Math.atan2(offsetY - center.y, offsetX - center.x);
+	
+	                var top = _this.gapPosition - 3 * Math.PI;
+	
+	                var dangle = (angle - top) % TAU;
+	
+	                var adjustedNegatives = dangle > Math.PI ? dangle - TAU : dangle;
+	
+	                var amount = adjustedNegatives / (Math.PI - _this.gap);
+	
+	                var clampedamount = amount > 1 ? 1 : amount < -1 ? -1 : amount; //clamping to -1 to 1
+	
+	                // console.log(adjustedNegatives*180/Math.PI);
+	                // this.track.pan = clampedamount;
+	                _this.value = clampedamount;
+	                var adjustedAmount = (clampedamount + 1) / 2 * (to - from) + from;
+	                _this.callback(adjustedAmount);
+	                // this.track.ee.emit('panknob',this.track);
+	                _this.ee.emit('interactive');
+	            };
+	        }
+	    }, {
+	        key: 'draw',
+	        value: function draw(g, canvas) {
+	            var center = { x: canvas.width / 2, y: canvas.height / 2 };
+	            var TAU = Math.PI * 2;
+	
+	            //Background
+	
+	            g.lineWidth = this.lineWidth;
+	            g.strokeStyle = canvas.getAttribute('data-ringbgcolor') || '#EEE';
+	            g.clearRect(0, 0, canvas.width, canvas.height);
+	            g.beginPath();
+	            g.arc(center.x, center.y, center.x - this.lineWidth, this.gap + this.gapPosition, TAU - this.gap + this.gapPosition);
+	            g.stroke();
+	
+	            //Pan Amount
+	
+	            g.strokeStyle = canvas.getAttribute('data-ringcolor') || 'black';
+	            g.beginPath();
+	            g.arc(center.x, center.y, center.x - this.lineWidth, this.gapPosition + this.gap, this.value * (Math.PI - this.gap) + this.gapPosition + Math.PI, false);
+	            g.stroke();
+	        }
+	    }, {
+	        key: 'hook',
+	        value: function hook(canvas, _, prev) {
+	
+	            this.setupEvents(canvas);
+	            var g = canvas.getContext('2d');
+	            this.draw(g, canvas);
+	        }
+	    }]);
+
+	    return _class;
+	}();
+
+	exports.default = _class;
+
+/***/ }),
+/* 402 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	/* WEBPACK VAR INJECTION */(function(process) {// Copyright Joyent, Inc. and other Node contributors.
+	//
+	// Permission is hereby granted, free of charge, to any person obtaining a
+	// copy of this software and associated documentation files (the
+	// "Software"), to deal in the Software without restriction, including
+	// without limitation the rights to use, copy, modify, merge, publish,
+	// distribute, sublicense, and/or sell copies of the Software, and to permit
+	// persons to whom the Software is furnished to do so, subject to the
+	// following conditions:
+	//
+	// The above copyright notice and this permission notice shall be included
+	// in all copies or substantial portions of the Software.
+	//
+	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+	// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+	// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+	// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+	// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+	// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+	// USE OR OTHER DEALINGS IN THE SOFTWARE.
+	
+	// resolves . and .. elements in a path array with directory names there
+	// must be no slashes, empty elements, or device names (c:\) in the array
+	// (so also no leading and trailing slashes - it does not distinguish
+	// relative and absolute paths)
+	function normalizeArray(parts, allowAboveRoot) {
+	  // if the path tries to go above the root, `up` ends up > 0
+	  var up = 0;
+	  for (var i = parts.length - 1; i >= 0; i--) {
+	    var last = parts[i];
+	    if (last === '.') {
+	      parts.splice(i, 1);
+	    } else if (last === '..') {
+	      parts.splice(i, 1);
+	      up++;
+	    } else if (up) {
+	      parts.splice(i, 1);
+	      up--;
+	    }
+	  }
+	
+	  // if the path is allowed to go above the root, restore leading ..s
+	  if (allowAboveRoot) {
+	    for (; up--; up) {
+	      parts.unshift('..');
+	    }
+	  }
+	
+	  return parts;
+	}
+	
+	// Split a filename into [root, dir, basename, ext], unix version
+	// 'root' is just a slash, or nothing.
+	var splitPathRe =
+	    /^(\/?|)([\s\S]*?)((?:\.{1,2}|[^\/]+?|)(\.[^.\/]*|))(?:[\/]*)$/;
+	var splitPath = function(filename) {
+	  return splitPathRe.exec(filename).slice(1);
+	};
+	
+	// path.resolve([from ...], to)
+	// posix version
+	exports.resolve = function() {
+	  var resolvedPath = '',
+	      resolvedAbsolute = false;
+	
+	  for (var i = arguments.length - 1; i >= -1 && !resolvedAbsolute; i--) {
+	    var path = (i >= 0) ? arguments[i] : process.cwd();
+	
+	    // Skip empty and invalid entries
+	    if (typeof path !== 'string') {
+	      throw new TypeError('Arguments to path.resolve must be strings');
+	    } else if (!path) {
+	      continue;
+	    }
+	
+	    resolvedPath = path + '/' + resolvedPath;
+	    resolvedAbsolute = path.charAt(0) === '/';
+	  }
+	
+	  // At this point the path should be resolved to a full absolute path, but
+	  // handle relative paths to be safe (might happen when process.cwd() fails)
+	
+	  // Normalize the path
+	  resolvedPath = normalizeArray(filter(resolvedPath.split('/'), function(p) {
+	    return !!p;
+	  }), !resolvedAbsolute).join('/');
+	
+	  return ((resolvedAbsolute ? '/' : '') + resolvedPath) || '.';
+	};
+	
+	// path.normalize(path)
+	// posix version
+	exports.normalize = function(path) {
+	  var isAbsolute = exports.isAbsolute(path),
+	      trailingSlash = substr(path, -1) === '/';
+	
+	  // Normalize the path
+	  path = normalizeArray(filter(path.split('/'), function(p) {
+	    return !!p;
+	  }), !isAbsolute).join('/');
+	
+	  if (!path && !isAbsolute) {
+	    path = '.';
+	  }
+	  if (path && trailingSlash) {
+	    path += '/';
+	  }
+	
+	  return (isAbsolute ? '/' : '') + path;
+	};
+	
+	// posix version
+	exports.isAbsolute = function(path) {
+	  return path.charAt(0) === '/';
+	};
+	
+	// posix version
+	exports.join = function() {
+	  var paths = Array.prototype.slice.call(arguments, 0);
+	  return exports.normalize(filter(paths, function(p, index) {
+	    if (typeof p !== 'string') {
+	      throw new TypeError('Arguments to path.join must be strings');
+	    }
+	    return p;
+	  }).join('/'));
+	};
+	
+	
+	// path.relative(from, to)
+	// posix version
+	exports.relative = function(from, to) {
+	  from = exports.resolve(from).substr(1);
+	  to = exports.resolve(to).substr(1);
+	
+	  function trim(arr) {
+	    var start = 0;
+	    for (; start < arr.length; start++) {
+	      if (arr[start] !== '') break;
+	    }
+	
+	    var end = arr.length - 1;
+	    for (; end >= 0; end--) {
+	      if (arr[end] !== '') break;
+	    }
+	
+	    if (start > end) return [];
+	    return arr.slice(start, end - start + 1);
+	  }
+	
+	  var fromParts = trim(from.split('/'));
+	  var toParts = trim(to.split('/'));
+	
+	  var length = Math.min(fromParts.length, toParts.length);
+	  var samePartsLength = length;
+	  for (var i = 0; i < length; i++) {
+	    if (fromParts[i] !== toParts[i]) {
+	      samePartsLength = i;
+	      break;
+	    }
+	  }
+	
+	  var outputParts = [];
+	  for (var i = samePartsLength; i < fromParts.length; i++) {
+	    outputParts.push('..');
+	  }
+	
+	  outputParts = outputParts.concat(toParts.slice(samePartsLength));
+	
+	  return outputParts.join('/');
+	};
+	
+	exports.sep = '/';
+	exports.delimiter = ':';
+	
+	exports.dirname = function(path) {
+	  var result = splitPath(path),
+	      root = result[0],
+	      dir = result[1];
+	
+	  if (!root && !dir) {
+	    // No dirname whatsoever
+	    return '.';
+	  }
+	
+	  if (dir) {
+	    // It has a dirname, strip trailing slash
+	    dir = dir.substr(0, dir.length - 1);
+	  }
+	
+	  return root + dir;
+	};
+	
+	
+	exports.basename = function(path, ext) {
+	  var f = splitPath(path)[2];
+	  // TODO: make this comparison case-insensitive on windows?
+	  if (ext && f.substr(-1 * ext.length) === ext) {
+	    f = f.substr(0, f.length - ext.length);
+	  }
+	  return f;
+	};
+	
+	
+	exports.extname = function(path) {
+	  return splitPath(path)[3];
+	};
+	
+	function filter (xs, f) {
+	    if (xs.filter) return xs.filter(f);
+	    var res = [];
+	    for (var i = 0; i < xs.length; i++) {
+	        if (f(xs[i], i, xs)) res.push(xs[i]);
+	    }
+	    return res;
+	}
+	
+	// String.prototype.substr - negative index don't work in IE8
+	var substr = 'ab'.substr(-1) === 'b'
+	    ? function (str, start, len) { return str.substr(start, len) }
+	    : function (str, start, len) {
+	        if (start < 0) start = str.length + start;
+	        return str.substr(start, len);
+	    }
+	;
+	
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(403)))
+
+/***/ }),
+/* 403 */
+/***/ (function(module, exports) {
+
+	// shim for using process in browser
+	var process = module.exports = {};
+	
+	// cached from whatever global is present so that test runners that stub it
+	// don't break things.  But we need to wrap it in a try catch in case it is
+	// wrapped in strict mode code which doesn't define any globals.  It's inside a
+	// function because try/catches deoptimize in certain engines.
+	
+	var cachedSetTimeout;
+	var cachedClearTimeout;
+	
+	function defaultSetTimout() {
+	    throw new Error('setTimeout has not been defined');
+	}
+	function defaultClearTimeout () {
+	    throw new Error('clearTimeout has not been defined');
+	}
+	(function () {
+	    try {
+	        if (typeof setTimeout === 'function') {
+	            cachedSetTimeout = setTimeout;
+	        } else {
+	            cachedSetTimeout = defaultSetTimout;
+	        }
+	    } catch (e) {
+	        cachedSetTimeout = defaultSetTimout;
+	    }
+	    try {
+	        if (typeof clearTimeout === 'function') {
+	            cachedClearTimeout = clearTimeout;
+	        } else {
+	            cachedClearTimeout = defaultClearTimeout;
+	        }
+	    } catch (e) {
+	        cachedClearTimeout = defaultClearTimeout;
+	    }
+	} ())
+	function runTimeout(fun) {
+	    if (cachedSetTimeout === setTimeout) {
+	        //normal enviroments in sane situations
+	        return setTimeout(fun, 0);
+	    }
+	    // if setTimeout wasn't available but was latter defined
+	    if ((cachedSetTimeout === defaultSetTimout || !cachedSetTimeout) && setTimeout) {
+	        cachedSetTimeout = setTimeout;
+	        return setTimeout(fun, 0);
+	    }
+	    try {
+	        // when when somebody has screwed with setTimeout but no I.E. maddness
+	        return cachedSetTimeout(fun, 0);
+	    } catch(e){
+	        try {
+	            // When we are in I.E. but the script has been evaled so I.E. doesn't trust the global object when called normally
+	            return cachedSetTimeout.call(null, fun, 0);
+	        } catch(e){
+	            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error
+	            return cachedSetTimeout.call(this, fun, 0);
+	        }
+	    }
+	
+	
+	}
+	function runClearTimeout(marker) {
+	    if (cachedClearTimeout === clearTimeout) {
+	        //normal enviroments in sane situations
+	        return clearTimeout(marker);
+	    }
+	    // if clearTimeout wasn't available but was latter defined
+	    if ((cachedClearTimeout === defaultClearTimeout || !cachedClearTimeout) && clearTimeout) {
+	        cachedClearTimeout = clearTimeout;
+	        return clearTimeout(marker);
+	    }
+	    try {
+	        // when when somebody has screwed with setTimeout but no I.E. maddness
+	        return cachedClearTimeout(marker);
+	    } catch (e){
+	        try {
+	            // When we are in I.E. but the script has been evaled so I.E. doesn't  trust the global object when called normally
+	            return cachedClearTimeout.call(null, marker);
+	        } catch (e){
+	            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error.
+	            // Some versions of I.E. have different rules for clearTimeout vs setTimeout
+	            return cachedClearTimeout.call(this, marker);
+	        }
+	    }
+	
+	
+	
+	}
+	var queue = [];
+	var draining = false;
+	var currentQueue;
+	var queueIndex = -1;
+	
+	function cleanUpNextTick() {
+	    if (!draining || !currentQueue) {
+	        return;
+	    }
+	    draining = false;
+	    if (currentQueue.length) {
+	        queue = currentQueue.concat(queue);
+	    } else {
+	        queueIndex = -1;
+	    }
+	    if (queue.length) {
+	        drainQueue();
+	    }
+	}
+	
+	function drainQueue() {
+	    if (draining) {
+	        return;
+	    }
+	    var timeout = runTimeout(cleanUpNextTick);
+	    draining = true;
+	
+	    var len = queue.length;
+	    while(len) {
+	        currentQueue = queue;
+	        queue = [];
+	        while (++queueIndex < len) {
+	            if (currentQueue) {
+	                currentQueue[queueIndex].run();
+	            }
+	        }
+	        queueIndex = -1;
+	        len = queue.length;
+	    }
+	    currentQueue = null;
+	    draining = false;
+	    runClearTimeout(timeout);
+	}
+	
+	process.nextTick = function (fun) {
+	    var args = new Array(arguments.length - 1);
+	    if (arguments.length > 1) {
+	        for (var i = 1; i < arguments.length; i++) {
+	            args[i - 1] = arguments[i];
+	        }
+	    }
+	    queue.push(new Item(fun, args));
+	    if (queue.length === 1 && !draining) {
+	        runTimeout(drainQueue);
+	    }
+	};
+	
+	// v8 likes predictible objects
+	function Item(fun, array) {
+	    this.fun = fun;
+	    this.array = array;
+	}
+	Item.prototype.run = function () {
+	    this.fun.apply(null, this.array);
+	};
+	process.title = 'browser';
+	process.browser = true;
+	process.env = {};
+	process.argv = [];
+	process.version = ''; // empty string to avoid regexp issues
+	process.versions = {};
+	
+	function noop() {}
+	
+	process.on = noop;
+	process.addListener = noop;
+	process.once = noop;
+	process.off = noop;
+	process.removeListener = noop;
+	process.removeAllListeners = noop;
+	process.emit = noop;
+	process.prependListener = noop;
+	process.prependOnceListener = noop;
+	
+	process.listeners = function (name) { return [] }
+	
+	process.binding = function (name) {
+	    throw new Error('process.binding is not supported');
+	};
+	
+	process.cwd = function () { return '/' };
+	process.chdir = function (dir) {
+	    throw new Error('process.chdir is not supported');
+	};
+	process.umask = function() { return 0; };
+
+
+/***/ }),
+/* 404 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	'use strict';
+	
+	Object.defineProperty(exports, "__esModule", {
 	  value: true
 	});
 	
@@ -15988,7 +16926,7 @@ var WaveformPlaylist =
 	
 	var _lodash4 = _interopRequireDefault(_lodash3);
 	
-	var _uuid = __webpack_require__(401);
+	var _uuid = __webpack_require__(405);
 	
 	var _uuid2 = _interopRequireDefault(_uuid);
 	
@@ -15996,23 +16934,23 @@ var WaveformPlaylist =
 	
 	var _h2 = _interopRequireDefault(_h);
 	
-	var _webaudioPeaks = __webpack_require__(403);
+	var _webaudioPeaks = __webpack_require__(407);
 	
 	var _webaudioPeaks2 = _interopRequireDefault(_webaudioPeaks);
 	
-	var _fadeMaker = __webpack_require__(404);
+	var _fadeMaker = __webpack_require__(408);
 	
 	var _conversions = __webpack_require__(388);
 	
-	var _states = __webpack_require__(406);
+	var _states = __webpack_require__(410);
 	
 	var _states2 = _interopRequireDefault(_states);
 	
-	var _CanvasHook = __webpack_require__(413);
+	var _CanvasHook = __webpack_require__(417);
 	
 	var _CanvasHook2 = _interopRequireDefault(_CanvasHook);
 	
-	var _FadeCanvasHook = __webpack_require__(414);
+	var _FadeCanvasHook = __webpack_require__(418);
 	
 	var _FadeCanvasHook2 = _interopRequireDefault(_FadeCanvasHook);
 	
@@ -16048,7 +16986,7 @@ var WaveformPlaylist =
 	    this.startTime = 0; // Clip
 	    this.images = []; // Clip
 	
-	    console.log(this);
+	    this.showMenu = false;
 	  }
 	
 	  _createClass(_class, [{
@@ -16152,7 +17090,10 @@ var WaveformPlaylist =
 	      var fade = {
 	        shape: shape,
 	        start: 0,
-	        end: duration
+	        end: duration,
+	        getDuration: function getDuration() {
+	          return this.end - this.start;
+	        }
 	      };
 	
 	      if (this.fadeIn) {
@@ -16174,7 +17115,10 @@ var WaveformPlaylist =
 	      var fade = {
 	        shape: shape,
 	        start: this.duration - duration,
-	        end: this.duration
+	        end: this.duration,
+	        getDuration: function getDuration() {
+	          return this.end - this.start;
+	        }
 	      };
 	
 	      if (this.fadeOut) {
@@ -16193,7 +17137,10 @@ var WaveformPlaylist =
 	        type: type,
 	        shape: shape,
 	        start: start,
-	        end: end
+	        end: end,
+	        getDuration: function getDuration() {
+	          return this.end - this.start;
+	        }
 	      };
 	
 	      return id;
@@ -16218,8 +17165,14 @@ var WaveformPlaylist =
 	    value: function calculatePeaks(samplesPerPixel, sampleRate) {
 	      var cueIn = (0, _conversions.secondsToSamples)(this.cueIn, sampleRate);
 	      var cueOut = (0, _conversions.secondsToSamples)(this.cueOut, sampleRate);
+	      if (samplesPerPixel != this.samplesPerPixel || sampleRate != this.sampleRate) {
+	        this.images = [];
+	
+	        this.sampleRate = sampleRate;
+	        this.samplesPerPixel = samplesPerPixel;
+	      }
 	      this.setPeaks((0, _webaudioPeaks2.default)(this.buffer, samplesPerPixel, this.peakData.mono));
-	      console.log(this.peaks);
+	      // console.log("peaks",this.peaks);
 	    }
 	  }, {
 	    key: 'setPeaks',
@@ -16324,7 +17277,8 @@ var WaveformPlaylist =
 	
 	      start += this.cueIn;
 	      var relPos = startTime - this.startTime;
-	      var sourcePromise = playoutSystem.setUpSource();
+	      var sourcePromise = playoutSystem.setUpSource(config.compressor);
+	      this.track.registerPlayout(playoutSystem.dBSource);
 	
 	      // param relPos: cursor position in seconds relative to this track.
 	      // can be negative if the cursor is placed before the start of this track etc.
@@ -16365,10 +17319,25 @@ var WaveformPlaylist =
 	      playoutSystem.setShouldPlay(options.shouldPlay);
 	      playoutSystem.setMasterGainLevel(options.masterGain);
 	      playoutSystem.setPan(this.pan);
-	      console.log(when, start, duration);
-	      playoutSystem.play(when, start, duration);
+	      this.readyPlayout = playoutSystem;
+	      // console.log(when,start,duration);
+	      // for (var a=0,b=false;a<100000000;a++)if (a%13==0)a+=1;
+	      // playoutSystem.play(when, start, duration);
 	
 	      return sourcePromise;
+	    }
+	  }, {
+	    key: 'play',
+	    value: function play(now, startTime, endTime) {
+	      var diff = this.startTime - startTime;
+	      if (diff > 0) {
+	        this.readyPlayout.play(now + diff, this.cueIn, endTime);
+	      } else if (this.endTime > startTime) {
+	        if (this.cueIn < 0) {
+	          debugger;
+	        }
+	        this.readyPlayout.play(now, this.cueIn - diff, endTime);
+	      }
 	    }
 	  }, {
 	    key: 'scheduleStop',
@@ -16408,15 +17377,30 @@ var WaveformPlaylist =
 	  }, {
 	    key: 'renderFadeOut',
 	    value: function renderFadeOut(data) {
+	      var _this2 = this;
+	
 	      var fadeOut = this.fades[this.fadeOut];
 	      var fadeWidth = (0, _conversions.secondsToPixels)(fadeOut.end - fadeOut.start, data.resolution, data.sampleRate);
 	      return (0, _h2.default)('div.wp-fade.wp-fadeout', {
+	        onmousedown: function onmousedown(e) {
+	          _this2.clickhandle = true;
+	        },
+	        onmosemove: function onmosemove(e) {
+	          _this2.clickhandle = false;
+	        },
+	        onmouseup: function onmouseup(e) {
+	          console.log(fadeOut.end - fadeOut.start);
+	          if (_this2.clickhandle && fadeOut.end - fadeOut.start < 0.2) {
+	            _this2.setFadeOut(2, _this2.fades[_this2.fadeOut].shape);
+	            _this2.ee.emit("interactive", _this2);
+	          }
+	        },
 	        attributes: {
 	          style: 'position: absolute; height: ' + data.height + 'px; width: ' + fadeWidth + 'px; top: 0; right: 0; z-index: 10;pointer-events:none;'
 	        }
 	      }, [(0, _h2.default)('div.fadeout.fadehandle', {
 	        attributes: {
-	          style: 'position: absolute; \n                    height: 10px; \n                    width: 10px; \n                    z-index: 10; \n                    top:0; \n                    left: -5px; \n                    background-color: black;\n                    border-radius: 10px;\n                    pointer-events:initial;\n                    '
+	          style: 'position: absolute; \n                    height: 15px; \n                    width: 15px; \n                    z-index: 10; \n                    top:10px; \n                    right: ' + (Math.max(fadeWidth, 15) - 5) + 'px; \n                    background-color: black;\n                    border-radius: 10px;\n                    pointer-events:initial;\n                    '
 	        }
 	      }), (0, _h2.default)('canvas', {
 	        attributes: {
@@ -16431,6 +17415,8 @@ var WaveformPlaylist =
 	  }, {
 	    key: 'renderFadeIn',
 	    value: function renderFadeIn(data) {
+	      var _this3 = this;
+	
 	      var fadeIn = this.fades[this.fadeIn];
 	      var fadeWidth = (0, _conversions.secondsToPixels)(fadeIn.end - fadeIn.start, data.resolution, data.sampleRate);
 	
@@ -16439,14 +17425,27 @@ var WaveformPlaylist =
 	          style: 'position: absolute; height: ' + data.height + 'px; width: ' + fadeWidth + 'px; top: 0; left: 0; z-index: 10;pointer-events:none;'
 	        }
 	      }, [(0, _h2.default)('div.fadein.fadehandle', {
+	        onmousedown: function onmousedown(e) {
+	          _this3.clickhandle = true;
+	        },
+	        onmosemove: function onmosemove(e) {
+	          _this3.clickhandle = false;
+	        },
+	        onmouseup: function onmouseup(e) {
+	          console.log(fadeIn.end - fadeIn.start);
+	          if (_this3.clickhandle && fadeIn.end - fadeIn.start < 0.2) {
+	            _this3.setFadeIn(2, _this3.fades[_this3.fadeIn].shape);
+	            _this3.ee.emit("interactive", _this3);
+	          }
+	        },
 	        attributes: {
-	          style: 'position: absolute; \n                    height: 10px; \n                    width: 10px; \n                    z-index: 10; \n                    top:0; \n                    right: -5px; \n                    background-color: black;\n                    border-radius: 10px;\n                    pointer-events:initial;\n                    '
+	          style: 'position: absolute; \n                    height: 15px; \n                    width: 15px; \n                    z-index: 10; \n                    top:10px; \n                    left: ' + (Math.max(fadeWidth, 15) - 5) + 'px; \n                    background-color: black;\n                    border-radius: 15px;\n                    pointer-events:initial;\n                    '
 	        }
 	      }), (0, _h2.default)('canvas', {
 	        attributes: {
 	          width: fadeWidth,
 	          height: data.height,
-	          style: 'pointer-events: none;'
+	          style: 'pointer-events: none;\n                ' + (fadeWidth < 0.2 ? 'display:none;' : '') + '\n                '
 	
 	        },
 	        hook: new _FadeCanvasHook2.default(fadeIn.type, fadeIn.shape, fadeIn.end - fadeIn.start, data.resolution)
@@ -16459,36 +17458,24 @@ var WaveformPlaylist =
 	        return (0, _conversions.secondsToPixels)(w, data.resolution, data.sampleRate);
 	      };
 	
-	      var width = this.peaks.length;
+	      var sampleWidth = this.peaks.length;
 	      var peaks = this.peaks.data[0];
 	
-	      var offset = 0;
-	      var totalWidth = width;
 	      var waveformChildren = [];
+	      var canvasColor = this.waveOutlineColor ? this.waveOutlineColor : data.colors.waveOutlineColor;
 	
-	      var i = 0;
-	      while (totalWidth > 0) {
-	        var currentWidth = Math.min(totalWidth, MAX_CANVAS_WIDTH);
-	        var canvasColor = this.waveOutlineColor ? this.waveOutlineColor : data.colors.waveOutlineColor;
-	
-	        var canvashook = new _CanvasHook2.default(peaks, offset, this.peaks.bits, canvasColor, this.cueIn, data.resolution, data.sampleRate, this.images[i]);
-	        if (!this.images[i]) {
-	          this.images[i] = canvashook.setupImage(currentWidth, data.height);
-	        }
-	
-	        waveformChildren.push((0, _h2.default)('canvas', {
-	          attributes: {
-	            width: convert(this.duration),
-	            height: data.height,
-	            style: '\n            float: left;\n            position: relative;\n            margin: 0;\n            padding: 0;\n            z-index: 3;\n            pointer-events: none;\n          '
-	          },
-	          hook: canvashook
-	        }));
-	
-	        totalWidth -= currentWidth;
-	        offset += MAX_CANVAS_WIDTH;
-	        i++;
+	      var canvashook = new _CanvasHook2.default(peaks, 0, this.peaks.bits, canvasColor, this.cueIn, data.resolution, data.sampleRate, this.images[0]);
+	      if (!this.images[0]) {
+	        this.images[0] = canvashook.setupImage(sampleWidth, data.height);
 	      }
+	      waveformChildren.push((0, _h2.default)('canvas', {
+	        attributes: {
+	          width: convert(this.duration),
+	          height: data.height,
+	          style: '\n          float: left;\n          position: relative;\n          margin: 0;\n          padding: 0;\n          z-index: 3;\n          pointer-events: none;\n        '
+	        },
+	        hook: canvashook
+	      }));
 	
 	      return (0, _h2.default)('div.clipwaveform', {
 	        attributes: {
@@ -16498,9 +17485,91 @@ var WaveformPlaylist =
 	      }, waveformChildren);
 	    }
 	  }, {
+	    key: 'renderHandle',
+	    value: function renderHandle() {
+	      return (0, _h2.default)('div.handle', {
+	        attributes: {
+	          style: '\n          width:5px;\n          height:100%;\n          margin-left:2px;\n          display:inline-block;\n          background-color:black;\n          border-radius:15px;\n          pointer-events:none;\n        '
+	        }
+	      });
+	    }
+	  }, {
+	    key: 'renderLeftShiftHandles',
+	    value: function renderLeftShiftHandles(data) {
+	      var handles = [this.renderHandle(), this.renderHandle()];
+	      return (0, _h2.default)('div.handleContainer.left', {
+	        attributes: {
+	          style: '\n          z-index: 3;\n          height:' + ((data.height * .5 | 0) - 4) + 'px;\n          position:absolute;\n          top:' + (data.height * .25 | 0 + 2) + 'px;\n          left:9.8px;\n        '
+	        }
+	      }, handles);
+	    }
+	  }, {
+	    key: 'renderRightShiftHandles',
+	    value: function renderRightShiftHandles(data) {
+	      var handles = [this.renderHandle(), this.renderHandle()];
+	      // const endPixel = secondsToPixels(this.endTime,data.resolution,data.sampleRate);
+	      return (0, _h2.default)('div.handleContainer.right', {
+	        attributes: {
+	          style: '\n          z-index: 3;\n          height:' + ((data.height * .5 | 0) - 4) + 'px;\n          position:absolute;\n          top:' + (data.height * .25 | 0 + 2) + 'px;\n          right:12px;\n        '
+	        }
+	      }, handles);
+	    }
+	  }, {
+	    key: 'renderMenuButton',
+	    value: function renderMenuButton(data) {
+	      var _this4 = this;
+	
+	      return (0, _h2.default)('div.menuButton', {
+	        onclick: function onclick(e) {
+	          console.log('showMenu', _this4.showMenu);
+	          _this4.ee.emit('showMenu', _this4);
+	        },
+	        attributes: {
+	          style: '\n          z-index:3;\n          text-align:center;\n          font-size:1em;\n          line-height:7px;\n          color:white;\n          background-color:black;\n          position:absolute;\n          bottom:10px;\n          left: 10px;\n          width:15px;\n          height:15px;\n          border-radius:15px;\n          user-select: none;\n          cursor:pointer;\n        '
+	        }
+	      }, '..');
+	    }
+	  }, {
+	    key: 'renderMenu',
+	    value: function renderMenu(data) {
+	      var _this5 = this;
+	
+	      var buttonStyle = '\n          height:20px;\n          cursor:pointer;\n          user-select:none;\n    ';
+	
+	      return (0, _h2.default)('div.menuContainer', {
+	        attributes: {
+	          style: '\n        position:absolute;\n        z-index:4;\n        width:70px;\n        background-color: darkgray;\n\n        '
+	        }
+	      }, [(0, _h2.default)('div.buttonSplit', {
+	        onclick: function onclick(e) {
+	          _this5.ee.emit('splitStart', _this5);
+	          _this5.ee.emit('interactive');
+	        },
+	        attributes: {
+	          style: buttonStyle
+	        }
+	      }, "Split"), (0, _h2.default)('div.buttonDuplicate', {
+	        onclick: function onclick(e) {
+	          _this5.ee.emit('duplicate', _this5);
+	          _this5.ee.emit('interactive');
+	        },
+	        attributes: {
+	          style: buttonStyle
+	        }
+	      }, "Duplicate"), (0, _h2.default)('div.buttonDelete', {
+	        onclick: function onclick(e) {
+	          _this5.ee.emit('delete', _this5);
+	          _this5.ee.emit('interactive');
+	        },
+	        attributes: {
+	          style: buttonStyle
+	        }
+	      }, "Delete")]);
+	    }
+	  }, {
 	    key: 'render',
 	    value: function render(data) {
-	      var _this2 = this;
+	      var _this6 = this;
 	
 	      var convert = function convert(w) {
 	        return (0, _conversions.secondsToPixels)(w, data.resolution, data.sampleRate);
@@ -16514,14 +17583,24 @@ var WaveformPlaylist =
 	
 	      if (this.fadeOut) clipChildren.push(this.renderFadeOut(data));
 	
+	      clipChildren.push(this.renderLeftShiftHandles(data));
+	      clipChildren.push(this.renderRightShiftHandles(data));
+	
+	      clipChildren.push(this.renderMenuButton(data));
+	
+	      if (this.showMenu) clipChildren.push(this.renderMenu(data));
+	
 	      // clipChildren.push(this.renderOverlay(data));
 	
 	      return (0, _h2.default)('div.clip', {
+	        onmouseleave: function onmouseleave() {
+	          return _this6.ee.emit("activeclip", { name: '_none', startTime: 0 });
+	        },
 	        onmouseover: function onmouseover() {
-	          return _this2.ee.emit("activeclip", _this2);
+	          return _this6.ee.emit("activeclip", _this6);
 	        },
 	        attributes: {
-	          style: 'left:' + convert(this.startTime) + 'px;height: ' + data.height + 'px; position: absolute;z-index:1'
+	          style: '\n            left:' + convert(this.startTime) + 'px;\n            height: ' + data.height + 'px; \n            position: absolute;\n            z-index:' + (this.showMenu ? 2 : 1) + ';\n            overflow:visible;\n          '
 	        }
 	      }, clipChildren);
 	    }
@@ -16533,6 +17612,8 @@ var WaveformPlaylist =
 	        start: this.startTime,
 	        end: this.endTime,
 	        name: this.name,
+	        track: this.track.name,
+	        bpm: this.bpm,
 	        customClass: this.customClass,
 	        cuein: this.cueIn,
 	        cueout: this.cueOut
@@ -16567,6 +17648,10 @@ var WaveformPlaylist =
 	    key: 'endTime',
 	    get: function get() {
 	      return this.startTime + this.duration;
+	    },
+	    set: function set(time) {
+	      var duration = time - this.startTime;
+	      this.cueOut = this.cueIn + duration;
 	    }
 	  }]);
 
@@ -16576,7 +17661,7 @@ var WaveformPlaylist =
 	exports.default = _class;
 
 /***/ }),
-/* 401 */
+/* 405 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	//     uuid.js
@@ -16587,7 +17672,7 @@ var WaveformPlaylist =
 	// Unique ID creation requires a high quality random # generator.  We feature
 	// detect to determine the best RNG source, normalizing to a function that
 	// returns 128-bits of randomness, since that's what's usually required
-	var _rng = __webpack_require__(402);
+	var _rng = __webpack_require__(406);
 	
 	// Maps for number <-> hex string conversion
 	var _byteToHex = [];
@@ -16765,7 +17850,7 @@ var WaveformPlaylist =
 
 
 /***/ }),
-/* 402 */
+/* 406 */
 /***/ (function(module, exports) {
 
 	/* WEBPACK VAR INJECTION */(function(global) {
@@ -16804,7 +17889,7 @@ var WaveformPlaylist =
 	/* WEBPACK VAR INJECTION */}.call(exports, (function() { return this; }())))
 
 /***/ }),
-/* 403 */
+/* 407 */
 /***/ (function(module, exports) {
 
 	'use strict';
@@ -16963,7 +18048,7 @@ var WaveformPlaylist =
 	};
 
 /***/ }),
-/* 404 */
+/* 408 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -16975,7 +18060,7 @@ var WaveformPlaylist =
 	exports.createFadeIn = createFadeIn;
 	exports.createFadeOut = createFadeOut;
 	
-	var _fadeCurves = __webpack_require__(405);
+	var _fadeCurves = __webpack_require__(409);
 	
 	var SCURVE = exports.SCURVE = "sCurve";
 	var LINEAR = exports.LINEAR = "linear";
@@ -17065,7 +18150,7 @@ var WaveformPlaylist =
 
 
 /***/ }),
-/* 405 */
+/* 409 */
 /***/ (function(module, exports) {
 
 	'use strict';
@@ -17145,7 +18230,7 @@ var WaveformPlaylist =
 
 
 /***/ }),
-/* 406 */
+/* 410 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -17154,27 +18239,27 @@ var WaveformPlaylist =
 	  value: true
 	});
 	
-	var _CursorState = __webpack_require__(407);
+	var _CursorState = __webpack_require__(411);
 	
 	var _CursorState2 = _interopRequireDefault(_CursorState);
 	
-	var _SelectState = __webpack_require__(408);
+	var _SelectState = __webpack_require__(412);
 	
 	var _SelectState2 = _interopRequireDefault(_SelectState);
 	
-	var _ShiftState = __webpack_require__(409);
+	var _ShiftState = __webpack_require__(413);
 	
 	var _ShiftState2 = _interopRequireDefault(_ShiftState);
 	
-	var _FadeInState = __webpack_require__(410);
+	var _FadeInState = __webpack_require__(414);
 	
 	var _FadeInState2 = _interopRequireDefault(_FadeInState);
 	
-	var _FadeOutState = __webpack_require__(411);
+	var _FadeOutState = __webpack_require__(415);
 	
 	var _FadeOutState2 = _interopRequireDefault(_FadeOutState);
 	
-	var _InteractiveState = __webpack_require__(412);
+	var _InteractiveState = __webpack_require__(416);
 	
 	var _InteractiveState2 = _interopRequireDefault(_InteractiveState);
 	
@@ -17190,7 +18275,7 @@ var WaveformPlaylist =
 	};
 
 /***/ }),
-/* 407 */
+/* 411 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -17252,7 +18337,7 @@ var WaveformPlaylist =
 	exports.default = _class;
 
 /***/ }),
-/* 408 */
+/* 412 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -17350,7 +18435,7 @@ var WaveformPlaylist =
 	exports.default = _class;
 
 /***/ }),
-/* 409 */
+/* 413 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -17468,7 +18553,7 @@ var WaveformPlaylist =
 	exports.default = _class;
 
 /***/ }),
-/* 410 */
+/* 414 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -17524,7 +18609,7 @@ var WaveformPlaylist =
 	exports.default = _class;
 
 /***/ }),
-/* 411 */
+/* 415 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -17580,7 +18665,7 @@ var WaveformPlaylist =
 	exports.default = _class;
 
 /***/ }),
-/* 412 */
+/* 416 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -17611,7 +18696,8 @@ var WaveformPlaylist =
 	    // 0 : not dragging; 1 : dragging the end; -1 : dragging the begining
 	    this.draggingFrom = 0;
 	    this.action = null;
-	    this._activeClip = undefined;
+	    this.bufferedMovement = 0;
+	    this._activeClip = { name: '_none', startTime: 0 };
 	    this.setupEventListeners();
 	  }
 	
@@ -17655,71 +18741,80 @@ var WaveformPlaylist =
 	  }, {
 	    key: 'mousedown',
 	    value: function mousedown(e) {
-	      if (this.action == "fadedraggable") this.action = "dragginghandle";else if (this.action == "resizeableleft") this.action = "resizingleft";else if (this.action == "resizeableright") this.action = "resizingright";else if (this.action == "shiftable") this.action = "shifting";else if (this.action == "scrolldraggable" && e.target.className == "waveform") {
-	        this.action = "scrolldraggingcandidate";
-	        this.clip.ee.emit("scrolldraggingstart");
+	      if (this.action == "fadedraggable") this.action = "dragginghandle";else if (this.action == "resizeableleft") {
+	        this.startAt = this.getMousepos(e);
+	        this.action = "resizingleft";
+	      } else if (this.action == "resizeableright") {
+	        this.startAt = this.getMousepos(e);
+	        this.oldCueOutForResising = this.activeClip.cueOut;
+	        this.action = "resizingright";
+	      } else if (this.action == "shiftable") this.action = "shifting";else if (e.target.className == "waveform") this.seekTo(e);
+	    }
+	  }, {
+	    key: 'updateDraggingFadeHandle',
+	    value: function updateDraggingFadeHandle(mousepos) {
+	      var fadeout = this.activeClip.fades[this.activeClip.fadeOut];
+	      var fadein = this.activeClip.fades[this.activeClip.fadeIn];
+	      if (this.hoveringover == "fadein") this.ee.emit('fadein', Math.min(Math.max(mousepos, 0), this.activeClip.duration - fadeout.getDuration() - 0.5), this.activeClip);else this.ee.emit('fadeout', this.activeClip.duration - Math.min(Math.max(mousepos, fadein.getDuration() + 0.5), this.activeClip.duration), this.activeClip);
+	      this.ee.emit('interactive');
+	    }
+	  }, {
+	    key: 'updateShifting',
+	    value: function updateShifting(movementX) {
+	      var blocklength = 60 / this.activeClip.bpm * this.activeClip.quantize; //in seconds
+	      this.bufferedMovement += movementX; //in seconds
+	      var snaps = Math.round(this.bufferedMovement / blocklength);
+	      if (snaps != 0) {
+	        this.ee.emit("shift", snaps * blocklength, this.activeClip);
+	        this.bufferedMovement = this.bufferedMovement - snaps * blocklength;
 	      }
-	      // console.log(this.clip);
 	    }
 	  }, {
 	    key: 'mousemove',
 	    value: function mousemove(e) {
-	      // const mousepos = pixelsToSeconds(this.correctOffset(e), this.samplesPerPixel, this.sampleRate);
-	      // if (!mousepos)return;
+	      // console.log(this.action);
 	      var mousepos = this.getMousepos(e);
 	      var movementX = (0, _conversions.pixelsToSeconds)(e.movementX, this.samplesPerPixel, this.sampleRate);
-	      // console.log(this.action);
 	      if (this.action == "dragginghandle") {
-	        // console.log(mousepos,this.clip.getStartTime(),this.clip.startTime);
-	        // console.log(mousepos,this.activeClip.duration)
-	        if (mousepos >= 0 && mousepos <= this.activeClip.duration) {
-	          if (this.hoveringover == "fadein") this.ee.emit('fadein', mousepos, this.activeClip);else this.ee.emit('fadeout', this.activeClip.duration - mousepos, this.activeClip);
-	        } else {
-	          this.action = null;
-	        }
+	        this.updateDraggingFadeHandle(mousepos);
 	      } else if (this.action == "resizingleft" || this.action == "resizingright") {
 	        this.updateResizing(e);
 	      } else if (this.action == "shifting") {
-	        this.ee.emit("shift", movementX, this.activeClip);
-	      } else if (e.target.classList.contains('fadehandle')) {
-	        this.action = "fadedraggable";
-	        this.hoveringover = e.target.classList.contains('fadein') ? "fadein" : "fadeout";
-	
-	        document.body.style.cursor = "pointer";
-	      } else if (this.action == "scrolldragging" || this.action == "scrolldraggingcandidate") {
-	        this.ee.emit("scrolldragging", e.movementX);
-	        this.action = "scrolldragging";
-	      } else if (e.target.className == "clip" && e.layerX > e.target.offsetWidth - 10) {
-	        this.action = "resizeableright";
-	        document.body.style.cursor = "e-resize";
-	      } else if (e.target.className == "clip" && e.layerX < 10) {
-	        this.action = "resizeableleft";
-	        document.body.style.cursor = "w-resize";
-	      } else if (e.target.className == "clip") {
-	        this.action = "shiftable";
-	        document.body.style.cursor = "grab";
-	      } else if (e.target.className == "waveform") {
-	        document.body.style.cursor = "auto";
-	        this.action = "scrolldraggable";
-	      } else {
-	        this.action = null;
-	        document.body.style.cursor = "auto";
+	        this.updateShifting(movementX);
 	      }
-	      // console.log(this.action);
+	      //Hovering Over:
+	      else if (this.action == "split") {
+	          document.body.style.cursor = "text";
+	        } else if (e.target.classList.contains('fadehandle')) {
+	          this.action = "fadedraggable";
+	          this.hoveringover = e.target.classList.contains('fadein') ? "fadein" : "fadeout";
+	          document.body.style.cursor = "pointer";
+	        } else if (e.target.className == "handleContainer right") {
+	          this.action = "resizeableright";
+	          document.body.style.cursor = "e-resize";
+	        } else if (e.target.className == "handleContainer left") {
+	          this.action = "resizeableleft";
+	          document.body.style.cursor = "w-resize";
+	        } else if (e.target.className == "clip") {
+	          this.action = "shiftable";
+	          document.body.style.cursor = "grab";
+	        } else {
+	          this.action = null;
+	          document.body.style.cursor = "auto";
+	        }
 	    }
 	  }, {
 	    key: 'seekTo',
 	    value: function seekTo(e) {
 	      e.preventDefault();
 	      // console.log("seek");
-	      var startX = e.offsetX;
-	      var startTime = (0, _conversions.pixelsToSeconds)(startX, this.samplesPerPixel, this.sampleRate);
+	      var startTime = this.getMousepos(e);
+	      // const startTime = pixelsToSeconds(startX, this.samplesPerPixel, this.sampleRate);
 	      this.clip.ee.emit('select', startTime, startTime, this.clip);
 	    }
 	  }, {
 	    key: 'getMousepos',
 	    value: function getMousepos(e) {
-	      if (!this.activeClip) return null;
 	      var waveform = document.body.querySelector(".waveform");
 	      if (!waveform) return null;
 	      var relative = e.pageX - waveform.getBoundingClientRect().left;
@@ -17730,26 +18825,37 @@ var WaveformPlaylist =
 	  }, {
 	    key: 'updateResizing',
 	    value: function updateResizing(e) {
-	      var mousepos = this.getMousepos(e);
+	      var mousepos = this.getMousepos(e) - this.startAt;
+	      // console.log("mousepos",mousepos,this.startAt);
 	      var activeClip = this.activeClip;
 	      if (activeClip.quantize) {
 	        var blocklength = 60 / activeClip.bpm * activeClip.quantize;
 	        mousepos = Math.round(mousepos / blocklength) * blocklength;
 	      }
 	      if (this.action == "resizingleft") {
-	        if (activeClip.cueIn + mousepos < 0) return;
+	        // console.log(activeClip.cueIn + mousepos);
+	        if (activeClip.cueIn + mousepos <= 0) mousepos = -activeClip.cueIn;
+	        if (activeClip.cueIn + mousepos - activeClip.cueOut >= -4) mousepos = -4 + activeClip.cueOut - activeClip.cueIn;
 	        var oldStartTime = activeClip.startTime;
 	        var oldCueIn = activeClip.cueIn;
 	        activeClip.startTime = oldStartTime + mousepos;
 	        activeClip.cueIn = oldCueIn + mousepos;
+	
+	        var fadeout = activeClip.fades[activeClip.fadeOut];
+	        var fadein = activeClip.fades[activeClip.fadeIn];
+	        this.ee.emit('fadein', Math.min(fadein.getDuration(), this.activeClip.duration - fadeout.getDuration() - 0.5), activeClip);
+	        this.ee.emit('fadeout', Math.min(fadeout.getDuration(), activeClip.duration - 0.5), activeClip);
 	      }
 	      if (this.action == "resizingright") {
-	        if (activeClip.cueOut + mousepos - activeClip.duration > activeClip.buffer.duration) return;
-	        activeClip.cueOut = activeClip.cueOut + mousepos - activeClip.duration;
-	        var fadeout = activeClip.fades[activeClip.fadeOut];
-	        var duration = fadeout.end - fadeout.start;
-	        activeClip.fades[activeClip.fadeOut].start = activeClip.endTime - duration;
-	        activeClip.fades[activeClip.fadeOut].end = activeClip.endTime;
+	        if (this.oldCueOutForResising + mousepos > activeClip.buffer.duration) mousepos = activeClip.buffer.duration - this.oldCueOutForResising;
+	        if (this.oldCueOutForResising + mousepos - activeClip.cueIn < 4) mousepos = 4 + activeClip.cueIn - this.oldCueOutForResising;
+	
+	        activeClip.cueOut = this.oldCueOutForResising + mousepos;
+	
+	        var _fadeout = activeClip.fades[activeClip.fadeOut];
+	        var _fadein = activeClip.fades[activeClip.fadeIn];
+	        this.ee.emit('fadeout', Math.min(_fadeout.getDuration(), Math.max(activeClip.duration - _fadein.getDuration() - 0.5, 0.1)), activeClip);
+	        this.ee.emit('fadein', Math.min(_fadein.getDuration(), this.activeClip.duration - 0.5), activeClip);
 	      }
 	
 	      activeClip.ee.emit("interactive", activeClip);
@@ -17757,15 +18863,16 @@ var WaveformPlaylist =
 	  }, {
 	    key: 'mouseup',
 	    value: function mouseup(e) {
-	      if (this.action == "dragginghandle" || this.action == "shifting") {
+	      if (this.action == "split") {
+	        if (e.target.className == 'clip') {
+	          var time = this.getMousepos(e);
+	          this.ee.emit('splitAt', { clip: this.activeClip, at: time });
+	        }
+	
 	        this.action = null;
-	      } else if (this.action == "scrolldraggingcandidate") {
-	        // this.seekTo(e);
-	        this.clip.ee.emit("scrolldraggingend", e);
+	      } else if (this.action == "dragginghandle" || this.action == "shifting") {
 	        this.action = null;
-	      } else if (this.action == "scrolldragging") {
-	        this.action = null;
-	        this.clip.ee.emit("scrolldraggingend", e);
+	        this.bufferedMovement = 0;
 	      } else if (this.action == "resizingleft" || this.action == "resizingright") {
 	        e.preventDefault();
 	        this.updateResizing(e);
@@ -17799,7 +18906,7 @@ var WaveformPlaylist =
 	exports.default = _class;
 
 /***/ }),
-/* 413 */
+/* 417 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -17843,12 +18950,29 @@ var WaveformPlaylist =
 	      // cc.fillRect(0,0,len,h2*2);
 	      cc.fillStyle = this.color;
 	      // console.log(this.color);
-	
 	      for (var i = 0; i < len; i += 1) {
-	        var minPeak = this.peaks[(i + this.offset) * 2] / maxValue;
-	        var maxPeak = this.peaks[(i + this.offset) * 2 + 1] / maxValue;
+	        var minPeak = this.compressValue(this.peaks[i * 2] / maxValue);
+	        var maxPeak = this.compressValue(this.peaks[i * 2 + 1] / maxValue);
+	
 	        CanvasHook.drawFrame(cc, h2, i, minPeak, maxPeak);
 	      }
+	    }
+	  }, {
+	    key: 'compressValue',
+	    value: function compressValue(val) {
+	
+	      if (Math.abs(val) < 0.1) {
+	        val *= 1.6;
+	      } else if (Math.abs(val) < 0.2) {
+	        val *= 1.5;
+	      } else if (Math.abs(val) < 0.3) {
+	        val *= 1.4;
+	      } else if (Math.abs(val) < 0.4) {
+	        val *= 1.3;
+	      } else if (Math.abs(val) <= 0.6) {
+	        val *= 1.2;
+	      }
+	      return val;
 	    }
 	  }, {
 	    key: 'getImage',
@@ -17862,7 +18986,7 @@ var WaveformPlaylist =
 	      this.bufferedwaveform.width = width;
 	      this.bufferedwaveform.height = height;
 	      // console.log(this.bufferedwaveform);
-	      console.log("new canvas");
+	      console.log("redraw");
 	      this.bwc = this.bufferedwaveform.getContext('2d');
 	      this.drawCanvas(this.bwc, width, height / 2);
 	      return this.bufferedwaveform;
@@ -17876,11 +19000,11 @@ var WaveformPlaylist =
 	      var cc = canvas.getContext('2d');
 	      var h2 = canvas.height / 2;
 	
-	      if (!this.bufferedwaveform) this.setupImage(len, h2 * 2);
+	      if (!this.bufferedwaveform) this.setupImage(this.peaks.length, h2 * 2);
 	
 	      cc.clearRect(0, 0, canvas.width, canvas.height);
 	      var offsettotal = (0, _conversions.secondsToPixels)(-this.cueIn, this.resolution, this.sampleRate);
-	      // console.log(offsettotal);
+	
 	      cc.drawImage(this.bufferedwaveform, offsettotal, 0);
 	    }
 	  }], [{
@@ -17902,7 +19026,7 @@ var WaveformPlaylist =
 	exports.default = CanvasHook;
 
 /***/ }),
-/* 414 */
+/* 418 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -17913,9 +19037,9 @@ var WaveformPlaylist =
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _fadeMaker = __webpack_require__(404);
+	var _fadeMaker = __webpack_require__(408);
 	
-	var _fadeCurves = __webpack_require__(405);
+	var _fadeCurves = __webpack_require__(409);
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
@@ -17980,7 +19104,6 @@ var WaveformPlaylist =
 	            throw new Error('Unsupported fade type.');
 	          }
 	      }
-	
 	      switch (shape) {
 	        case _fadeMaker.SCURVE:
 	          {
@@ -18018,7 +19141,7 @@ var WaveformPlaylist =
 	exports.default = FadeCanvasHook;
 
 /***/ }),
-/* 415 */
+/* 419 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -18029,7 +19152,13 @@ var WaveformPlaylist =
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _fadeMaker = __webpack_require__(404);
+	var _fadeMaker = __webpack_require__(408);
+	
+	var _tunajs = __webpack_require__(420);
+	
+	var _tunajs2 = _interopRequireDefault(_tunajs);
+	
+	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
@@ -18038,9 +19167,33 @@ var WaveformPlaylist =
 	    _classCallCheck(this, _class);
 	
 	    this.ac = ac;
+	    this.tuna = new _tunajs2.default(this.ac);
 	    this.gain = 1;
 	    this.buffer = buffer;
 	    this.destination = this.ac.destination;
+	
+	    this.delay = new this.tuna.Delay({
+	      feedback: 0.45, //0 to 1+
+	      delayTime: 150, //1 to 10000 milliseconds
+	      wetLevel: 0.25, //0 to 1+
+	      dryLevel: 1, //0 to 1+
+	      cutoff: 2000, //cutoff frequency of the built in lowpass-filter. 20 to 22050
+	      bypass: 0
+	    });
+	
+	    this.lowpass = new this.tuna.Filter({
+	      frequency: 440, //20 to 22050
+	      Q: 1, //0.001 to 100
+	      gain: 0, //-40 to 40 (in decibels)
+	      filterType: "lowpass", //lowpass, highpass, bandpass, lowshelf, highshelf, peaking, notch, allpass
+	      bypass: 0
+	    });
+	
+	    this.bitcrusher = new this.tuna.Bitcrusher({
+	      bits: 4, //1 to 16
+	      normfreq: 0.1, //0 to 1
+	      bufferSize: 4096 //256 to 16384
+	    });
 	  }
 	
 	  _createClass(_class, [{
@@ -18088,7 +19241,7 @@ var WaveformPlaylist =
 	    }
 	  }, {
 	    key: 'setUpSource',
-	    value: function setUpSource() {
+	    value: function setUpSource(compressor) {
 	      var _this = this;
 	
 	      this.source = this.ac.createBufferSource();
@@ -18120,10 +19273,32 @@ var WaveformPlaylist =
 	      this.volumeGain = this.ac.createGain();
 	      // used for solo/mute
 	      this.shouldPlayGain = this.ac.createGain();
+	
 	      this.panner = this.ac.createStereoPanner();
+	
+	      // console.log('playout', this.delay);
+	
+	
 	      this.masterGain = this.ac.createGain();
 	
-	      this.source.connect(this.fadeGain).connect(this.panner).connect(this.volumeGain).connect(this.shouldPlayGain).connect(this.masterGain).connect(this.destination);
+	      this.source.connect(this.fadeGain).connect(this.panner);
+	
+	      var tunachain = this.panner;
+	      if (this.toggleDelay) {
+	        tunachain.connect(this.delay);
+	        tunachain = this.delay;
+	      }
+	      if (this.togglePhaser) {
+	        tunachain.connect(this.bitcrusher);
+	        tunachain = this.bitcrusher;
+	      }
+	      if (this.toggleLowpass) {
+	        tunachain.connect(this.lowpass);
+	        tunachain = this.lowpass;
+	      }
+	      tunachain.connect(this.volumeGain);
+	
+	      this.volumeGain.connect(this.shouldPlayGain).connect(this.masterGain).connect(compressor).connect(this.destination);
 	
 	      return sourcePromise;
 	    }
@@ -18174,8 +19349,15 @@ var WaveformPlaylist =
 	      var when = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 0;
 	
 	      if (this.source) {
-	        this.source.stop(when);
+	        try {
+	          this.source.stop(when);
+	        } catch (e) {}
 	      }
+	    }
+	  }, {
+	    key: 'dBSource',
+	    get: function get() {
+	      return this.masterGain;
 	    }
 	  }]);
 
@@ -18185,7 +19367,2292 @@ var WaveformPlaylist =
 	exports.default = _class;
 
 /***/ }),
-/* 416 */
+/* 420 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	/*
+	    Copyright (c) 2012 DinahMoe AB & Oskar Eriksson
+	
+	    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation
+	    files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy,
+	    modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software
+	    is furnished to do so, subject to the following conditions:
+	
+	    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+	
+	    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+	    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+	    DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+	    OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+	*/
+	/*global module*/
+	(function() {
+	
+	    var userContext,
+	        userInstance,
+	        pipe = function(param, val) {
+	            param.value = val;
+	        },
+	        Super = Object.create(null, {
+	            activate: {
+	                writable: true,
+	                value: function(doActivate) {
+	                    if (doActivate) {
+	                        this.input.disconnect();
+	                        this.input.connect(this.activateNode);
+	                        if (this.activateCallback) {
+	                            this.activateCallback(doActivate);
+	                        }
+	                    } else {
+	                        this.input.disconnect();
+	                        this.input.connect(this.output);
+	                    }
+	                }
+	            },
+	            bypass: {
+	                get: function() {
+	                    return this._bypass;
+	                },
+	                set: function(value) {
+	                    if (this._lastBypassValue === value) {
+	                        return;
+	                    }
+	                    this._bypass = value;
+	                    this.activate(!value);
+	                    this._lastBypassValue = value;
+	                }
+	            },
+	            connect: {
+	                value: function(target) {
+	                    this.output.connect(target);
+	                }
+	            },
+	            disconnect: {
+	                value: function(target) {
+	                    this.output.disconnect(target);
+	                }
+	            },
+	            connectInOrder: {
+	                value: function(nodeArray) {
+	                    var i = nodeArray.length - 1;
+	                    while (i--) {
+	                        if (!nodeArray[i].connect) {
+	                            return console.error("AudioNode.connectInOrder: TypeError: Not an AudioNode.", nodeArray[i]);
+	                        }
+	                        if (nodeArray[i + 1].input) {
+	                            nodeArray[i].connect(nodeArray[i + 1].input);
+	                        } else {
+	                            nodeArray[i].connect(nodeArray[i + 1]);
+	                        }
+	                    }
+	                }
+	            },
+	            getDefaults: {
+	                value: function() {
+	                    var result = {};
+	                    for (var key in this.defaults) {
+	                        result[key] = this.defaults[key].value;
+	                    }
+	                    return result;
+	                }
+	            },
+	            automate: {
+	                value: function(property, value, duration, startTime) {
+	                    var start = startTime ? ~~(startTime / 1000) : userContext.currentTime,
+	                        dur = duration ? ~~(duration / 1000) : 0,
+	                        _is = this.defaults[property],
+	                        param = this[property],
+	                        method;
+	
+	                    if (param) {
+	                        if (_is.automatable) {
+	                            if (!duration) {
+	                                method = "setValueAtTime";
+	                            } else {
+	                                method = "linearRampToValueAtTime";
+	                                param.cancelScheduledValues(start);
+	                                param.setValueAtTime(param.value, start);
+	                            }
+	                            param[method](value, dur + start);
+	                        } else {
+	                            param = value;
+	                        }
+	                    } else {
+	                        console.error("Invalid Property for " + this.name);
+	                    }
+	                }
+	            }
+	        }),
+	        FLOAT = "float",
+	        BOOLEAN = "boolean",
+	        STRING = "string",
+	        INT = "int";
+	
+	    if (typeof module !== "undefined" && module.exports) {
+	        module.exports = Tuna;
+	    } else if (true) {
+	        window.define("Tuna", definition);
+	    } else {
+	        window.Tuna = Tuna;
+	    }
+	
+	    function definition() {
+	        return Tuna;
+	    }
+	
+	    function Tuna(context) {
+	        if (!(this instanceof Tuna)) {
+	            return new Tuna(context);
+	        }
+	
+	        var _window = typeof window === "undefined" ? {} : window;
+	
+	        if (!_window.AudioContext) {
+	            _window.AudioContext = _window.webkitAudioContext;
+	        }
+	        if (!context) {
+	            console.log("tuna.js: Missing audio context! Creating a new context for you.");
+	            context = _window.AudioContext && (new _window.AudioContext());
+	        }
+	        if (!context) {
+	            throw new Error("Tuna cannot initialize because this environment does not support web audio.");
+	        }
+	        connectify(context);
+	        userContext = context;
+	        userInstance = this;
+	    }
+	
+	    function connectify(context) {
+	        if (context.__connectified__ === true) return;
+	
+	        var gain = context.createGain(),
+	            proto = Object.getPrototypeOf(Object.getPrototypeOf(gain)),
+	            oconnect = proto.connect;
+	
+	        proto.connect = shimConnect;
+	        context.__connectified__ = true; // Prevent overriding connect more than once
+	
+	        function shimConnect() {
+	            var node = arguments[0];
+	            arguments[0] = Super.isPrototypeOf ? (Super.isPrototypeOf(node) ? node.input : node) : (node.input || node);
+	            oconnect.apply(this, arguments);
+	            return node;
+	        }
+	    }
+	
+	    function dbToWAVolume(db) {
+	        return Math.max(0, Math.round(100 * Math.pow(2, db / 6)) / 100);
+	    }
+	
+	    function fmod(x, y) {
+	        // http://kevin.vanzonneveld.net
+	        // *     example 1: fmod(5.7, 1.3);
+	        // *     returns 1: 0.5
+	        var tmp, tmp2, p = 0,
+	            pY = 0,
+	            l = 0.0,
+	            l2 = 0.0;
+	
+	        tmp = x.toExponential().match(/^.\.?(.*)e(.+)$/);
+	        p = parseInt(tmp[2], 10) - (tmp[1] + "").length;
+	        tmp = y.toExponential().match(/^.\.?(.*)e(.+)$/);
+	        pY = parseInt(tmp[2], 10) - (tmp[1] + "").length;
+	
+	        if (pY > p) {
+	            p = pY;
+	        }
+	
+	        tmp2 = (x % y);
+	
+	        if (p < -100 || p > 20) {
+	            // toFixed will give an out of bound error so we fix it like this:
+	            l = Math.round(Math.log(tmp2) / Math.log(10));
+	            l2 = Math.pow(10, l);
+	
+	            return (tmp2 / l2).toFixed(l - p) * l2;
+	        } else {
+	            return parseFloat(tmp2.toFixed(-p));
+	        }
+	    }
+	
+	    function sign(x) {
+	        if (x === 0) {
+	            return 1;
+	        } else {
+	            return Math.abs(x) / x;
+	        }
+	    }
+	
+	    function tanh(n) {
+	        return (Math.exp(n) - Math.exp(-n)) / (Math.exp(n) + Math.exp(-n));
+	    }
+	
+	    function initValue(userVal, defaultVal) {
+	        return userVal === undefined ? defaultVal : userVal;
+	    }
+	
+	    Tuna.prototype.Bitcrusher = function(properties) {
+	        if (!properties) {
+	            properties = this.getDefaults();
+	        }
+	        this.bufferSize = properties.bufferSize || this.defaults.bufferSize.value;
+	
+	        this.input = userContext.createGain();
+	        this.activateNode = userContext.createGain();
+	        this.processor = userContext.createScriptProcessor(this.bufferSize, 1, 1);
+	        this.output = userContext.createGain();
+	
+	        this.activateNode.connect(this.processor);
+	        this.processor.connect(this.output);
+	
+	        var phaser = 0,
+	            last = 0,
+	            input, output, step, i, length;
+	        this.processor.onaudioprocess = function(e) {
+	            input = e.inputBuffer.getChannelData(0),
+	            output = e.outputBuffer.getChannelData(0),
+	            step = Math.pow(1 / 2, this.bits);
+	            length = input.length;
+	            for (i = 0; i < length; i++) {
+	                phaser += this.normfreq;
+	                if (phaser >= 1.0) {
+	                    phaser -= 1.0;
+	                    last = step * Math.floor(input[i] / step + 0.5);
+	                }
+	                output[i] = last;
+	            }
+	        };
+	
+	        this.bits = properties.bits || this.defaults.bits.value;
+	        this.normfreq = initValue(properties.normfreq, this.defaults.normfreq.value);
+	        this.bypass = properties.bypass || this.defaults.bypass.value;
+	    };
+	    Tuna.prototype.Bitcrusher.prototype = Object.create(Super, {
+	        name: {
+	            value: "Bitcrusher"
+	        },
+	        defaults: {
+	            writable: true,
+	            value: {
+	                bits: {
+	                    value: 4,
+	                    min: 1,
+	                    max: 16,
+	                    automatable: false,
+	                    type: INT
+	                },
+	                bufferSize: {
+	                    value: 4096,
+	                    min: 256,
+	                    max: 16384,
+	                    automatable: false,
+	                    type: INT
+	                },
+	                bypass: {
+	                    value: false,
+	                    automatable: false,
+	                    type: BOOLEAN
+	                },
+	                normfreq: {
+	                    value: 0.1,
+	                    min: 0.0001,
+	                    max: 1.0,
+	                    automatable: false,
+	                    type: FLOAT
+	                }
+	            }
+	        },
+	        bits: {
+	            enumerable: true,
+	            get: function() {
+	                return this.processor.bits;
+	            },
+	            set: function(value) {
+	                this.processor.bits = value;
+	            }
+	        },
+	        normfreq: {
+	            enumerable: true,
+	            get: function() {
+	                return this.processor.normfreq;
+	            },
+	            set: function(value) {
+	                this.processor.normfreq = value;
+	            }
+	        }
+	    });
+	
+	    Tuna.prototype.Cabinet = function(properties) {
+	        if (!properties) {
+	            properties = this.getDefaults();
+	        }
+	        this.input = userContext.createGain();
+	        this.activateNode = userContext.createGain();
+	        this.convolver = this.newConvolver(properties.impulsePath || "../impulses/impulse_guitar.wav");
+	        this.makeupNode = userContext.createGain();
+	        this.output = userContext.createGain();
+	
+	        this.activateNode.connect(this.convolver.input);
+	        this.convolver.output.connect(this.makeupNode);
+	        this.makeupNode.connect(this.output);
+	        //don't use makeupGain setter at init to avoid smoothing
+	        this.makeupNode.gain.value = initValue(properties.makeupGain, this.defaults.makeupGain.value);
+	        this.bypass = properties.bypass || this.defaults.bypass.value;
+	    };
+	    Tuna.prototype.Cabinet.prototype = Object.create(Super, {
+	        name: {
+	            value: "Cabinet"
+	        },
+	        defaults: {
+	            writable: true,
+	            value: {
+	                makeupGain: {
+	                    value: 1,
+	                    min: 0,
+	                    max: 20,
+	                    automatable: true,
+	                    type: FLOAT
+	                },
+	                bypass: {
+	                    value: false,
+	                    automatable: false,
+	                    type: BOOLEAN
+	                }
+	            }
+	        },
+	        makeupGain: {
+	            enumerable: true,
+	            get: function() {
+	                return this.makeupNode.gain;
+	            },
+	            set: function(value) {
+	                this.makeupNode.gain.setTargetAtTime(value, userContext.currentTime, 0.01);
+	            }
+	        },
+	        newConvolver: {
+	            value: function(impulsePath) {
+	                return new userInstance.Convolver({
+	                    impulse: impulsePath,
+	                    dryLevel: 0,
+	                    wetLevel: 1
+	                });
+	            }
+	        }
+	    });
+	
+	    Tuna.prototype.Chorus = function(properties) {
+	        if (!properties) {
+	            properties = this.getDefaults();
+	        }
+	        this.input = userContext.createGain();
+	        this.attenuator = this.activateNode = userContext.createGain();
+	        this.splitter = userContext.createChannelSplitter(2);
+	        this.delayL = userContext.createDelay();
+	        this.delayR = userContext.createDelay();
+	        this.feedbackGainNodeLR = userContext.createGain();
+	        this.feedbackGainNodeRL = userContext.createGain();
+	        this.merger = userContext.createChannelMerger(2);
+	        this.output = userContext.createGain();
+	
+	        this.lfoL = new userInstance.LFO({
+	            target: this.delayL.delayTime,
+	            callback: pipe
+	        });
+	        this.lfoR = new userInstance.LFO({
+	            target: this.delayR.delayTime,
+	            callback: pipe
+	        });
+	
+	        this.input.connect(this.attenuator);
+	        this.attenuator.connect(this.output);
+	        this.attenuator.connect(this.splitter);
+	        this.splitter.connect(this.delayL, 0);
+	        this.splitter.connect(this.delayR, 1);
+	        this.delayL.connect(this.feedbackGainNodeLR);
+	        this.delayR.connect(this.feedbackGainNodeRL);
+	        this.feedbackGainNodeLR.connect(this.delayR);
+	        this.feedbackGainNodeRL.connect(this.delayL);
+	        this.delayL.connect(this.merger, 0, 0);
+	        this.delayR.connect(this.merger, 0, 1);
+	        this.merger.connect(this.output);
+	
+	        this.feedback = initValue(properties.feedback, this.defaults.feedback.value);
+	        this.rate = initValue(properties.rate, this.defaults.rate.value);
+	        this.delay = initValue(properties.delay, this.defaults.delay.value);
+	        this.depth = initValue(properties.depth, this.defaults.depth.value);
+	        this.lfoR.phase = Math.PI / 2;
+	        this.attenuator.gain.value = 0.6934; // 1 / (10 ^ (((20 * log10(3)) / 3) / 20))
+	        this.lfoL.activate(true);
+	        this.lfoR.activate(true);
+	        this.bypass = properties.bypass || this.defaults.bypass.value;
+	    };
+	    Tuna.prototype.Chorus.prototype = Object.create(Super, {
+	        name: {
+	            value: "Chorus"
+	        },
+	        defaults: {
+	            writable: true,
+	            value: {
+	                feedback: {
+	                    value: 0.4,
+	                    min: 0,
+	                    max: 0.95,
+	                    automatable: false,
+	                    type: FLOAT
+	                },
+	                delay: {
+	                    value: 0.0045,
+	                    min: 0,
+	                    max: 1,
+	                    automatable: false,
+	                    type: FLOAT
+	                },
+	                depth: {
+	                    value: 0.7,
+	                    min: 0,
+	                    max: 1,
+	                    automatable: false,
+	                    type: FLOAT
+	                },
+	                rate: {
+	                    value: 1.5,
+	                    min: 0,
+	                    max: 8,
+	                    automatable: false,
+	                    type: FLOAT
+	                },
+	                bypass: {
+	                    value: false,
+	                    automatable: false,
+	                    type: BOOLEAN
+	                }
+	            }
+	        },
+	        delay: {
+	            enumerable: true,
+	            get: function() {
+	                return this._delay;
+	            },
+	            set: function(value) {
+	                this._delay = 0.0002 * (Math.pow(10, value) * 2);
+	                this.lfoL.offset = this._delay;
+	                this.lfoR.offset = this._delay;
+	                this._depth = this._depth;
+	            }
+	        },
+	        depth: {
+	            enumerable: true,
+	            get: function() {
+	                return this._depth;
+	            },
+	            set: function(value) {
+	                this._depth = value;
+	                this.lfoL.oscillation = this._depth * this._delay;
+	                this.lfoR.oscillation = this._depth * this._delay;
+	            }
+	        },
+	        feedback: {
+	            enumerable: true,
+	            get: function() {
+	                return this._feedback;
+	            },
+	            set: function(value) {
+	                this._feedback = value;
+	                this.feedbackGainNodeLR.gain.setTargetAtTime(this._feedback, userContext.currentTime, 0.01);
+	                this.feedbackGainNodeRL.gain.setTargetAtTime(this._feedback, userContext.currentTime, 0.01);
+	            }
+	        },
+	        rate: {
+	            enumerable: true,
+	            get: function() {
+	                return this._rate;
+	            },
+	            set: function(value) {
+	                this._rate = value;
+	                this.lfoL.frequency = this._rate;
+	                this.lfoR.frequency = this._rate;
+	            }
+	        }
+	    });
+	
+	    Tuna.prototype.Compressor = function(properties) {
+	        if (!properties) {
+	            properties = this.getDefaults();
+	        }
+	        this.input = userContext.createGain();
+	        this.compNode = this.activateNode = userContext.createDynamicsCompressor();
+	        this.makeupNode = userContext.createGain();
+	        this.output = userContext.createGain();
+	
+	        this.compNode.connect(this.makeupNode);
+	        this.makeupNode.connect(this.output);
+	
+	        this.automakeup = initValue(properties.automakeup, this.defaults.automakeup.value);
+	
+	        //don't use makeupGain setter at initialization to avoid smoothing
+	        if (this.automakeup) {
+	            this.makeupNode.gain.value = dbToWAVolume(this.computeMakeup());
+	        } else {
+	            this.makeupNode.gain.value = dbToWAVolume(initValue(properties.makeupGain, this.defaults.makeupGain.value));
+	        }
+	        this.threshold = initValue(properties.threshold, this.defaults.threshold.value);
+	        this.release = initValue(properties.release, this.defaults.release.value);
+	        this.attack = initValue(properties.attack, this.defaults.attack.value);
+	        this.ratio = properties.ratio || this.defaults.ratio.value;
+	        this.knee = initValue(properties.knee, this.defaults.knee.value);
+	        this.bypass = properties.bypass || this.defaults.bypass.value;
+	    };
+	    Tuna.prototype.Compressor.prototype = Object.create(Super, {
+	        name: {
+	            value: "Compressor"
+	        },
+	        defaults: {
+	            writable: true,
+	            value: {
+	                threshold: {
+	                    value: -20,
+	                    min: -60,
+	                    max: 0,
+	                    automatable: true,
+	                    type: FLOAT
+	                },
+	                release: {
+	                    value: 250,
+	                    min: 10,
+	                    max: 2000,
+	                    automatable: true,
+	                    type: FLOAT
+	                },
+	                makeupGain: {
+	                    value: 1,
+	                    min: 1,
+	                    max: 100,
+	                    automatable: true,
+	                    type: FLOAT
+	                },
+	                attack: {
+	                    value: 1,
+	                    min: 0,
+	                    max: 1000,
+	                    automatable: true,
+	                    type: FLOAT
+	                },
+	                ratio: {
+	                    value: 4,
+	                    min: 1,
+	                    max: 50,
+	                    automatable: true,
+	                    type: FLOAT
+	                },
+	                knee: {
+	                    value: 5,
+	                    min: 0,
+	                    max: 40,
+	                    automatable: true,
+	                    type: FLOAT
+	                },
+	                automakeup: {
+	                    value: false,
+	                    automatable: false,
+	                    type: BOOLEAN
+	                },
+	                bypass: {
+	                    value: false,
+	                    automatable: false,
+	                    type: BOOLEAN
+	                }
+	            }
+	        },
+	        computeMakeup: {
+	            value: function() {
+	                var magicCoefficient = 4, // raise me if the output is too hot
+	                    c = this.compNode;
+	                return -(c.threshold.value - c.threshold.value / c.ratio.value) / magicCoefficient;
+	            }
+	        },
+	        automakeup: {
+	            enumerable: true,
+	            get: function() {
+	                return this._automakeup;
+	            },
+	            set: function(value) {
+	                this._automakeup = value;
+	                if (this._automakeup) this.makeupGain = this.computeMakeup();
+	            }
+	        },
+	        threshold: {
+	            enumerable: true,
+	            get: function() {
+	                return this.compNode.threshold;
+	            },
+	            set: function(value) {
+	                this.compNode.threshold.value = value;
+	                if (this._automakeup) this.makeupGain = this.computeMakeup();
+	            }
+	        },
+	        ratio: {
+	            enumerable: true,
+	            get: function() {
+	                return this.compNode.ratio;
+	            },
+	            set: function(value) {
+	                this.compNode.ratio.value = value;
+	                if (this._automakeup) this.makeupGain = this.computeMakeup();
+	            }
+	        },
+	        knee: {
+	            enumerable: true,
+	            get: function() {
+	                return this.compNode.knee;
+	            },
+	            set: function(value) {
+	                this.compNode.knee.value = value;
+	                if (this._automakeup) this.makeupGain = this.computeMakeup();
+	            }
+	        },
+	        attack: {
+	            enumerable: true,
+	            get: function() {
+	                return this.compNode.attack;
+	            },
+	            set: function(value) {
+	                this.compNode.attack.value = value / 1000;
+	            }
+	        },
+	        release: {
+	            enumerable: true,
+	            get: function() {
+	                return this.compNode.release;
+	            },
+	            set: function(value) {
+	                this.compNode.release.value = value / 1000;
+	            }
+	        },
+	        makeupGain: {
+	            enumerable: true,
+	            get: function() {
+	                return this.makeupNode.gain;
+	            },
+	            set: function(value) {
+	                this.makeupNode.gain.setTargetAtTime(dbToWAVolume(value), userContext.currentTime, 0.01);
+	            }
+	        }
+	    });
+	
+	    Tuna.prototype.Convolver = function(properties) {
+	        if (!properties) {
+	            properties = this.getDefaults();
+	        }
+	        this.input = userContext.createGain();
+	        this.activateNode = userContext.createGain();
+	        this.convolver = userContext.createConvolver();
+	        this.dry = userContext.createGain();
+	        this.filterLow = userContext.createBiquadFilter();
+	        this.filterHigh = userContext.createBiquadFilter();
+	        this.wet = userContext.createGain();
+	        this.output = userContext.createGain();
+	
+	        this.activateNode.connect(this.filterLow);
+	        this.activateNode.connect(this.dry);
+	        this.filterLow.connect(this.filterHigh);
+	        this.filterHigh.connect(this.convolver);
+	        this.convolver.connect(this.wet);
+	        this.wet.connect(this.output);
+	        this.dry.connect(this.output);
+	
+	        //don't use setters at init to avoid smoothing
+	        this.dry.gain.value = initValue(properties.dryLevel, this.defaults.dryLevel.value);
+	        this.wet.gain.value = initValue(properties.wetLevel, this.defaults.wetLevel.value);
+	        this.filterHigh.frequency.value = properties.highCut || this.defaults.highCut.value;
+	        this.filterLow.frequency.value = properties.lowCut || this.defaults.lowCut.value;
+	        this.output.gain.value = initValue(properties.level, this.defaults.level.value);
+	        this.filterHigh.type = "lowpass";
+	        this.filterLow.type = "highpass";
+	        this.buffer = properties.impulse || "../impulses/ir_rev_short.wav";
+	        this.bypass = properties.bypass || this.defaults.bypass.value;
+	    };
+	    Tuna.prototype.Convolver.prototype = Object.create(Super, {
+	        name: {
+	            value: "Convolver"
+	        },
+	        defaults: {
+	            writable: true,
+	            value: {
+	                highCut: {
+	                    value: 22050,
+	                    min: 20,
+	                    max: 22050,
+	                    automatable: true,
+	                    type: FLOAT
+	                },
+	                lowCut: {
+	                    value: 20,
+	                    min: 20,
+	                    max: 22050,
+	                    automatable: true,
+	                    type: FLOAT
+	                },
+	                dryLevel: {
+	                    value: 1,
+	                    min: 0,
+	                    max: 1,
+	                    automatable: true,
+	                    type: FLOAT
+	                },
+	                wetLevel: {
+	                    value: 1,
+	                    min: 0,
+	                    max: 1,
+	                    automatable: true,
+	                    type: FLOAT
+	                },
+	                level: {
+	                    value: 1,
+	                    min: 0,
+	                    max: 1,
+	                    automatable: true,
+	                    type: FLOAT
+	                },
+	                bypass: {
+	                    value: false,
+	                    automatable: false,
+	                    type: BOOLEAN
+	                }
+	            }
+	        },
+	        lowCut: {
+	            get: function() {
+	                return this.filterLow.frequency;
+	            },
+	            set: function(value) {
+	                this.filterLow.frequency.setTargetAtTime(value, userContext.currentTime, 0.01);
+	            }
+	        },
+	        highCut: {
+	            get: function() {
+	                return this.filterHigh.frequency;
+	            },
+	            set: function(value) {
+	                this.filterHigh.frequency.setTargetAtTime(value, userContext.currentTime, 0.01);
+	            }
+	        },
+	        level: {
+	            get: function() {
+	                return this.output.gain;
+	            },
+	            set: function(value) {
+	                this.output.gain.setTargetAtTime(value, userContext.currentTime, 0.01);
+	            }
+	        },
+	        dryLevel: {
+	            get: function() {
+	                return this.dry.gain;
+	            },
+	            set: function(value) {
+	                this.dry.gain.setTargetAtTime(value, userContext.currentTime, 0.01);
+	            }
+	        },
+	        wetLevel: {
+	            get: function() {
+	                return this.wet.gain;
+	            },
+	            set: function(value) {
+	                this.wet.gain.setTargetAtTime(value, userContext.currentTime, 0.01);
+	            }
+	        },
+	        buffer: {
+	            enumerable: false,
+	            get: function() {
+	                return this.convolver.buffer;
+	            },
+	            set: function(impulse) {
+	                var convolver = this.convolver,
+	                    xhr = new XMLHttpRequest();
+	                if (!impulse) {
+	                    console.log("Tuna.Convolver.setBuffer: Missing impulse path!");
+	                    return;
+	                }
+	                xhr.open("GET", impulse, true);
+	                xhr.responseType = "arraybuffer";
+	                xhr.onreadystatechange = function() {
+	                    if (xhr.readyState === 4) {
+	                        if (xhr.status < 300 && xhr.status > 199 || xhr.status === 302) {
+	                            userContext.decodeAudioData(xhr.response, function(buffer) {
+	                                convolver.buffer = buffer;
+	                            }, function(e) {
+	                                if (e) console.log("Tuna.Convolver.setBuffer: Error decoding data" + e);
+	                            });
+	                        }
+	                    }
+	                };
+	                xhr.send(null);
+	            }
+	        }
+	    });
+	
+	    Tuna.prototype.Delay = function(properties) {
+	        if (!properties) {
+	            properties = this.getDefaults();
+	        }
+	        this.input = userContext.createGain();
+	        this.activateNode = userContext.createGain();
+	        this.dry = userContext.createGain();
+	        this.wet = userContext.createGain();
+	        this.filter = userContext.createBiquadFilter();
+	        this.delay = userContext.createDelay(10);
+	        this.feedbackNode = userContext.createGain();
+	        this.output = userContext.createGain();
+	
+	        this.activateNode.connect(this.delay);
+	        this.activateNode.connect(this.dry);
+	        this.delay.connect(this.filter);
+	        this.filter.connect(this.feedbackNode);
+	        this.feedbackNode.connect(this.delay);
+	        this.feedbackNode.connect(this.wet);
+	        this.wet.connect(this.output);
+	        this.dry.connect(this.output);
+	
+	        this.delayTime = properties.delayTime || this.defaults.delayTime.value;
+	        //don't use setters at init to avoid smoothing
+	        this.feedbackNode.gain.value = initValue(properties.feedback, this.defaults.feedback.value);
+	        this.wet.gain.value = initValue(properties.wetLevel, this.defaults.wetLevel.value);
+	        this.dry.gain.value = initValue(properties.dryLevel, this.defaults.dryLevel.value);
+	        this.filter.frequency.value = properties.cutoff || this.defaults.cutoff.value;
+	        this.filter.type = "lowpass";
+	        this.bypass = properties.bypass || this.defaults.bypass.value;
+	    };
+	    Tuna.prototype.Delay.prototype = Object.create(Super, {
+	        name: {
+	            value: "Delay"
+	        },
+	        defaults: {
+	            writable: true,
+	            value: {
+	                delayTime: {
+	                    value: 100,
+	                    min: 20,
+	                    max: 1000,
+	                    automatable: false,
+	                    type: FLOAT
+	                },
+	                feedback: {
+	                    value: 0.45,
+	                    min: 0,
+	                    max: 0.9,
+	                    automatable: true,
+	                    type: FLOAT
+	                },
+	                cutoff: {
+	                    value: 20000,
+	                    min: 20,
+	                    max: 20000,
+	                    automatable: true,
+	                    type: FLOAT
+	                },
+	                wetLevel: {
+	                    value: 0.5,
+	                    min: 0,
+	                    max: 1,
+	                    automatable: true,
+	                    type: FLOAT
+	                },
+	                dryLevel: {
+	                    value: 1,
+	                    min: 0,
+	                    max: 1,
+	                    automatable: true,
+	                    type: FLOAT
+	                },
+	                bypass: {
+	                    value: false,
+	                    automatable: false,
+	                    type: BOOLEAN
+	                }
+	            }
+	        },
+	        delayTime: {
+	            enumerable: true,
+	            get: function() {
+	                return this.delay.delayTime;
+	            },
+	            set: function(value) {
+	                this.delay.delayTime.value = value / 1000;
+	            }
+	        },
+	        wetLevel: {
+	            enumerable: true,
+	            get: function() {
+	                return this.wet.gain;
+	            },
+	            set: function(value) {
+	                this.wet.gain.setTargetAtTime(value, userContext.currentTime, 0.01);
+	            }
+	        },
+	        dryLevel: {
+	            enumerable: true,
+	            get: function() {
+	                return this.dry.gain;
+	            },
+	            set: function(value) {
+	                this.dry.gain.setTargetAtTime(value, userContext.currentTime, 0.01);
+	            }
+	        },
+	        feedback: {
+	            enumerable: true,
+	            get: function() {
+	                return this.feedbackNode.gain;
+	            },
+	            set: function(value) {
+	                this.feedbackNode.gain.setTargetAtTime(value, userContext.currentTime, 0.01);
+	            }
+	        },
+	        cutoff: {
+	            enumerable: true,
+	            get: function() {
+	                return this.filter.frequency;
+	            },
+	            set: function(value) {
+	                this.filter.frequency.setTargetAtTime(value, userContext.currentTime, 0.01);
+	            }
+	        }
+	    });
+	
+	    Tuna.prototype.Filter = function(properties) {
+	        if (!properties) {
+	            properties = this.getDefaults();
+	        }
+	        this.input = userContext.createGain();
+	        this.activateNode = userContext.createGain();
+	        this.filter = userContext.createBiquadFilter();
+	        this.output = userContext.createGain();
+	
+	        this.activateNode.connect(this.filter);
+	        this.filter.connect(this.output);
+	
+	        //don't use setters for freq and gain at init to avoid smoothing
+	        this.filter.frequency.value = properties.frequency || this.defaults.frequency.value;
+	        this.Q = properties.resonance || this.defaults.Q.value;
+	        this.filterType = initValue(properties.filterType, this.defaults.filterType.value);
+	        this.filter.gain.value = initValue(properties.gain, this.defaults.gain.value);
+	        this.bypass = properties.bypass || this.defaults.bypass.value;
+	    };
+	    Tuna.prototype.Filter.prototype = Object.create(Super, {
+	        name: {
+	            value: "Filter"
+	        },
+	        defaults: {
+	            writable: true,
+	            value: {
+	                frequency: {
+	                    value: 800,
+	                    min: 20,
+	                    max: 22050,
+	                    automatable: true,
+	                    type: FLOAT
+	                },
+	                Q: {
+	                    value: 1,
+	                    min: 0.001,
+	                    max: 100,
+	                    automatable: true,
+	                    type: FLOAT
+	                },
+	                gain: {
+	                    value: 0,
+	                    min: -40,
+	                    max: 40,
+	                    automatable: true,
+	                    type: FLOAT
+	                },
+	                bypass: {
+	                    value: false,
+	                    automatable: false,
+	                    type: BOOLEAN
+	                },
+	                filterType: {
+	                    value: "lowpass",
+	                    automatable: false,
+	                    type: STRING
+	                }
+	            }
+	        },
+	        filterType: {
+	            enumerable: true,
+	            get: function() {
+	                return this.filter.type;
+	            },
+	            set: function(value) {
+	                this.filter.type = value;
+	            }
+	        },
+	        Q: {
+	            enumerable: true,
+	            get: function() {
+	                return this.filter.Q;
+	            },
+	            set: function(value) {
+	                this.filter.Q.value = value;
+	            }
+	        },
+	        gain: {
+	            enumerable: true,
+	            get: function() {
+	                return this.filter.gain;
+	            },
+	            set: function(value) {
+	                this.filter.gain.setTargetAtTime(value, userContext.currentTime, 0.01);
+	            }
+	        },
+	        frequency: {
+	            enumerable: true,
+	            get: function() {
+	                return this.filter.frequency;
+	            },
+	            set: function(value) {
+	                this.filter.frequency.setTargetAtTime(value, userContext.currentTime, 0.01);
+	            }
+	        }
+	    });
+	
+	    Tuna.prototype.Gain = function(properties) {
+	        if (!properties) {
+	            properties = this.getDefaults();
+	        }
+	
+	        this.input = userContext.createGain();
+	        this.activateNode = userContext.createGain();
+	        this.gainNode = userContext.createGain();
+	        this.output = userContext.createGain();
+	
+	        this.activateNode.connect(this.gainNode);
+	        this.gainNode.connect(this.output);
+	
+	        //don't use setter at init to avoid smoothing
+	        this.gainNode.gain.value = initValue(properties.gain, this.defaults.gain.value);
+	        this.bypass = properties.bypass || this.defaults.bypass.value;
+	    };
+	    Tuna.prototype.Gain.prototype = Object.create(Super, {
+	        name: {
+	            value: "Gain"
+	        },
+	        defaults: {
+	            writable: true,
+	            value: {
+	                bypass: {
+	                    value: false,
+	                    automatable: false,
+	                    type: BOOLEAN
+	                },
+	                gain: {
+	                    value: 1.0,
+	                    automatable: true,
+	                    type: FLOAT
+	                }
+	            }
+	        },
+	        gain: {
+	            enumerable: true,
+	            get: function() {
+	                return this.gainNode.gain;
+	            },
+	            set: function(value) {
+	                this.gainNode.gain.setTargetAtTime(value, userContext.currentTime, 0.01);
+	            }
+	        }
+	    });
+	
+	    Tuna.prototype.MoogFilter = function(properties) {
+	        if (!properties) {
+	            properties = this.getDefaults();
+	        }
+	        this.bufferSize = properties.bufferSize || this.defaults.bufferSize.value;
+	
+	        this.input = userContext.createGain();
+	        this.activateNode = userContext.createGain();
+	        this.processor = userContext.createScriptProcessor(this.bufferSize, 1, 1);
+	        this.output = userContext.createGain();
+	
+	        this.activateNode.connect(this.processor);
+	        this.processor.connect(this.output);
+	
+	        var in1, in2, in3, in4, out1, out2, out3, out4;
+	        in1 = in2 = in3 = in4 = out1 = out2 = out3 = out4 = 0.0;
+	        var input, output, f, fb, i, length, inputFactor;
+	        this.processor.onaudioprocess = function(e) {
+	            input = e.inputBuffer.getChannelData(0);
+	            output = e.outputBuffer.getChannelData(0);
+	            f = this.cutoff * 1.16;
+	            inputFactor = 0.35013 * (f * f) * (f * f);
+	            fb = this.resonance * (1.0 - 0.15 * f * f);
+	            length = input.length;
+	            for (i = 0; i < length; i++) {
+	                input[i] -= out4 * fb;
+	                input[i] *= inputFactor;
+	                out1 = input[i] + 0.3 * in1 + (1 - f) * out1; // Pole 1
+	                in1 = input[i];
+	                out2 = out1 + 0.3 * in2 + (1 - f) * out2; // Pole 2
+	                in2 = out1;
+	                out3 = out2 + 0.3 * in3 + (1 - f) * out3; // Pole 3
+	                in3 = out2;
+	                out4 = out3 + 0.3 * in4 + (1 - f) * out4; // Pole 4
+	                in4 = out3;
+	                output[i] = out4;
+	            }
+	        };
+	
+	        this.cutoff = initValue(properties.cutoff, this.defaults.cutoff.value);
+	        this.resonance = initValue(properties.resonance, this.defaults.resonance.value);
+	        this.bypass = properties.bypass || this.defaults.bypass.value;
+	    };
+	    Tuna.prototype.MoogFilter.prototype = Object.create(Super, {
+	        name: {
+	            value: "MoogFilter"
+	        },
+	        defaults: {
+	            writable: true,
+	            value: {
+	                bufferSize: {
+	                    value: 4096,
+	                    min: 256,
+	                    max: 16384,
+	                    automatable: false,
+	                    type: INT
+	                },
+	                bypass: {
+	                    value: false,
+	                    automatable: false,
+	                    type: BOOLEAN
+	                },
+	                cutoff: {
+	                    value: 0.065,
+	                    min: 0.0001,
+	                    max: 1.0,
+	                    automatable: false,
+	                    type: FLOAT
+	                },
+	                resonance: {
+	                    value: 3.5,
+	                    min: 0.0,
+	                    max: 4.0,
+	                    automatable: false,
+	                    type: FLOAT
+	                }
+	            }
+	        },
+	        cutoff: {
+	            enumerable: true,
+	            get: function() {
+	                return this.processor.cutoff;
+	            },
+	            set: function(value) {
+	                this.processor.cutoff = value;
+	            }
+	        },
+	        resonance: {
+	            enumerable: true,
+	            get: function() {
+	                return this.processor.resonance;
+	            },
+	            set: function(value) {
+	                this.processor.resonance = value;
+	            }
+	        }
+	    });
+	
+	    Tuna.prototype.Overdrive = function(properties) {
+	        if (!properties) {
+	            properties = this.getDefaults();
+	        }
+	        this.input = userContext.createGain();
+	        this.activateNode = userContext.createGain();
+	        this.inputDrive = userContext.createGain();
+	        this.waveshaper = userContext.createWaveShaper();
+	        this.outputDrive = userContext.createGain();
+	        this.output = userContext.createGain();
+	
+	        this.activateNode.connect(this.inputDrive);
+	        this.inputDrive.connect(this.waveshaper);
+	        this.waveshaper.connect(this.outputDrive);
+	        this.outputDrive.connect(this.output);
+	
+	        this.ws_table = new Float32Array(this.k_nSamples);
+	        this.drive = initValue(properties.drive, this.defaults.drive.value);
+	        this.outputGain = initValue(properties.outputGain, this.defaults.outputGain.value);
+	        this.curveAmount = initValue(properties.curveAmount, this.defaults.curveAmount.value);
+	        this.algorithmIndex = initValue(properties.algorithmIndex, this.defaults.algorithmIndex.value);
+	        this.bypass = properties.bypass || this.defaults.bypass.value;
+	    };
+	    Tuna.prototype.Overdrive.prototype = Object.create(Super, {
+	        name: {
+	            value: "Overdrive"
+	        },
+	        defaults: {
+	            writable: true,
+	            value: {
+	                drive: {
+	                    value: 1,
+	                    min: 0,
+	                    max: 1,
+	                    automatable: true,
+	                    type: FLOAT,
+	                    scaled: true
+	                },
+	                outputGain: {
+	                    value: 0,
+	                    min: -46,
+	                    max: 0,
+	                    automatable: true,
+	                    type: FLOAT,
+	                    scaled: true
+	                },
+	                curveAmount: {
+	                    value: 0.725,
+	                    min: 0,
+	                    max: 1,
+	                    automatable: false,
+	                    type: FLOAT
+	                },
+	                algorithmIndex: {
+	                    value: 0,
+	                    min: 0,
+	                    max: 5,
+	                    automatable: false,
+	                    type: INT
+	                },
+	                bypass: {
+	                    value: false,
+	                    automatable: false,
+	                    type: BOOLEAN
+	                }
+	            }
+	        },
+	        k_nSamples: {
+	            value: 8192
+	        },
+	        drive: {
+	            get: function() {
+	                return this.inputDrive.gain;
+	            },
+	            set: function(value) {
+	                this._drive = value;
+	            }
+	        },
+	        curveAmount: {
+	            get: function() {
+	                return this._curveAmount;
+	            },
+	            set: function(value) {
+	                this._curveAmount = value;
+	                if (this._algorithmIndex === undefined) {
+	                    this._algorithmIndex = 0;
+	                }
+	                this.waveshaperAlgorithms[this._algorithmIndex](this._curveAmount, this.k_nSamples, this.ws_table);
+	                this.waveshaper.curve = this.ws_table;
+	            }
+	        },
+	        outputGain: {
+	            get: function() {
+	                return this.outputDrive.gain;
+	            },
+	            set: function(value) {
+	                this._outputGain = dbToWAVolume(value);
+	                this.outputDrive.gain.setValueAtTime(this._outputGain, userContext.currentTime, 0.01);
+	            }
+	        },
+	        algorithmIndex: {
+	            get: function() {
+	                return this._algorithmIndex;
+	            },
+	            set: function(value) {
+	                this._algorithmIndex = value;
+	                this.curveAmount = this._curveAmount;
+	            }
+	        },
+	        waveshaperAlgorithms: {
+	            value: [
+	                function(amount, n_samples, ws_table) {
+	                    amount = Math.min(amount, 0.9999);
+	                    var k = 2 * amount / (1 - amount),
+	                        i, x;
+	                    for (i = 0; i < n_samples; i++) {
+	                        x = i * 2 / n_samples - 1;
+	                        ws_table[i] = (1 + k) * x / (1 + k * Math.abs(x));
+	                    }
+	                },
+	                function(amount, n_samples, ws_table) {
+	                    var i, x, y;
+	                    for (i = 0; i < n_samples; i++) {
+	                        x = i * 2 / n_samples - 1;
+	                        y = ((0.5 * Math.pow((x + 1.4), 2)) - 1) * y >= 0 ? 5.8 : 1.2;
+	                        ws_table[i] = tanh(y);
+	                    }
+	                },
+	                function(amount, n_samples, ws_table) {
+	                    var i, x, y, a = 1 - amount;
+	                    for (i = 0; i < n_samples; i++) {
+	                        x = i * 2 / n_samples - 1;
+	                        y = x < 0 ? -Math.pow(Math.abs(x), a + 0.04) : Math.pow(x, a);
+	                        ws_table[i] = tanh(y * 2);
+	                    }
+	                },
+	                function(amount, n_samples, ws_table) {
+	                    var i, x, y, abx, a = 1 - amount > 0.99 ? 0.99 : 1 - amount;
+	                    for (i = 0; i < n_samples; i++) {
+	                        x = i * 2 / n_samples - 1;
+	                        abx = Math.abs(x);
+	                        if (abx < a) y = abx;
+	                        else if (abx > a) y = a + (abx - a) / (1 + Math.pow((abx - a) / (1 - a), 2));
+	                        else if (abx > 1) y = abx;
+	                        ws_table[i] = sign(x) * y * (1 / ((a + 1) / 2));
+	                    }
+	                },
+	                function(amount, n_samples, ws_table) { // fixed curve, amount doesn't do anything, the distortion is just from the drive
+	                    var i, x;
+	                    for (i = 0; i < n_samples; i++) {
+	                        x = i * 2 / n_samples - 1;
+	                        if (x < -0.08905) {
+	                            ws_table[i] = (-3 / 4) * (1 - (Math.pow((1 - (Math.abs(x) - 0.032857)), 12)) + (1 / 3) * (Math.abs(x) - 0.032847)) + 0.01;
+	                        } else if (x >= -0.08905 && x < 0.320018) {
+	                            ws_table[i] = (-6.153 * (x * x)) + 3.9375 * x;
+	                        } else {
+	                            ws_table[i] = 0.630035;
+	                        }
+	                    }
+	                },
+	                function(amount, n_samples, ws_table) {
+	                    var a = 2 + Math.round(amount * 14),
+	                        // we go from 2 to 16 bits, keep in mind for the UI
+	                        bits = Math.round(Math.pow(2, a - 1)),
+	                        // real number of quantization steps divided by 2
+	                        i, x;
+	                    for (i = 0; i < n_samples; i++) {
+	                        x = i * 2 / n_samples - 1;
+	                        ws_table[i] = Math.round(x * bits) / bits;
+	                    }
+	                }
+	            ]
+	        }
+	    });
+	
+	    Tuna.prototype.Panner = function(properties) {
+	        if (!properties) {
+	            properties = this.getDefaults();
+	        }
+	
+	        this.input = userContext.createGain();
+	        this.activateNode = userContext.createGain();
+	        this.panner = userContext.createStereoPanner();
+	        this.output = userContext.createGain();
+	
+	        this.activateNode.connect(this.panner);
+	        this.panner.connect(this.output);
+	
+	        this.pan = initValue(properties.pan, this.defaults.pan.value);
+	        this.bypass = properties.bypass || this.defaults.bypass.value;
+	    };
+	    Tuna.prototype.Panner.prototype = Object.create(Super, {
+	        name: {
+	            value: "Panner"
+	        },
+	        defaults: {
+	            writable: true,
+	            value: {
+	                bypass: {
+	                    value: false,
+	                    automatable: false,
+	                    type: BOOLEAN
+	                },
+	                pan: {
+	                    value: 0.0,
+	                    min: -1.0,
+	                    max: 1.0,
+	                    automatable: true,
+	                    type: FLOAT
+	                }
+	            }
+	        },
+	        pan: {
+	            enumerable: true,
+	            get: function() {
+	                return this.panner.pan;
+	            },
+	            set: function(value) {
+	                this.panner.pan.value = value;
+	            }
+	        }
+	    });
+	
+	    Tuna.prototype.Phaser = function(properties) {
+	        if (!properties) {
+	            properties = this.getDefaults();
+	        }
+	        this.input = userContext.createGain();
+	        this.splitter = this.activateNode = userContext.createChannelSplitter(2);
+	        this.filtersL = [];
+	        this.filtersR = [];
+	        this.feedbackGainNodeL = userContext.createGain();
+	        this.feedbackGainNodeR = userContext.createGain();
+	        this.merger = userContext.createChannelMerger(2);
+	        this.filteredSignal = userContext.createGain();
+	        this.output = userContext.createGain();
+	        this.lfoL = new userInstance.LFO({
+	            target: this.filtersL,
+	            callback: this.callback
+	        });
+	        this.lfoR = new userInstance.LFO({
+	            target: this.filtersR,
+	            callback: this.callback
+	        });
+	
+	        var i = this.stage;
+	        while (i--) {
+	            this.filtersL[i] = userContext.createBiquadFilter();
+	            this.filtersR[i] = userContext.createBiquadFilter();
+	            this.filtersL[i].type = "allpass";
+	            this.filtersR[i].type = "allpass";
+	        }
+	        this.input.connect(this.splitter);
+	        this.input.connect(this.output);
+	        this.splitter.connect(this.filtersL[0], 0, 0);
+	        this.splitter.connect(this.filtersR[0], 1, 0);
+	        this.connectInOrder(this.filtersL);
+	        this.connectInOrder(this.filtersR);
+	        this.filtersL[this.stage - 1].connect(this.feedbackGainNodeL);
+	        this.filtersL[this.stage - 1].connect(this.merger, 0, 0);
+	        this.filtersR[this.stage - 1].connect(this.feedbackGainNodeR);
+	        this.filtersR[this.stage - 1].connect(this.merger, 0, 1);
+	        this.feedbackGainNodeL.connect(this.filtersL[0]);
+	        this.feedbackGainNodeR.connect(this.filtersR[0]);
+	        this.merger.connect(this.output);
+	
+	        this.rate = initValue(properties.rate, this.defaults.rate.value);
+	        this.baseModulationFrequency = properties.baseModulationFrequency || this.defaults.baseModulationFrequency.value;
+	        this.depth = initValue(properties.depth, this.defaults.depth.value);
+	        this.feedback = initValue(properties.feedback, this.defaults.feedback.value);
+	        this.stereoPhase = initValue(properties.stereoPhase, this.defaults.stereoPhase.value);
+	
+	        this.lfoL.activate(true);
+	        this.lfoR.activate(true);
+	        this.bypass = properties.bypass || this.defaults.bypass.value;
+	    };
+	    Tuna.prototype.Phaser.prototype = Object.create(Super, {
+	        name: {
+	            value: "Phaser"
+	        },
+	        stage: {
+	            value: 4
+	        },
+	        defaults: {
+	            writable: true,
+	            value: {
+	                rate: {
+	                    value: 0.1,
+	                    min: 0,
+	                    max: 8,
+	                    automatable: false,
+	                    type: FLOAT
+	                },
+	                depth: {
+	                    value: 0.6,
+	                    min: 0,
+	                    max: 1,
+	                    automatable: false,
+	                    type: FLOAT
+	                },
+	                feedback: {
+	                    value: 0.7,
+	                    min: 0,
+	                    max: 1,
+	                    automatable: false,
+	                    type: FLOAT
+	                },
+	                stereoPhase: {
+	                    value: 40,
+	                    min: 0,
+	                    max: 180,
+	                    automatable: false,
+	                    type: FLOAT
+	                },
+	                baseModulationFrequency: {
+	                    value: 700,
+	                    min: 500,
+	                    max: 1500,
+	                    automatable: false,
+	                    type: FLOAT
+	                },
+	                bypass: {
+	                    value: false,
+	                    automatable: false,
+	                    type: BOOLEAN
+	                }
+	            }
+	        },
+	        callback: {
+	            value: function(filters, value) {
+	                for (var stage = 0; stage < 4; stage++) {
+	                    filters[stage].frequency.value = value;
+	                }
+	            }
+	        },
+	        depth: {
+	            get: function() {
+	                return this._depth;
+	            },
+	            set: function(value) {
+	                this._depth = value;
+	                this.lfoL.oscillation = this._baseModulationFrequency * this._depth;
+	                this.lfoR.oscillation = this._baseModulationFrequency * this._depth;
+	            }
+	        },
+	        rate: {
+	            get: function() {
+	                return this._rate;
+	            },
+	            set: function(value) {
+	                this._rate = value;
+	                this.lfoL.frequency = this._rate;
+	                this.lfoR.frequency = this._rate;
+	            }
+	        },
+	        baseModulationFrequency: {
+	            enumerable: true,
+	            get: function() {
+	                return this._baseModulationFrequency;
+	            },
+	            set: function(value) {
+	                this._baseModulationFrequency = value;
+	                this.lfoL.offset = this._baseModulationFrequency;
+	                this.lfoR.offset = this._baseModulationFrequency;
+	                this.depth = this._depth;
+	            }
+	        },
+	        feedback: {
+	            get: function() {
+	                return this._feedback;
+	            },
+	            set: function(value) {
+	                this._feedback = value;
+	                this.feedbackGainNodeL.gain.setTargetAtTime(this._feedback, userContext.currentTime, 0.01);
+	                this.feedbackGainNodeR.gain.setTargetAtTime(this._feedback, userContext.currentTime, 0.01);
+	            }
+	        },
+	        stereoPhase: {
+	            get: function() {
+	                return this._stereoPhase;
+	            },
+	            set: function(value) {
+	                this._stereoPhase = value;
+	                var newPhase = this.lfoL._phase + this._stereoPhase * Math.PI / 180;
+	                newPhase = fmod(newPhase, 2 * Math.PI);
+	                this.lfoR._phase = newPhase;
+	            }
+	        }
+	    });
+	
+	    Tuna.prototype.PingPongDelay = function(properties) {
+	        if (!properties) {
+	            properties = this.getDefaults();
+	        }
+	        this.input = userContext.createGain();
+	        this.wet = userContext.createGain();
+	        this.stereoToMonoMix = userContext.createGain();
+	        this.feedbackLevel = userContext.createGain();
+	        this.output = userContext.createGain();
+	        this.delayLeft = userContext.createDelay(10);
+	        this.delayRight = userContext.createDelay(10);
+	
+	        this.activateNode = userContext.createGain();
+	        this.splitter = userContext.createChannelSplitter(2);
+	        this.merger = userContext.createChannelMerger(2);
+	
+	        this.activateNode.connect(this.splitter);
+	        this.splitter.connect(this.stereoToMonoMix, 0, 0);
+	        this.splitter.connect(this.stereoToMonoMix, 1, 0);
+	        this.stereoToMonoMix.gain.value = .5;
+	        this.stereoToMonoMix.connect(this.wet);
+	        this.wet.connect(this.delayLeft);
+	        this.feedbackLevel.connect(this.wet);
+	        this.delayLeft.connect(this.delayRight);
+	        this.delayRight.connect(this.feedbackLevel);
+	        this.delayLeft.connect(this.merger, 0, 0);
+	        this.delayRight.connect(this.merger, 0, 1);
+	        this.merger.connect(this.output);
+	        this.activateNode.connect(this.output);
+	
+	        this.delayTimeLeft = properties.delayTimeLeft !== undefined ? properties.delayTimeLeft : this.defaults.delayTimeLeft.value;
+	        this.delayTimeRight = properties.delayTimeRight !== undefined ? properties.delayTimeRight : this.defaults.delayTimeRight.value;
+	        this.feedbackLevel.gain.value = properties.feedback !== undefined ? properties.feedback : this.defaults.feedback.value;
+	        this.wet.gain.value = properties.wetLevel !== undefined ? properties.wetLevel : this.defaults.wetLevel.value;
+	        this.bypass = properties.bypass || this.defaults.bypass.value;
+	    };
+	    Tuna.prototype.PingPongDelay.prototype = Object.create(Super, {
+	        name: {
+	            value: "PingPongDelay"
+	        },
+	        delayTimeLeft: {
+	            enumerable: true,
+	            get: function() {
+	                return this._delayTimeLeft;
+	            },
+	            set: function(value) {
+	                this._delayTimeLeft = value;
+	                this.delayLeft.delayTime.value = value / 1000;
+	            }
+	        },
+	        delayTimeRight: {
+	            enumerable: true,
+	            get: function() {
+	                return this._delayTimeRight;
+	            },
+	            set: function(value) {
+	                this._delayTimeRight = value;
+	                this.delayRight.delayTime.value = value / 1000;
+	            }
+	        },
+	        wetLevel: {
+	            enumerable: true,
+	            get: function () {
+	                return this.wet.gain;
+	            },
+	            set: function (value) {
+	                this.wet.gain.setTargetAtTime(value, userContext.currentTime, 0.01);
+	            }
+	        }, 
+	        feedback: {
+	            enumerable: true,
+	            get: function () {
+	                return this.feedbackLevel.gain;
+	            },
+	            set: function (value) {
+	                this.feedbackLevel.gain.setTargetAtTime(value, userContext.currentTime, 0.01);
+	            }
+	        },
+	        defaults: {
+	            writable: true,
+	            value: {
+	                delayTimeLeft: {
+	                    value: 200,
+	                    min: 1,
+	                    max: 10000,
+	                    automatable: false,
+	                    type: INT
+	                },
+	                delayTimeRight: {
+	                    value: 400,
+	                    min: 1,
+	                    max: 10000,
+	                    automatable: false,
+	                    type: INT
+	                },
+	                feedback: {
+	                    value: 0.3,
+	                    min: 0,
+	                    max: 1,
+	                    automatable: true,
+	                    type: FLOAT
+	                },
+	                wetLevel: {
+	                    value: 0.5,
+	                    min: 0,
+	                    max: 1,
+	                    automatable: true,
+	                    type: FLOAT
+	                },
+	                bypass: {
+	                    value: false,
+	                    automatable: false,
+	                    type: BOOLEAN
+	                }
+	            }
+	        }
+	    });
+	
+	    Tuna.prototype.Tremolo = function(properties) {
+	        if (!properties) {
+	            properties = this.getDefaults();
+	        }
+	        this.input = userContext.createGain();
+	        this.splitter = this.activateNode = userContext.createChannelSplitter(2);
+	        this.amplitudeL = userContext.createGain();
+	        this.amplitudeR = userContext.createGain();
+	        this.merger = userContext.createChannelMerger(2);
+	        this.output = userContext.createGain();
+	        this.lfoL = new userInstance.LFO({
+	            target: this.amplitudeL.gain,
+	            callback: pipe
+	        });
+	        this.lfoR = new userInstance.LFO({
+	            target: this.amplitudeR.gain,
+	            callback: pipe
+	        });
+	
+	        this.input.connect(this.splitter);
+	        this.splitter.connect(this.amplitudeL, 0);
+	        this.splitter.connect(this.amplitudeR, 1);
+	        this.amplitudeL.connect(this.merger, 0, 0);
+	        this.amplitudeR.connect(this.merger, 0, 1);
+	        this.merger.connect(this.output);
+	
+	        this.rate = properties.rate || this.defaults.rate.value;
+	        this.intensity = initValue(properties.intensity, this.defaults.intensity.value);
+	        this.stereoPhase = initValue(properties.stereoPhase, this.defaults.stereoPhase.value);
+	
+	        this.lfoL.offset = 1 - (this.intensity / 2);
+	        this.lfoR.offset = 1 - (this.intensity / 2);
+	        this.lfoL.phase = this.stereoPhase * Math.PI / 180;
+	
+	        this.lfoL.activate(true);
+	        this.lfoR.activate(true);
+	        this.bypass = properties.bypass || this.defaults.bypass.value;
+	    };
+	    Tuna.prototype.Tremolo.prototype = Object.create(Super, {
+	        name: {
+	            value: "Tremolo"
+	        },
+	        defaults: {
+	            writable: true,
+	            value: {
+	                intensity: {
+	                    value: 0.3,
+	                    min: 0,
+	                    max: 1,
+	                    automatable: false,
+	                    type: FLOAT
+	                },
+	                stereoPhase: {
+	                    value: 0,
+	                    min: 0,
+	                    max: 180,
+	                    automatable: false,
+	                    type: FLOAT
+	                },
+	                rate: {
+	                    value: 5,
+	                    min: 0.1,
+	                    max: 11,
+	                    automatable: false,
+	                    type: FLOAT
+	                },
+	                bypass: {
+	                    value: false,
+	                    automatable: false,
+	                    type: BOOLEAN
+	                }
+	            }
+	        },
+	        intensity: {
+	            enumerable: true,
+	            get: function() {
+	                return this._intensity;
+	            },
+	            set: function(value) {
+	                this._intensity = value;
+	                this.lfoL.offset = 1 - this._intensity / 2;
+	                this.lfoR.offset = 1 - this._intensity / 2;
+	                this.lfoL.oscillation = this._intensity;
+	                this.lfoR.oscillation = this._intensity;
+	            }
+	        },
+	        rate: {
+	            enumerable: true,
+	            get: function() {
+	                return this._rate;
+	            },
+	            set: function(value) {
+	                this._rate = value;
+	                this.lfoL.frequency = this._rate;
+	                this.lfoR.frequency = this._rate;
+	            }
+	        },
+	        stereoPhase: {
+	            enumerable: true,
+	            get: function() {
+	                return this._stereoPhase;
+	            },
+	            set: function(value) {
+	                this._stereoPhase = value;
+	                var newPhase = this.lfoL._phase + this._stereoPhase * Math.PI / 180;
+	                newPhase = fmod(newPhase, 2 * Math.PI);
+	                this.lfoR.phase = newPhase;
+	            }
+	        }
+	    });
+	
+	    Tuna.prototype.WahWah = function(properties) {
+	        if (!properties) {
+	            properties = this.getDefaults();
+	        }
+	        this.input = userContext.createGain();
+	        this.activateNode = userContext.createGain();
+	        this.envelopeFollower = new userInstance.EnvelopeFollower({
+	            target: this,
+	            callback: function(context, value) {
+	                context.sweep = value;
+	            }
+	        });
+	        this.filterBp = userContext.createBiquadFilter();
+	        this.filterPeaking = userContext.createBiquadFilter();
+	        this.output = userContext.createGain();
+	
+	        //Connect AudioNodes
+	        this.activateNode.connect(this.filterBp);
+	        this.filterBp.connect(this.filterPeaking);
+	        this.filterPeaking.connect(this.output);
+	
+	        //Set Properties
+	        this.init();
+	        this.automode = initValue(properties.automode, this.defaults.automode.value);
+	        this.resonance = properties.resonance || this.defaults.resonance.value;
+	        this.sensitivity = initValue(properties.sensitivity, this.defaults.sensitivity.value);
+	        this.baseFrequency = initValue(properties.baseFrequency, this.defaults.baseFrequency.value);
+	        this.excursionOctaves = properties.excursionOctaves || this.defaults.excursionOctaves.value;
+	        this.sweep = initValue(properties.sweep, this.defaults.sweep.value);
+	
+	        this.activateNode.gain.value = 2;
+	        this.envelopeFollower.activate(true);
+	        this.bypass = properties.bypass || this.defaults.bypass.value;
+	    };
+	    Tuna.prototype.WahWah.prototype = Object.create(Super, {
+	        name: {
+	            value: "WahWah"
+	        },
+	        defaults: {
+	            writable: true,
+	            value: {
+	                automode: {
+	                    value: true,
+	                    automatable: false,
+	                    type: BOOLEAN
+	                },
+	                baseFrequency: {
+	                    value: 0.5,
+	                    min: 0,
+	                    max: 1,
+	                    automatable: false,
+	                    type: FLOAT
+	                },
+	                excursionOctaves: {
+	                    value: 2,
+	                    min: 1,
+	                    max: 6,
+	                    automatable: false,
+	                    type: FLOAT
+	                },
+	                sweep: {
+	                    value: 0.2,
+	                    min: 0,
+	                    max: 1,
+	                    automatable: false,
+	                    type: FLOAT
+	                },
+	                resonance: {
+	                    value: 10,
+	                    min: 1,
+	                    max: 100,
+	                    automatable: false,
+	                    type: FLOAT
+	                },
+	                sensitivity: {
+	                    value: 0.5,
+	                    min: -1,
+	                    max: 1,
+	                    automatable: false,
+	                    type: FLOAT
+	                },
+	                bypass: {
+	                    value: false,
+	                    automatable: false,
+	                    type: BOOLEAN
+	                }
+	            }
+	        },
+	        automode: {
+	            get: function() {
+	                return this._automode;
+	            },
+	            set: function(value) {
+	                this._automode = value;
+	                if (value) {
+	                    this.activateNode.connect(this.envelopeFollower.input);
+	                    this.envelopeFollower.activate(true);
+	                } else {
+	                    this.envelopeFollower.activate(false);
+	                    this.activateNode.disconnect();
+	                    this.activateNode.connect(this.filterBp);
+	                }
+	            }
+	        },
+	        filterFreqTimeout: {
+	            value: 0
+	        },
+	        setFilterFreq: {
+	            value: function() {
+	                try {
+	                    this.filterBp.frequency.value = Math.min(22050, this._baseFrequency + this._excursionFrequency * this._sweep);
+	                    this.filterPeaking.frequency.value = Math.min(22050, this._baseFrequency + this._excursionFrequency * this._sweep);
+	                } catch (e) {
+	                    clearTimeout(this.filterFreqTimeout);
+	                    //put on the next cycle to let all init properties be set
+	                    this.filterFreqTimeout = setTimeout(function() {
+	                        this.setFilterFreq();
+	                    }.bind(this), 0);
+	                }
+	            }
+	        },
+	        sweep: {
+	            enumerable: true,
+	            get: function() {
+	                return this._sweep;
+	            },
+	            set: function(value) {
+	                this._sweep = Math.pow(value > 1 ? 1 : value < 0 ? 0 : value, this._sensitivity);
+	                this.setFilterFreq();
+	            }
+	        },
+	        baseFrequency: {
+	            enumerable: true,
+	            get: function() {
+	                return this._baseFrequency;
+	            },
+	            set: function(value) {
+	                this._baseFrequency = 50 * Math.pow(10, value * 2);
+	                this._excursionFrequency = Math.min(userContext.sampleRate / 2, this.baseFrequency * Math.pow(2, this._excursionOctaves));
+	                this.setFilterFreq();
+	            }
+	        },
+	        excursionOctaves: {
+	            enumerable: true,
+	            get: function() {
+	                return this._excursionOctaves;
+	            },
+	            set: function(value) {
+	                this._excursionOctaves = value;
+	                this._excursionFrequency = Math.min(userContext.sampleRate / 2, this.baseFrequency * Math.pow(2, this._excursionOctaves));
+	                this.setFilterFreq();
+	            }
+	        },
+	        sensitivity: {
+	            enumerable: true,
+	            get: function() {
+	                return this._sensitivity;
+	            },
+	            set: function(value) {
+	                this._sensitivity = Math.pow(10, value);
+	            }
+	        },
+	        resonance: {
+	            enumerable: true,
+	            get: function() {
+	                return this._resonance;
+	            },
+	            set: function(value) {
+	                this._resonance = value;
+	                this.filterPeaking.Q = this._resonance;
+	            }
+	        },
+	        init: {
+	            value: function() {
+	                this.output.gain.value = 1;
+	                this.filterPeaking.type = "peaking";
+	                this.filterBp.type = "bandpass";
+	                this.filterPeaking.frequency.value = 100;
+	                this.filterPeaking.gain.value = 20;
+	                this.filterPeaking.Q.value = 5;
+	                this.filterBp.frequency.value = 100;
+	                this.filterBp.Q.value = 1;
+	            }
+	        }
+	    });
+	
+	    Tuna.prototype.EnvelopeFollower = function(properties) {
+	        if (!properties) {
+	            properties = this.getDefaults();
+	        }
+	        this.input = userContext.createGain();
+	        this.jsNode = this.output = userContext.createScriptProcessor(this.buffersize, 1, 1);
+	
+	        this.input.connect(this.output);
+	
+	        this.attackTime = initValue(properties.attackTime, this.defaults.attackTime.value);
+	        this.releaseTime = initValue(properties.releaseTime, this.defaults.releaseTime.value);
+	        this._envelope = 0;
+	        this.target = properties.target || {};
+	        this.callback = properties.callback || function() {};
+	
+	        this.bypass = properties.bypass || this.defaults.bypass.value;
+	    };
+	    Tuna.prototype.EnvelopeFollower.prototype = Object.create(Super, {
+	        name: {
+	            value: "EnvelopeFollower"
+	        },
+	        defaults: {
+	            value: {
+	                attackTime: {
+	                    value: 0.003,
+	                    min: 0,
+	                    max: 0.5,
+	                    automatable: false,
+	                    type: FLOAT
+	                },
+	                releaseTime: {
+	                    value: 0.5,
+	                    min: 0,
+	                    max: 0.5,
+	                    automatable: false,
+	                    type: FLOAT
+	                },
+	                bypass: {
+	                    value: false,
+	                    automatable: false,
+	                    type: BOOLEAN
+	                }
+	            }
+	        },
+	        buffersize: {
+	            value: 256
+	        },
+	        envelope: {
+	            value: 0
+	        },
+	        sampleRate: {
+	            value: 44100
+	        },
+	        attackTime: {
+	            enumerable: true,
+	            get: function() {
+	                return this._attackTime;
+	            },
+	            set: function(value) {
+	                this._attackTime = value;
+	                this._attackC = Math.exp(-1 / this._attackTime * this.sampleRate / this.buffersize);
+	            }
+	        },
+	        releaseTime: {
+	            enumerable: true,
+	            get: function() {
+	                return this._releaseTime;
+	            },
+	            set: function(value) {
+	                this._releaseTime = value;
+	                this._releaseC = Math.exp(-1 / this._releaseTime * this.sampleRate / this.buffersize);
+	            }
+	        },
+	        callback: {
+	            get: function() {
+	                return this._callback;
+	            },
+	            set: function(value) {
+	                if (typeof value === "function") {
+	                    this._callback = value;
+	                } else {
+	                    console.error("tuna.js: " + this.name + ": Callback must be a function!");
+	                }
+	            }
+	        },
+	        target: {
+	            get: function() {
+	                return this._target;
+	            },
+	            set: function(value) {
+	                this._target = value;
+	            }
+	        },
+	        activate: {
+	            value: function(doActivate) {
+	                this.activated = doActivate;
+	                if (doActivate) {
+	                    this.jsNode.connect(userContext.destination);
+	                    this.jsNode.onaudioprocess = this.returnCompute(this);
+	                } else {
+	                    this.jsNode.disconnect();
+	                    this.jsNode.onaudioprocess = null;
+	                }
+	                if (this.activateCallback) {
+	                    this.activateCallback(doActivate);
+	                }
+	            }
+	        },
+	        returnCompute: {
+	            value: function(instance) {
+	                return function(event) {
+	                    instance.compute(event);
+	                };
+	            }
+	        },
+	        compute: {
+	            value: function(event) {
+	                var count = event.inputBuffer.getChannelData(0).length,
+	                    channels = event.inputBuffer.numberOfChannels,
+	                    current, chan, rms, i;
+	                chan = rms = i = 0;
+	                if (channels > 1) { //need to mixdown
+	                    for (i = 0; i < count; ++i) {
+	                        for (; chan < channels; ++chan) {
+	                            current = event.inputBuffer.getChannelData(chan)[i];
+	                            rms += (current * current) / channels;
+	                        }
+	                    }
+	                } else {
+	                    for (i = 0; i < count; ++i) {
+	                        current = event.inputBuffer.getChannelData(0)[i];
+	                        rms += (current * current);
+	                    }
+	                }
+	                rms = Math.sqrt(rms);
+	
+	                if (this._envelope < rms) {
+	                    this._envelope *= this._attackC;
+	                    this._envelope += (1 - this._attackC) * rms;
+	                } else {
+	                    this._envelope *= this._releaseC;
+	                    this._envelope += (1 - this._releaseC) * rms;
+	                }
+	                this._callback(this._target, this._envelope);
+	            }
+	        }
+	    });
+	
+	    Tuna.prototype.LFO = function(properties) {
+	        if (!properties) {
+	            properties = this.getDefaults();
+	        }
+	
+	        //Instantiate AudioNode
+	        this.input = userContext.createGain();
+	        this.output = userContext.createScriptProcessor(256, 1, 1);
+	        this.activateNode = userContext.destination;
+	
+	        //Set Properties
+	        this.frequency = initValue(properties.frequency, this.defaults.frequency.value);
+	        this.offset = initValue(properties.offset, this.defaults.offset.value);
+	        this.oscillation = initValue(properties.oscillation, this.defaults.oscillation.value);
+	        this.phase = initValue(properties.phase, this.defaults.phase.value);
+	        this.target = properties.target || {};
+	        this.output.onaudioprocess = this.callback(properties.callback || function() {});
+	        this.bypass = properties.bypass || this.defaults.bypass.value;
+	    };
+	    Tuna.prototype.LFO.prototype = Object.create(Super, {
+	        name: {
+	            value: "LFO"
+	        },
+	        bufferSize: {
+	            value: 256
+	        },
+	        sampleRate: {
+	            value: 44100
+	        },
+	        defaults: {
+	            value: {
+	                frequency: {
+	                    value: 1,
+	                    min: 0,
+	                    max: 20,
+	                    automatable: false,
+	                    type: FLOAT
+	                },
+	                offset: {
+	                    value: 0.85,
+	                    min: 0,
+	                    max: 22049,
+	                    automatable: false,
+	                    type: FLOAT
+	                },
+	                oscillation: {
+	                    value: 0.3,
+	                    min: -22050,
+	                    max: 22050,
+	                    automatable: false,
+	                    type: FLOAT
+	                },
+	                phase: {
+	                    value: 0,
+	                    min: 0,
+	                    max: 2 * Math.PI,
+	                    automatable: false,
+	                    type: FLOAT
+	                },
+	                bypass: {
+	                    value: false,
+	                    automatable: false,
+	                    type: BOOLEAN
+	                }
+	            }
+	        },
+	        frequency: {
+	            get: function() {
+	                return this._frequency;
+	            },
+	            set: function(value) {
+	                this._frequency = value;
+	                this._phaseInc = 2 * Math.PI * this._frequency * this.bufferSize / this.sampleRate;
+	            }
+	        },
+	        offset: {
+	            get: function() {
+	                return this._offset;
+	            },
+	            set: function(value) {
+	                this._offset = value;
+	            }
+	        },
+	        oscillation: {
+	            get: function() {
+	                return this._oscillation;
+	            },
+	            set: function(value) {
+	                this._oscillation = value;
+	            }
+	        },
+	        phase: {
+	            get: function() {
+	                return this._phase;
+	            },
+	            set: function(value) {
+	                this._phase = value;
+	            }
+	        },
+	        target: {
+	            get: function() {
+	                return this._target;
+	            },
+	            set: function(value) {
+	                this._target = value;
+	            }
+	        },
+	        activate: {
+	            value: function(doActivate) {
+	                if (doActivate) {
+	                    this.output.connect(userContext.destination);
+	                    if (this.activateCallback) {
+	                        this.activateCallback(doActivate);
+	                    }
+	                } else {
+	                    this.output.disconnect();
+	                }
+	            }
+	        },
+	        callback: {
+	            value: function(tcallback) {
+	                var that = this;
+	                return function() {
+	                    that._phase += that._phaseInc;
+	                    if (that._phase > 2 * Math.PI) {
+	                        that._phase = 0;
+	                    }
+	                    tcallback(that._target, that._offset + that._oscillation * Math.sin(that._phase));
+	                };
+	            }
+	        }
+	    });
+	
+	    Tuna.toString = Tuna.prototype.toString = function() {
+	        return "Please visit https://github.com/Theodeus/tuna/wiki for instructions on how to use Tuna.js";
+	    };
+	})();
+
+
+/***/ }),
+/* 421 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -18200,25 +21667,25 @@ var WaveformPlaylist =
 	
 	var _h2 = _interopRequireDefault(_h);
 	
-	var _aeneas = __webpack_require__(417);
+	var _aeneas = __webpack_require__(422);
 	
 	var _aeneas2 = _interopRequireDefault(_aeneas);
 	
-	var _aeneas3 = __webpack_require__(418);
+	var _aeneas3 = __webpack_require__(423);
 	
 	var _aeneas4 = _interopRequireDefault(_aeneas3);
 	
 	var _conversions = __webpack_require__(388);
 	
-	var _DragInteraction = __webpack_require__(419);
+	var _DragInteraction = __webpack_require__(424);
 	
 	var _DragInteraction2 = _interopRequireDefault(_DragInteraction);
 	
-	var _ScrollTopHook = __webpack_require__(420);
+	var _ScrollTopHook = __webpack_require__(425);
 	
 	var _ScrollTopHook2 = _interopRequireDefault(_ScrollTopHook);
 	
-	var _timeformat = __webpack_require__(421);
+	var _timeformat = __webpack_require__(426);
 	
 	var _timeformat2 = _interopRequireDefault(_timeformat);
 	
@@ -18487,7 +21954,7 @@ var WaveformPlaylist =
 	exports.default = AnnotationList;
 
 /***/ }),
-/* 417 */
+/* 422 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -18508,14 +21975,14 @@ var WaveformPlaylist =
 	  return annotation;
 	};
 	
-	var _uuid = __webpack_require__(401);
+	var _uuid = __webpack_require__(405);
 	
 	var _uuid2 = _interopRequireDefault(_uuid);
 
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 /***/ }),
-/* 418 */
+/* 423 */
 /***/ (function(module, exports) {
 
 	"use strict";
@@ -18535,7 +22002,7 @@ var WaveformPlaylist =
 	};
 
 /***/ }),
-/* 419 */
+/* 424 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -18626,7 +22093,7 @@ var WaveformPlaylist =
 	exports.default = _class;
 
 /***/ }),
-/* 420 */
+/* 425 */
 /***/ (function(module, exports) {
 
 	'use strict';
@@ -18652,7 +22119,7 @@ var WaveformPlaylist =
 	exports.default = Hook;
 
 /***/ }),
-/* 421 */
+/* 426 */
 /***/ (function(module, exports) {
 
 	'use strict';
@@ -18700,7 +22167,7 @@ var WaveformPlaylist =
 	};
 
 /***/ }),
-/* 422 */
+/* 427 */
 /***/ (function(module, exports) {
 
 	'use strict';
@@ -18815,7 +22282,7 @@ var WaveformPlaylist =
 	};
 
 /***/ }),
-/* 423 */
+/* 428 */
 /***/ (function(module, exports) {
 
 	'use strict';

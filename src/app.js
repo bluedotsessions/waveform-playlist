@@ -59,8 +59,6 @@ export function init(options = {}, ee = EventEmitter()) {
   playlist.setAudioContext(config.ac);
   playlist.setEventEmitter(ee);
   playlist.setUpEventEmitter();
-
-  playlist.setTracks(config.tracks);
   
   playlist.setTimeSelection(0, 0);
   playlist.setState(config.state);
@@ -80,6 +78,9 @@ export function init(options = {}, ee = EventEmitter()) {
 
   playlist.bpm = config.bpm;   //GH  Galen
   playlist.quantize = config.quantize;  //GH Galen
+
+  playlist.setTracks(config.tracks);
+
 
   // take care of initial virtual dom rendering.
   const tree = playlist.render();

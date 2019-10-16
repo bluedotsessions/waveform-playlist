@@ -1,12 +1,40 @@
 import { FADEIN, FADEOUT, createFadeIn, createFadeOut } from 'fade-maker';
+import Tuna from 'tunajs';
+
 
 export default class {
 
   constructor(ac, buffer) {
     this.ac = ac;
+    this.tuna = new Tuna(this.ac);
     this.gain = 1;
     this.buffer = buffer;
     this.destination = this.ac.destination;
+
+
+    this.delay =  new this.tuna.Delay({
+        feedback: 0.45,    //0 to 1+
+        delayTime: 150,    //1 to 10000 milliseconds
+        wetLevel: 0.25,    //0 to 1+
+        dryLevel: 1,       //0 to 1+
+        cutoff: 2000,      //cutoff frequency of the built in lowpass-filter. 20 to 22050
+        bypass: 0
+    });
+
+    this.lowpass = new this.tuna.Filter({
+      frequency: 440, //20 to 22050
+      Q: 1, //0.001 to 100
+      gain: 0, //-40 to 40 (in decibels)
+      filterType: "lowpass", //lowpass, highpass, bandpass, lowshelf, highshelf, peaking, notch, allpass
+      bypass: 0
+    });
+    
+    this.bitcrusher = new this.tuna.Bitcrusher({
+    bits: 4,          //1 to 16
+    normfreq: 0.1,    //0 to 1
+    bufferSize: 4096  //256 to 16384
+    });
+
   }
 
   applyFade(type, start, duration, shape = 'logarithmic') {
@@ -40,7 +68,7 @@ export default class {
     this.destination = this.ac.destination;
   }
 
-  setUpSource() {
+  setUpSource(compressor) {
     this.source = this.ac.createBufferSource();
     this.source.buffer = this.buffer;
 
@@ -71,19 +99,49 @@ export default class {
     this.volumeGain = this.ac.createGain();
     // used for solo/mute
     this.shouldPlayGain = this.ac.createGain();
+    
+    
     this.panner = this.ac.createStereoPanner();
+
+
+    // console.log('playout', this.delay);
+    
+    
     this.masterGain = this.ac.createGain();
+
 
 
     this.source
       .connect(this.fadeGain)
       .connect(this.panner)
-      .connect(this.volumeGain)
+
+    let tunachain = this.panner;
+    if (this.toggleDelay){
+      tunachain.connect(this.delay);
+      tunachain = this.delay;
+    }
+    if(this.togglePhaser){
+      tunachain.connect(this.bitcrusher);
+      tunachain = this.bitcrusher;
+    }
+    if(this.toggleLowpass){
+      tunachain.connect(this.lowpass);
+      tunachain = this.lowpass;
+    }
+    tunachain.connect(this.volumeGain);
+
+    this.volumeGain
       .connect(this.shouldPlayGain)
       .connect(this.masterGain)
+      .connect(compressor)
       .connect(this.destination)
 
+
+
     return sourcePromise;
+  }
+  get dBSource(){
+    return this.masterGain;
   }
 
   setVolumeGainLevel(level) {
@@ -121,7 +179,10 @@ export default class {
 
   stop(when = 0) {
     if (this.source) {
-      this.source.stop(when);
+      try{
+        this.source.stop(when);
+      }
+      catch(e){}
     }
   }
 }

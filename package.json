@@ -57,6 +57,7 @@
     "lodash.defaults": "^4.0.0",
     "lodash.forown": "^4.0.0",
     "mucss": "^1.1.5",
+    "tunajs": "^1.0.10",
     "uuid": "^2.0.1",
     "virtual-dom": "^2.1.1",
     "webaudio-peaks": "^0.0.6"
@@ -68,7 +69,7 @@
     "jekyll": "jekyll build -s ghpages -d dist/waveform-playlist",
     "jekyll:dev": "jekyll build -s ghpages -d dist/waveform-playlist --watch &",
     "ghpages": "gh-pages --repo git@github.com:Tolumbas/waveform-playlist.git -d dist/waveform-playlist",
-    "ghpagesgalen": "gh-pages -d dist/waveform-playlist --remote galen",
+    "ghpagesgalen": "gh-pages --repo git@github.com:Tolumbas/waveform-playlist.git -d dist/waveform-playlist --remote galen",
     "build": "npm run clean && npm run jekyll && webpack",
     "preversion": "npm run clean",
     "version": "npm run build && git add -A dist",

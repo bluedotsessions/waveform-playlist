@@ -5,7 +5,7 @@ import diff from 'virtual-dom/diff';
 import patch from 'virtual-dom/patch';
 import InlineWorker from 'inline-worker';
 
-import { pixelsToSeconds } from './utils/conversions';
+import { pixelsToSeconds, samplesToSeconds, secondsToSamples } from './utils/conversions';
 import LoaderFactory from './track/loader/LoaderFactory';
 import ScrollHook from './render/ScrollHook';
 import TimeScale from './TimeScale';
@@ -22,12 +22,14 @@ import stateClasses from './track/states';
 
 export default class {
   constructor() {
+    
     this.tracks = [];
     this.buffers= new Map;
     this.clips = [];
     this.soloedTracks = [];
     this.mutedTracks = [];
     this.playoutPromises = [];
+    this.tracksids = 0;
 
     this.cursor = 0;
     this.playbackSeconds = 0;
@@ -60,7 +62,7 @@ export default class {
     this.mediaRecorder = new window.MediaRecorder(stream);
 
     this.mediaRecorder.onstart = () => {
-      const track = new Track();
+      const track = new Track(this.tracksids ++);
       track.setName('Recording');
       track.setEnabledStates();
       track.setEventEmitter(this.ee);
@@ -173,23 +175,67 @@ export default class {
 
   setTracks(tracks){
     for ({name} of tracks){
-      let newTrack = new Track();
+      let newTrack = new Track(this.tracksids++);
       newTrack.setName(name);
+      newTrack.quantize = this.quantize;
+      newTrack.bpm = this._bpm;
       newTrack.setEventEmitter(this.ee);
       this.tracks.push(newTrack);
     }
+  }
+  set bpm(bpm){
+    this._bpm = bpm;
+    this.tracks.forEach(track=>{
+      track.bpm = bpm;
+      track.clips.forEach(clip=>{
+        clip.bpm = bpm;
+      })
+    })
+    this.ee.emit('interactive');
+  }
+  set quantize(q){
+    this._quantize = q;
+    this.tracks.forEach(tr=>{
+      tr.quantize = q
+      tr.clips.forEach(clip=>{
+        clip.quantize = q;
+      })
+    });
+  }
+  get quantize(){
+    return this._quantize;
+  }
+  get bpm(){
+    return this._bpm;
   }
 
   setUpEventEmitter() {
     const ee = this.ee;
 
+    ee.on('showMenu',clip=>{
+
+      clip.showMenu = true;
+      if(this.openedMenuClip){
+        this.openedMenuClip.showMenu = false;
+      }
+      this.openedMenuClip = clip;
+    
+      this.drawRequest();
+    })
+    ee.on('playlistmousedown',()=>{
+      if(this.openedMenuClip){
+        this.openedMenuClip.showMenu = false;
+        delete this.openedMenuClip;
+      }
+    })
+
     ee.on ('interactive', (track) => {
-      // track.calculatePeaks(this.samplesPerPixel, this.sampleRate);
       this.drawRequest();
     });
 
     ee.on('activeclip',(clip)=>{
-      console.log(clip.name);
+      const segment = 60/clip.bpm;
+      console.log(clip.name,clip.startTime/segment);
       this.stateObj.activeClip = clip;
     })
 
@@ -240,8 +286,8 @@ export default class {
       this.drawRequest();
     });
 
-    ee.on('shift', (deltaTime, track) => {
-      track.setStartTime(track.getStartTime() + deltaTime);
+    ee.on('shift', (deltaTime, clip) => {
+      clip.setStartTime(clip.getStartTime() + deltaTime);
       this.adjustDuration();
       this.drawRequest();
     });
@@ -300,13 +346,13 @@ export default class {
     });
 
     ee.on('fadein', (duration, clip) => {
-      clip.setFadeIn(duration, this.fadeType);
-      this.drawRequest();
+      clip.setFadeIn(duration, clip.fades[clip.fadeIn].shape);
+      // this.drawRequest();
     });
 
     ee.on('fadeout', (duration, clip) => {
-      clip.setFadeOut(duration, this.fadeType);
-      this.drawRequest();
+      clip.setFadeOut(duration, clip.fades[clip.fadeOut].shape);
+      // this.drawRequest();
     });
 
     ee.on('fadetype', (type) => {
@@ -359,34 +405,40 @@ export default class {
         this.isScrolling = false;
       }, 200);
     });
-    ee.on('scrolldragging',amount=>{
-      if (!this.scrolldragging)return;
-      this.seekClicking = false;
-      // console.log("scrolldragging",amount);
-      this.scrollLeft -= pixelsToSeconds(
-        amount,
-        this.samplesPerPixel,
-        this.sampleRate,
-      );
-      this.ee.emit('scroll');
+    ee.on('seek',where=>{
+      this.seek(where);
+      // console.log('yo',where);
+      
+    });
+    ee.on('splitStart',clip=>{
+      this.stateObj.action = "split";
     })
-    ee.on('scrolldraggingstart',()=>{
-      this.scrolldragging = true;
-      this.seekClicking = true;
-      document.body.style.cursor = "grabbing";
+    ee.on('splitAt',({clip,at})=>{
+      let info = clip.getTrackDetails();
+      info.name = "Copy of " + info.name;
+      info.start = clip.startTime + at;
+      info.cuein = clip.cueIn+at;
+      info.cueout = clip.cueOut;
+      this.createClip(clip.buffer,info,false,clip.peaks);
+
+      clip.endTime = clip.startTime + at;
+
+      this.ee.emit('interactive');
     })
-    ee.on('scrolldraggingend',e => {
-      this.scrolldragging = false;
-      if (this.seekClicking){
-        const startX = e.offsetX;
-        let startTime = pixelsToSeconds(startX, this.samplesPerPixel, this.sampleRate);
-        if (e.from == "TimeScale"){
-          startTime += this.scrollLeft;
-        }
-    
-        this.ee.emit('select', startTime, startTime);
-      }
-      document.body.style.cursor =  "auto";
+    ee.on('duplicate',clip=>{
+
+      let info = clip.getTrackDetails();
+      // info.track;
+      info.name = "Copy of " + info.name;
+      info.start = clip.endTime;
+      info.end = clip.endTime + clip.duration; 
+      this.createClip(clip.buffer,info,false,clip.peaks);
+      this.ee.emit('interactive');
+    })
+    ee.on('delete',clip=>{
+      const t = clip.track.clips.indexOf(clip);
+      clip.track.clips.splice(t,1);
+      this.ee.emit('interactive');
     })
   }
 
@@ -397,7 +449,7 @@ export default class {
     return false;
   }
 
-  createClip(audioBuffer,info){
+  createClip(audioBuffer,info,removeSilences=true,readypeaks){
     const name = info.name || 'Untitled';
     const start = info.start || 0;
     const states = info.states || {};
@@ -419,11 +471,15 @@ export default class {
 
     let track = this.getTrackByName(trackname);
     if (!track){
-      track = new Track();
+      track = new Track(this.tracksids++);
+      track.analyzer = this.ac.createAnalyser();
       track.name = trackname;
+      track.quantize = this.quantize;
+      track.bpm = this.bpm;
+      track.setEventEmitter(this.ee);
+
       this.tracks.push(track);
     }
-
 
     const clip = new Clip(audioBuffer);
     clip.src = info.src;
@@ -445,19 +501,18 @@ export default class {
       clip.setFadeIn(fadeIn.duration, fadeIn.shape);
     }
     else if (this.getState() == 'interactive'){
-      clip.setFadeIn(0.01, "logarithmic");
+      clip.setFadeIn(0.01, "linear");
     }
 
     if (fadeOut !== undefined) {
       clip.setFadeOut(fadeOut.duration, fadeOut.shape);
     }
     else if (this.getState() == 'interactive'){
-      clip.setFadeOut(0.01, "logarithmic");
+      clip.setFadeOut(0.01, "linear");
     }
 
 
-    if (peaks !== undefined)
-      clip.setPeakData(peaks);
+
 
     // clip.setState(this.getState());
     clip.setStartTime(start);
@@ -466,9 +521,106 @@ export default class {
     clip.setGainLevel(gain);
 
     // extract peaks with AudioContext for now.
-    clip.calculatePeaks(this.samplesPerPixel, this.sampleRate);
+    if (readypeaks !== undefined)
+      clip.peaks = readypeaks;
+    else
+      clip.calculatePeaks(this.samplesPerPixel, this.sampleRate);
 
+    if(removeSilences){
+      this.removeSilences(clip);
+    }
+    this.clips.push(clip);
     return clip;
+  }
+
+  removeSilences(clip){
+    const track = clip.track;
+    const bpm = track.bpm;
+    const minimumSilence = 5*this.sampleRate;
+    const buffer = clip.buffer;
+    const samples = buffer.getChannelData(0);
+    const startTime = clip.startTime;
+    const cueIn = clip.cueIn;
+    const cueOut = clip.cueOut;
+    const cueInSamp = secondsToSamples(cueIn,this.sampleRate)
+    const cueOutSamp = secondsToSamples(cueOut,this.sampleRate)
+    const secsperbeat = 60/bpm;
+    let startofSilence = NaN;
+    let endofSilenece = NaN;
+    const threshhold = 0.01;
+
+    for (let a=cueInSamp;a<cueOutSamp;a++){
+      if(!isNaN(startofSilence) && Math.abs(samples[a])>threshhold){
+        if(a - startofSilence > minimumSilence){
+          if (!clip.bpm){
+            this.removeSamples(clip,startofSilence,a);
+          }
+          else {
+            let qpoint = a;
+            while(qpoint>0){
+              const secs = samplesToSeconds(qpoint,this.sampleRate) + startTime - cueIn;
+              const secsprev =  samplesToSeconds(qpoint-1,this.sampleRate) + startTime - cueIn;
+              if (Math.floor(secs / secsperbeat) > Math.floor(secsprev / secsperbeat)){
+                this.removeSamples(clip,startofSilence,qpoint);
+                break;
+              }
+              qpoint --;
+            }
+          }
+        }
+        startofSilence = NaN;
+      }
+      else if (isNaN(startofSilence) && Math.abs(samples[a])<=threshhold){
+        if (!track.bpm){
+          startofSilence = a;
+        }
+        else{
+          const secs = samplesToSeconds(a,this.sampleRate) + startTime - cueIn;
+          const secsprev =  samplesToSeconds(a-1,this.sampleRate) + startTime - cueIn;
+
+          const beatNumber = secs / secsperbeat;
+          if (Math.floor(secs / secsperbeat) > Math.floor(secsprev / secsperbeat)){
+            startofSilence = a;
+          }
+        }
+      }
+    }
+    if (!isNaN(startofSilence) && samples.length - startofSilence > minimumSilence){
+      this.removeSamples(clip,startofSilence,samples.length);
+    }
+  }
+  removeSamples(clip,start,end){
+    const startSec = samplesToSeconds(start,this.sampleRate);
+    const endSec = samplesToSeconds(end,this.sampleRate);
+    const cueInSamp = samplesToSeconds(clip.cueIn,this.sampleRate);
+    if (start == cueInSamp){
+      clip.cueIn += endSec;
+      clip.startTime += endSec; 
+    }
+    else if (end == clip.buffer.length){
+      clip.cueOut = startSec;
+    }
+    else{
+      
+      let info = clip.getTrackDetails();
+      
+      info.cueout = startSec;
+      console.log(
+        clip.name,
+        this.secondsToMinutes(info.start),
+        this.secondsToMinutes(info.start+info.cueout-info.cuein),
+      );
+      if (info.cueout - info.cuein >= 0.2)
+        this.createClip(clip.buffer,info,false,clip.peaks);
+      
+      clip.startTime += endSec - clip.cueIn;
+      clip.cueIn = endSec;
+    }
+  }
+  secondsToMinutes(sec){
+    const min = sec/60|0;
+    const secs = (sec - min*60)|0;
+    return `${min}:${secs/10|0}${secs%10}`
   }
 
   async load(clipList) {
@@ -485,14 +637,13 @@ export default class {
     });
 
     let audioBuffers = await Promise.all(loadPromises);
-    console.log(audioBuffers);
+    // console.log(audioBuffers);
 
     this.ee.emit('audiosourcesloaded');
     
-    const clips = audioBuffers.map(
+    audioBuffers.forEach(
       (audioBuffer, index) => this.createClip(audioBuffer, clipList[index])
-    );
-    this.clips = this.clips.concat(clips);
+    )
     this.reasignClips();
     this.adjustDuration();
     this.draw(this.render());
@@ -544,12 +695,15 @@ export default class {
 
     const currentTime = this.offlineAudioContext.currentTime;
 
+    const compressor = this.offlineAudioContext.createDynamicsCompressor();
+
     this.tracks.forEach((track) => {
       track.clips.forEach(clip=>{
         clip.setOfflinePlayout(new Playout(this.offlineAudioContext, clip.buffer));
         clip.schedulePlay(currentTime, 0, 0, {
           shouldPlay: this.shouldTrackPlay(clip),
           masterGain: 1,
+          compressor,
           isOffline: true,
         });
       })
@@ -632,8 +786,19 @@ export default class {
   setZoom(zoom) {
     this.samplesPerPixel = zoom;
     this.zoomIndex = this.zoomLevels.indexOf(zoom);
-    this.tracks.forEach((track) => {
-      track.calculatePeaks(zoom, this.sampleRate);
+    this.stateObj.setup(this.samplesPerPixel,this.sampleRate);
+    this.tracks.forEach(track => {
+      track.clips.forEach((clip,index)=>{
+        let a;
+        for (a=0;a<index;a++){
+          if(track.clips[a].buffer === clip.buffer){
+            clip.setPeaks(track.clips[a].peaks);
+            break;
+          }
+        }
+        if (a==index)
+          clip.calculatePeaks(zoom, this.sampleRate)
+      });
     });
   }
 
@@ -743,15 +908,30 @@ export default class {
       return this.restartPlayFrom(start, end);
     }
 
+    /*
+    this.tracks.forEach((track) => {
+      track.clips.forEach(clip=>{
+        clip.setOfflinePlayout(new Playout(this.offlineAudioContext, clip.buffer));
+        clip.schedulePlay(currentTime, 0, 0, {
+          shouldPlay: this.shouldTrackPlay(clip),
+          masterGain: 1,
+          isOffline: true,
+        });
+      })
+    });
+    */
+    const compressor = this.ac.createDynamicsCompressor();
     this.tracks.forEach((track) => {
       // track.setState('cursor');
       playoutPromises.push(track.schedulePlay(currentTime, start, end, {
         shouldPlay: this.shouldTrackPlay(track),
         masterGain: this.masterGain,
+        compressor,
       }));
     });
+    this.tracks.forEach(track=>track.play(this.ac.currentTime,start,end));
 
-    this.lastPlay = currentTime;
+    this.lastPlay = this.ac.currentTime;
     // use these to track when the playlist has fully stopped.
     this.playoutPromises = playoutPromises;
     this.startAnimation(start);
@@ -813,6 +993,8 @@ export default class {
   clear() {
     return this.stop().then(() => {
       this.tracks = [];
+      this.clips = [];
+      this.buffers = new Map;
       this.soloedTracks = [];
       this.mutedTracks = [];
       this.playoutPromises = [];
@@ -887,6 +1069,7 @@ export default class {
 
       this.playbackSeconds = playbackSeconds;
       this.draw(this.render());
+      this.tracks.forEach(tr=>tr.updatedBMeter());
       this.lastDraw = currentTime;
     } else {
       if ((cursorPos + elapsed) >=
@@ -965,8 +1148,12 @@ export default class {
   }
 
   renderTrackSection() {
+    const globalEndTime = this.tracks
+      .map(tr=>tr.getEndTime())
+      .reduce((a,b)=>Math.max(a,b),0);
     const trackElements = this.tracks.map(track =>
       track.render(this.getTrackRenderData({
+        globalEndTime,
         isActive: this.isActiveTrack(track),
         shouldPlay: this.shouldTrackPlay(track),
         soloed: this.soloedTracks.indexOf(track) > -1,

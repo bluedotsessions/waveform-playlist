@@ -36,12 +36,31 @@ class CanvasHook {
     // cc.fillRect(0,0,len,h2*2);
     cc.fillStyle = this.color;
     // console.log(this.color);
-
     for (let i = 0; i < len; i += 1) {
-      const minPeak = this.peaks[(i + this.offset) * 2] / maxValue;
-      const maxPeak = this.peaks[((i + this.offset) * 2) + 1] / maxValue;
+      const minPeak = this.compressValue(this.peaks[i * 2] / maxValue);
+      const maxPeak = this.compressValue(this.peaks[i * 2 + 1] / maxValue);
+      
       CanvasHook.drawFrame(cc, h2, i, minPeak, maxPeak);
     }
+  }
+  compressValue(val){
+  
+    if (Math.abs(val) < 0.1){
+      val *= 1.6;
+    }
+    else if (Math.abs(val) < 0.2){
+      val *= 1.5;
+    }
+    else if (Math.abs(val) < 0.3){
+      val *= 1.4;
+    }
+    else if (Math.abs(val) < 0.4){
+      val *= 1.3;
+    }
+    else if (Math.abs(val) <= 0.6){
+      val *= 1.2
+    }
+    return val;
   }
 
   getImage() {
@@ -52,7 +71,7 @@ class CanvasHook {
     this.bufferedwaveform.width = width;
     this.bufferedwaveform.height = height;
     // console.log(this.bufferedwaveform);
-    console.log("new canvas");
+    console.log("redraw");
     this.bwc = this.bufferedwaveform.getContext('2d');
     this.drawCanvas(this.bwc,width,height/2);
     return this.bufferedwaveform;
@@ -66,11 +85,11 @@ class CanvasHook {
     const h2 = canvas.height / 2;
 
     if (!this.bufferedwaveform)
-      this.setupImage(len,h2*2);
+      this.setupImage(this.peaks.length,h2*2);
 
     cc.clearRect(0,0,canvas.width,canvas.height);
     const offsettotal = secondsToPixels(-this.cueIn,this.resolution,this.sampleRate);
-    // console.log(offsettotal);
+
     cc.drawImage(this.bufferedwaveform,offsettotal,0);
     
   }

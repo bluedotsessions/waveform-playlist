@@ -40,7 +40,7 @@ export default class {
     this.startTime = 0; // Clip
     this.images = []; // Clip
 
-    console.log(this);
+    this.showMenu = false;
   }
 
   setTrack(track){
@@ -53,6 +53,10 @@ export default class {
   
   get endTime(){
     return this.startTime + this.duration;
+  }
+  set endTime(time){
+    let duration = time - this.startTime
+    this.cueOut = this.cueIn + duration; 
   }
 
   setEventEmitter(ee) {
@@ -135,6 +139,9 @@ export default class {
       shape,
       start: 0,
       end: duration,
+      getDuration : function(){
+        return this.end - this.start;
+      }
     };
 
     if (this.fadeIn) {
@@ -154,6 +161,9 @@ export default class {
       shape,
       start: this.duration - duration,
       end: this.duration,
+      getDuration : function(){
+        return this.end - this.start;
+      }
     };
 
     if (this.fadeOut) {
@@ -172,6 +182,9 @@ export default class {
       shape,
       start,
       end,
+      getDuration : function(){
+        return this.end - this.start;
+      }
     };
 
     return id;
@@ -192,8 +205,14 @@ export default class {
   calculatePeaks(samplesPerPixel, sampleRate) {
     const cueIn = secondsToSamples(this.cueIn, sampleRate);
     const cueOut = secondsToSamples(this.cueOut, sampleRate);
+    if (samplesPerPixel != this.samplesPerPixel || sampleRate != this.sampleRate){
+      this.images = [];
+      
+      this.sampleRate = sampleRate;
+      this.samplesPerPixel = samplesPerPixel;
+    }
     this.setPeaks(extractPeaks(this.buffer, samplesPerPixel, this.peakData.mono));
-    console.log(this.peaks);
+    // console.log("peaks",this.peaks);
   }
 
   setPeaks(peaks) {
@@ -289,7 +308,8 @@ export default class {
 
     start += this.cueIn;
     const relPos = startTime - this.startTime;
-    const sourcePromise = playoutSystem.setUpSource();
+    const sourcePromise = playoutSystem.setUpSource(config.compressor);
+    this.track.registerPlayout(playoutSystem.dBSource);
 
     // param relPos: cursor position in seconds relative to this track.
     // can be negative if the cursor is placed before the start of this track etc.
@@ -327,11 +347,24 @@ export default class {
     playoutSystem.setShouldPlay(options.shouldPlay);
     playoutSystem.setMasterGainLevel(options.masterGain);
     playoutSystem.setPan(this.pan);
-    console.log(when,start,duration);
-    playoutSystem.play(when, start, duration);
-
-
+    this.readyPlayout = playoutSystem;
+    // console.log(when,start,duration);
+    // for (var a=0,b=false;a<100000000;a++)if (a%13==0)a+=1;
+    // playoutSystem.play(when, start, duration);
+    
     return sourcePromise;
+  }
+  play(now, startTime, endTime){
+    let diff = this.startTime - startTime;
+    if (diff > 0){
+      this.readyPlayout.play(now + diff,this.cueIn,endTime);
+    }
+    else if (this.endTime > startTime){
+      if (this.cueIn < 0){
+        debugger;
+      }
+      this.readyPlayout.play(now, this.cueIn - diff,endTime);
+    }
   }
 
   scheduleStop(when = 0) {
@@ -372,6 +405,20 @@ export default class {
     );
     return h('div.wp-fade.wp-fadeout',
       {
+        onmousedown: e=>{
+          this.clickhandle = true;
+
+        },
+        onmosemove: e=>{
+          this.clickhandle =false;
+        },
+        onmouseup: e=>{
+          console.log(fadeOut.end - fadeOut.start);
+          if(this.clickhandle && fadeOut.end - fadeOut.start < 0.2){
+            this.setFadeOut(2,this.fades[this.fadeOut].shape);
+            this.ee.emit("interactive",this);
+          }
+        },
         attributes: {
           style: `position: absolute; height: ${data.height}px; width: ${fadeWidth}px; top: 0; right: 0; z-index: 10;pointer-events:none;`,
         },
@@ -380,11 +427,11 @@ export default class {
         h('div.fadeout.fadehandle',{
           attributes: {
             style: `position: absolute; 
-                    height: 10px; 
-                    width: 10px; 
+                    height: 15px; 
+                    width: 15px; 
                     z-index: 10; 
-                    top:0; 
-                    left: -5px; 
+                    top:10px; 
+                    right: ${Math.max(fadeWidth,15) - 5}px; 
                     background-color: black;
                     border-radius: 10px;
                     pointer-events:initial;
@@ -426,15 +473,29 @@ export default class {
       }, 
       [
         h('div.fadein.fadehandle',{
+          onmousedown: e=>{
+            this.clickhandle = true;
+
+          },
+          onmosemove: e=>{
+            this.clickhandle =false;
+          },
+          onmouseup: e=>{
+            console.log(fadeIn.end - fadeIn.start);
+            if(this.clickhandle && fadeIn.end - fadeIn.start < 0.2){
+              this.setFadeIn(2,this.fades[this.fadeIn].shape);
+              this.ee.emit("interactive",this);
+            }
+          },
           attributes: {
             style: `position: absolute; 
-                    height: 10px; 
-                    width: 10px; 
+                    height: 15px; 
+                    width: 15px; 
                     z-index: 10; 
-                    top:0; 
-                    right: -5px; 
+                    top:10px; 
+                    left: ${Math.max(fadeWidth,15) - 5}px; 
                     background-color: black;
-                    border-radius: 10px;
+                    border-radius: 15px;
                     pointer-events:initial;
                     `
           }
@@ -445,7 +506,9 @@ export default class {
               width: fadeWidth,
               height: data.height,
               style: 
-                `pointer-events: none;`
+                `pointer-events: none;
+                ${fadeWidth<0.2?'display:none;':''}
+                `
               ,
             },
             hook: new FadeCanvasHook(
@@ -463,57 +526,45 @@ export default class {
   renderWaveform(data){
     const convert = w => secondsToPixels(w, data.resolution, data.sampleRate);
 
-    const width = this.peaks.length;
+    const sampleWidth = this.peaks.length; 
     const peaks = this.peaks.data[0];
 
-    let offset = 0;
-    let totalWidth = width;
     let waveformChildren = [];
+    const canvasColor = this.waveOutlineColor
+      ? this.waveOutlineColor
+      : data.colors.waveOutlineColor;
 
-    let i = 0;
-    while (totalWidth > 0) {
-      const currentWidth = Math.min(totalWidth, MAX_CANVAS_WIDTH);
-      const canvasColor = this.waveOutlineColor
-        ? this.waveOutlineColor
-        : data.colors.waveOutlineColor;
-
-      const canvashook = new CanvasHook(
+    const canvashook = new CanvasHook(
         peaks, 
-        offset, 
+        0, 
         this.peaks.bits, 
         canvasColor,
         this.cueIn,
         data.resolution,
         data.sampleRate,
-        this.images[i]
-      );
-      if (!this.images[i]){
-        this.images[i] = canvashook.setupImage(
-          currentWidth,
-          data.height
-        )
-      }
-      
-      waveformChildren.push(h('canvas', {
-        attributes: {
-          width: convert(this.duration),
-          height: data.height,
-          style: `
-            float: left;
-            position: relative;
-            margin: 0;
-            padding: 0;
-            z-index: 3;
-            pointer-events: none;
-          `,
-        },
-        hook: canvashook,
-      }));
-
-      totalWidth -= currentWidth;
-      offset += MAX_CANVAS_WIDTH;
-      i++;
+        this.images[0]
+    );
+    if (!this.images[0]){
+      this.images[0] = canvashook.setupImage(
+        sampleWidth,
+        data.height
+      )
     }
+    waveformChildren.push(h('canvas', {
+      attributes: {
+        width: convert(this.duration),
+        height: data.height,
+        style: `
+          float: left;
+          position: relative;
+          margin: 0;
+          padding: 0;
+          z-index: 3;
+          pointer-events: none;
+        `,
+      },
+      hook: canvashook,
+    }));
     
     return h('div.clipwaveform',{
       attributes:{
@@ -523,9 +574,130 @@ export default class {
     },waveformChildren);
   }
 
+  renderHandle(){
+    return h('div.handle',{
+      attributes:{
+        style:`
+          width:5px;
+          height:100%;
+          margin-left:2px;
+          display:inline-block;
+          background-color:black;
+          border-radius:15px;
+          pointer-events:none;
+        `
+      }
+    });
+  }
+
+  renderLeftShiftHandles(data){
+    let handles = [this.renderHandle(),this.renderHandle()];
+    return h('div.handleContainer.left',{
+      attributes:{
+        style:`
+          z-index: 3;
+          height:${(data.height*.5|0) - 4 }px;
+          position:absolute;
+          top:${data.height*.25|0 + 2}px;
+          left:9.8px;
+        `
+      }
+    },handles);
+  }
+
+  renderRightShiftHandles(data){
+    let handles = [this.renderHandle(),this.renderHandle()];
+    // const endPixel = secondsToPixels(this.endTime,data.resolution,data.sampleRate);
+    return h('div.handleContainer.right',{
+      attributes:{
+        style:`
+          z-index: 3;
+          height:${(data.height*.5|0) - 4 }px;
+          position:absolute;
+          top:${data.height*.25|0 + 2}px;
+          right:12px;
+        `
+      }
+    },handles);
+  }
+
+  renderMenuButton(data){
+    return h('div.menuButton',{
+      onclick:e=>{
+        console.log('showMenu',this.showMenu);
+        this.ee.emit('showMenu',this);
+      },
+      attributes:{
+        style:`
+          z-index:3;
+          text-align:center;
+          font-size:1em;
+          line-height:7px;
+          color:white;
+          background-color:black;
+          position:absolute;
+          bottom:10px;
+          left: 10px;
+          width:15px;
+          height:15px;
+          border-radius:15px;
+          user-select: none;
+          cursor:pointer;
+        `
+      }
+    },'..');
+  }
+
+  renderMenu(data){
+    const buttonStyle = `
+          height:20px;
+          cursor:pointer;
+          user-select:none;
+    `
+    
+    return h('div.menuContainer',{
+      attributes:{
+        style:`
+        position:absolute;
+        z-index:4;
+        width:70px;
+        background-color: darkgray;
+
+        `
+      }
+    },[
+      h('div.buttonSplit',{
+        onclick:e=>{
+          this.ee.emit('splitStart',this);
+          this.ee.emit('interactive');
+        },
+        attributes:{
+          style:buttonStyle
+        }
+      },"Split"),
+      h('div.buttonDuplicate',{
+        onclick:e=>{
+          this.ee.emit('duplicate',this);
+          this.ee.emit('interactive');
+        },
+        attributes:{
+          style:buttonStyle
+        }
+      },"Duplicate"),
+      h('div.buttonDelete',{
+        onclick:e=>{
+          this.ee.emit('delete',this);
+          this.ee.emit('interactive');
+        },
+        attributes:{
+          style:buttonStyle
+        }
+      },"Delete")
+    ])
+
+  }
 
   render(data) {
-
     const convert = w => secondsToPixels(w, data.resolution, data.sampleRate);
 
     let clipChildren = [];
@@ -537,14 +709,29 @@ export default class {
 
     if (this.fadeOut) 
       clipChildren.push(this.renderFadeOut(data));
-    
+
+    clipChildren.push(this.renderLeftShiftHandles(data));
+    clipChildren.push(this.renderRightShiftHandles(data));
+
+    clipChildren.push(this.renderMenuButton(data));
+
+    if(this.showMenu)
+      clipChildren.push(this.renderMenu(data));
+   
     // clipChildren.push(this.renderOverlay(data));
 
     return h('div.clip',
       {
+        onmouseleave : ()=>this.ee.emit("activeclip",{name:'_none',startTime:0}),
         onmouseover: ()=>this.ee.emit("activeclip",this),
         attributes: {
-          style: `left:${convert(this.startTime)}px;height: ${data.height}px; position: absolute;z-index:1`,
+          style: `
+            left:${convert(this.startTime)}px;
+            height: ${data.height}px; 
+            position: absolute;
+            z-index:${this.showMenu?2:1};
+            overflow:visible;
+          `,
         },
       },
       clipChildren,
@@ -557,6 +744,8 @@ export default class {
       start: this.startTime,
       end: this.endTime,
       name: this.name,
+      track:this.track.name,
+      bpm:this.bpm,
       customClass: this.customClass,
       cuein: this.cueIn,
       cueout: this.cueOut,
