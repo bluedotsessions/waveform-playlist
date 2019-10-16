@@ -5,6 +5,8 @@ let playlist = WaveformPlaylist.init({
   state: 'interactive',
   bpm:90,
   quantize:1,
+  barLength:4,
+  barOffset:1,
   name: "Um Pepino",
   colors: {
     waveOutlineColor: '#E0EFF1',
@@ -21,19 +23,19 @@ let playlist = WaveformPlaylist.init({
 });
 playlist.load([
 
-  // {
-  //   "src": "audio/01_Um Pepino_Electric Guitar.mp3 ",
-  //   "name": "01",
-  //   "cuein": 0,
-  //   "waveOutlineColor": '#c0dce0'
-  // },
+  {
+    "src": "audio/01_Um Pepino_Electric Guitar.mp3 ",
+    "name": "01",
+    "cuein": 0,
+    "waveOutlineColor": '#c0dce0'
+  },
 
-  // {
-  //   "src": "audio/02_Um Pepino_Vibraphone.mp3 ",
-  //   "name": "02",
-  //   "cuein": 0,
-  //   "waveOutlineColor": '#c0dce0'
-  // },
+  {
+    "src": "audio/02_Um Pepino_Vibraphone.mp3 ",
+    "name": "02",
+    "cuein": 0,
+    "waveOutlineColor": '#c0dce0'
+  },
   {
     "src": "audio/03_Um Pepino_Volda Drumsyn.mp3 ",
     "name": "03",
@@ -46,12 +48,12 @@ playlist.load([
     "cuein": 0,
     "waveOutlineColor": '#c0dce0'
   },
-  // {
-  //   "src": "audio/05_Um Pepino_Drum Kit.mp3 ",
-  //   "name": "05",
-  //   "cuein": 0,
-  //   "waveOutlineColor": '#c0dce0'
-  // },
+  {
+    "src": "audio/05_Um Pepino_Drum Kit.mp3 ",
+    "name": "05",
+    "cuein": 0,
+    "waveOutlineColor": '#c0dce0'
+  },
   {
     "src": "audio/06_Um Pepino_Rhodia Synpad.mp3 ",
     "name": "06",

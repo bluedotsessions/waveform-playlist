@@ -35,6 +35,10 @@ export function init(options = {}, ee = EventEmitter()) {
     name: "untitled",
     seekStyle: 'line',
     waveHeight: 128,
+    bpm:0,
+    barLength:4,
+    barOffset:0,
+    quantize:1,
     state: 'interactive',
     zoomLevels: [512, 1024, 2048, 4096],
     annotationList: {
@@ -79,6 +83,8 @@ export function init(options = {}, ee = EventEmitter()) {
 
   playlist.bpm = config.bpm;   //GH  Galen
   playlist.quantize = config.quantize;  //GH Galen
+  playlist.barLength = config.barLength;
+  playlist.barOffset = config.barOffset;
   playlist.name = config.name;
   playlist.setTracks(config.tracks);
 

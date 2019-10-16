@@ -39,12 +39,7 @@ export default class {
   unasignAll(){
     return this.clips = [];
   }
-  /*
-    startTime, endTime in seconds (float).
-    segment is for a highlighted section in the UI.
-    returns a Promise that will resolve when the AudioBufferSource
-    is either stopped or plays out naturally.
-  */
+
   schedulePlay(...args) {
     return Promise.all(this.clips.map(c=>c.schedulePlay(...args)));
   }
@@ -276,7 +271,7 @@ export default class {
     return this.clips.reduce((maxval,clip)=>Math.max(maxval,clip.endTime),0);
   }
 
-  render(data) {
+  renderWaveform(data) {
 
     function convert(seconds){
       return secondsToPixels(seconds,data.resolution, data.sampleRate);
@@ -310,7 +305,7 @@ export default class {
         height: data.height,
         style: 'position:absolute;pointer-events:none'
       },
-      hook: new GridHook(this.quantize,this.bpm,'lightgray',data.resolution,data.sampleRate)
+      hook: new GridHook(this.quantize,this.bpm,this.barLength,this.barOffset,'lightgray',data.resolution,data.sampleRate)
     });
     waveformChildren.push(grid);
 
@@ -335,36 +330,13 @@ export default class {
     }
 
 
-    const waveform = h('div.waveform',
+    return h('div.waveform',
       {
         attributes: {
-          style: `height: ${data.height}px; position: relative;width:${width}px`,
+          style: `height: ${data.height}px;width:${width}px`,
         },
       },
       waveformChildren,
-    );
-
-    const channelChildren = [];
-    let channelMargin = 0;
-
-    if (data.controls.show) {
-      channelChildren.push(this.renderControls(data));
-      channelMargin = data.controls.width;
-    }
-
-    channelChildren.push(waveform);
-
-    const audibleClass = data.shouldPlay ? '' : '.silent';
-    const customClass = (this.customClass === undefined) ? '' : `.${this.customClass}`;
-
-    return h(`div.channel-wrapper${audibleClass}${customClass}`,
-      {
-        attributes: {
-          style: `
-            z-index: ${30 - this.id};`
-        },
-      },
-      channelChildren,
     );
   }
 

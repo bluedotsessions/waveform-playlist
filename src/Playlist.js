@@ -194,6 +194,29 @@ export default class {
     this.ee.emit("bpm-change",bpm);
     this.ee.emit('interactive');
   }
+  set barLength(barLength){
+    this._barLength = barLength;
+    this.tracks.forEach(track=>{
+      track.barLength = barLength;
+    })
+    this.ee.emit("bar-length-change",bpm);
+    this.ee.emit('interactive');
+  }
+  get barLength(){
+    return this._barLength;
+  }
+  set barOffset(barOffset){
+    this._barOffset = barOffset;
+    this.tracks.forEach(track=>{
+      track.barOffset = barOffset;
+    })
+    this.ee.emit("bar-offset-change",bpm);
+    this.ee.emit('interactive');
+  }
+  get barOffset(){
+    return this._barOffset;
+  }
+  
   set quantize(q){
     this._quantize = q;
     this.tracks.forEach(tr=>{
@@ -492,6 +515,8 @@ export default class {
       track.quantize = this.quantize;
       track.bpm = this.bpm;
       track.setEventEmitter(this.ee);
+      track.barLength = this.barLength;
+      track.barOffset = this.barOffset;
 
       this.tracks.push(track);
     }
@@ -545,13 +570,14 @@ export default class {
       this.removeSilences(clip);
     }
     this.clips.push(clip);
+    for(var slow=0;slow<1000000;slow+=slow%2?1:2);
     return clip;
   }
 
   removeSilences(clip){
     const track = clip.track;
     const bpm = track.bpm;
-    const minimumSilence = 5*this.sampleRate;
+    const minimumSilence = 8*this.sampleRate;
     const buffer = clip.buffer;
     const samples = buffer.getChannelData(0);
     const startTime = clip.startTime;
@@ -560,9 +586,11 @@ export default class {
     const cueInSamp = secondsToSamples(cueIn,this.sampleRate)
     const cueOutSamp = secondsToSamples(cueOut,this.sampleRate)
     const secsperbeat = 60/bpm;
+    const secsperbar = secsperbeat * this.barLength;
+    const offsetTime = secsperbeat * this.barOffset;
     let startofSilence = NaN;
     let endofSilenece = NaN;
-    const threshhold = 0.01;
+    const threshhold = 0;
 
     for (let a=cueInSamp;a<cueOutSamp;a++){
       if(!isNaN(startofSilence) && Math.abs(samples[a])>threshhold){
@@ -572,10 +600,14 @@ export default class {
           }
           else {
             let qpoint = a;
-            while(qpoint>0){
+            console.log("!->",
+              this.secondsToMinutes(startofSilence/this.sampleRate),
+              this.secondsToMinutes(a/this.sampleRate)
+            )
+            while(qpoint>=0 && Math.abs(samples[qpoint-1])<=threshhold){
               const secs = samplesToSeconds(qpoint,this.sampleRate) + startTime - cueIn;
               const secsprev =  samplesToSeconds(qpoint-1,this.sampleRate) + startTime - cueIn;
-              if (Math.floor(secs / secsperbeat) > Math.floor(secsprev / secsperbeat)){
+              if (Math.floor((secs - offsetTime) / secsperbar) > Math.floor((secsprev- offsetTime) / secsperbar)){
                 this.removeSamples(clip,startofSilence,qpoint);
                 break;
               }
@@ -593,8 +625,7 @@ export default class {
           const secs = samplesToSeconds(a,this.sampleRate) + startTime - cueIn;
           const secsprev =  samplesToSeconds(a-1,this.sampleRate) + startTime - cueIn;
 
-          const beatNumber = secs / secsperbeat;
-          if (Math.floor(secs / secsperbeat) > Math.floor(secsprev / secsperbeat)){
+          if (Math.floor((secs - offsetTime) / secsperbar) > Math.floor((secsprev - offsetTime) / secsperbar)){
             startofSilence = a;
           }
         }
@@ -607,13 +638,19 @@ export default class {
   removeSamples(clip,start,end){
     const startSec = samplesToSeconds(start,this.sampleRate);
     const endSec = samplesToSeconds(end,this.sampleRate);
-    const cueInSamp = samplesToSeconds(clip.cueIn,this.sampleRate);
+    const cueInSamp = clip.cueIn*this.sampleRate;
+    const minClip = this.barLength * 60/this.bpm || 1;
     if (start == cueInSamp){
-      clip.cueIn += endSec;
-      clip.startTime += endSec; 
+      if (clip.cueOut - clip.cueIn - endSec >= minClip){
+        clip.cueIn += endSec;
+        clip.startTime += endSec; 
+      }
     }
     else if (end == clip.buffer.length){
-      clip.cueOut = startSec;
+      if (startSec - clip.cueIn >= minClip)
+        clip.cueOut = startSec;
+      else
+        clip.track.clips.pop();
     }
     else{
       
@@ -624,8 +661,9 @@ export default class {
         clip.name,
         this.secondsToMinutes(info.start),
         this.secondsToMinutes(info.start+info.cueout-info.cuein),
+        minClip
       );
-      if (info.cueout - info.cuein >= 0.2)
+      if (info.cueout - info.cuein >= minClip)
         this.createClip(clip.buffer,info,false,clip.peaks);
       
       clip.startTime += endSec - clip.cueIn;
@@ -656,9 +694,11 @@ export default class {
 
     this.ee.emit('audiosourcesloaded');
     
-    audioBuffers.forEach(
-      (audioBuffer, index) => this.createClip(audioBuffer, clipList[index])
-    )
+    for (let i=0;i<audioBuffers.length;i++){
+        this.createClip(audioBuffers[i], clipList[i]);
+        this.draw(this.render());
+        await new Promise(res=>setTimeout(res,0));
+    }
     this.reasignClips();
     this.adjustDuration();
     this.draw(this.render());
@@ -1176,15 +1216,35 @@ export default class {
     const globalEndTime = this.tracks
       .map(tr=>tr.getEndTime())
       .reduce((a,b)=>Math.max(a,b),0);
-    const trackElements = this.tracks.map(track =>
-      track.render(this.getTrackRenderData({
+    
+    // const trackElements = this.tracks.map(track =>
+    //   track.render(this.getTrackRenderData({
+    //     globalEndTime,
+    //     isActive: this.isActiveTrack(track),
+    //     shouldPlay: this.shouldTrackPlay(track),
+    //     soloed: this.soloedTracks.indexOf(track) > -1,
+    //     muted: this.mutedTracks.indexOf(track) > -1,
+    //   })),
+    // );
+
+    const trackControls = this.tracks.map(track=>
+      track.renderControls(this.getTrackRenderData({
         globalEndTime,
         isActive: this.isActiveTrack(track),
         shouldPlay: this.shouldTrackPlay(track),
         soloed: this.soloedTracks.indexOf(track) > -1,
         muted: this.mutedTracks.indexOf(track) > -1,
-      })),
-    );
+      }))
+    )
+    const trackWaveforms = this.tracks.map(track=>
+      track.renderWaveform(this.getTrackRenderData({
+        globalEndTime,
+        isActive: this.isActiveTrack(track),
+        shouldPlay: this.shouldTrackPlay(track),
+        soloed: this.soloedTracks.indexOf(track) > -1,
+        muted: this.mutedTracks.indexOf(track) > -1,
+      }))
+    )
 
     return h('div.playlist-tracks',
       {
@@ -1199,7 +1259,10 @@ export default class {
         },
         hook: new ScrollHook(this),
       },
-      trackElements,
+      [
+        h('div.controls-container',trackControls),
+        h('div.waveform-container',trackWaveforms)
+      ],
     );
   }
 

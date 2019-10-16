@@ -19,14 +19,13 @@
 }
 #playlist-rendered{
     position: relative;
-    overflow:hidden;
+    overflow-x:hidden;
     height:100%;
     display:flex;
     flex-flow: column;
 }
 .playlist-tracks{
-    overflow: auto;
-    flex: auto;
+    display:flex;
 }
 .playlist-time-scale{
     height: 30px;
@@ -86,17 +85,22 @@
 
 .channel-wrapper{
     height: 100px;
-    overflow:visible;
-    margin-left: 200px;
+    display:flex;
     background-color: #2e2e2e;
+}
+.waveform{
+    position: relative;
+}
+.waveform-container{
+    overflow-x: auto;
+    overflow-y: hidden;
 }
 .track-controls{
     background-color:#606060;
-    height: 100px; 
+    height: 100px;
     width: 200px; 
-    position: absolute; 
     overflow:visible;
-    left: 0; 
+    left:0;
 }
 .track-controls header{
     padding-left:10px;
