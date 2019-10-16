@@ -1,6 +1,6 @@
 #waveform-playlist-container{
     /*
-    here you can control the 
+    here you can control the
     dimensions of the editor
     */
     margin: 40px;
@@ -14,7 +14,7 @@
 #playlist{
     margin: 10px;
     height: 100%;
-    border: 1px dotted red;
+    /* border: 1px dotted red; */
     overflow:hidden;
 }
 #playlist-rendered{
@@ -58,7 +58,7 @@
     border-radius: 5px;
     color:white;
     width: 300px;
-    grid-template-areas: 
+    grid-template-areas:
         "name bpm key"
         "time snap len"
 }
@@ -98,7 +98,7 @@
 .track-controls{
     background-color:#606060;
     height: 100px;
-    width: 200px; 
+    width: 200px;
     overflow:visible;
     left:0;
 }
@@ -126,7 +126,7 @@
 
 div.cursor{
     /* 'left' is controled from Track.js */
-    position: absolute; 
+    position: absolute;
     width: 2px;
     background-color: white;
     border: 1px solid black;
@@ -135,6 +135,6 @@ div.cursor{
     margin: 0;
     padding: 0;
     top: 0;
-    bottom: 0; 
-    z-index: 5;  
+    bottom: 0;
+    z-index: 5;
 }
