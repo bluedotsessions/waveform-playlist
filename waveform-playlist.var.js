@@ -9414,28 +9414,19 @@ var WaveformPlaylist =
 	    throw new Error('initial samplesPerPixel must be included in array zoomLevels');
 	  }
 	
-	  var playlist = new _Playlist2.default();
-	  playlist.setSampleRate(config.sampleRate);
-	  playlist.setSamplesPerPixel(config.samplesPerPixel);
-	  playlist.setAudioContext(config.ac);
-	  playlist.setEventEmitter(ee);
+	  var playlist = new _Playlist2.default(ee);
+	  playlist.sampleRate = config.sampleRate;
+	  playlist.samplesPerPixel = config.samplesPerPixel;
+	  playlist.ac = config.ac;
+	
 	  playlist.setUpEventEmitter();
 	
 	  playlist.setTimeSelection(0, 0);
-	  playlist.setState(config.state);
-	  playlist.setControlOptions(config.controls);
-	  playlist.setWaveHeight(config.waveHeight);
-	  playlist.setColors(config.colors);
-	  playlist.setZoomLevels(config.zoomLevels);
-	  playlist.setZoomIndex(zoomIndex);
-	  playlist.setMono(config.mono);
-	  playlist.setExclSolo(config.exclSolo);
-	  playlist.setShowTimeScale(config.timescale);
-	  playlist.setSeekStyle(config.seekStyle);
-	  playlist.setAnnotations(config.annotationList);
-	  playlist.isAutomaticScroll = config.isAutomaticScroll;
-	  playlist.isContinuousPlay = config.isContinuousPlay;
-	  playlist.linkedEndpoints = config.linkedEndpoints;
+	  playlist.setupState();
+	  playlist.controls = config.controls;
+	  playlist.zoomLevels = config.zoomLevels;
+	  playlist.seekStyle = config.seekStyle;
+	  playlist.annotationList = config.annotationList;
 	
 	  playlist.bpm = config.bpm; //GH  Galen
 	  playlist.quantize = config.quantize; //GH Galen
@@ -10871,51 +10862,49 @@ var WaveformPlaylist =
 	
 	var _patch2 = _interopRequireDefault(_patch);
 	
-	var _inlineWorker = __webpack_require__(387);
+	var _conversions = __webpack_require__(387);
 	
-	var _inlineWorker2 = _interopRequireDefault(_inlineWorker);
-	
-	var _conversions = __webpack_require__(388);
-	
-	var _LoaderFactory = __webpack_require__(389);
+	var _LoaderFactory = __webpack_require__(388);
 	
 	var _LoaderFactory2 = _interopRequireDefault(_LoaderFactory);
 	
-	var _ScrollHook = __webpack_require__(393);
+	var _ScrollHook = __webpack_require__(392);
 	
 	var _ScrollHook2 = _interopRequireDefault(_ScrollHook);
 	
-	var _TimeScale = __webpack_require__(394);
+	var _TimeScale = __webpack_require__(393);
 	
 	var _TimeScale2 = _interopRequireDefault(_TimeScale);
 	
-	var _Track = __webpack_require__(396);
+	var _Track = __webpack_require__(395);
 	
 	var _Track2 = _interopRequireDefault(_Track);
 	
-	var _Clip = __webpack_require__(402);
+	var _Clip = __webpack_require__(401);
 	
 	var _Clip2 = _interopRequireDefault(_Clip);
 	
-	var _Playout = __webpack_require__(412);
+	var _Playout = __webpack_require__(411);
 	
 	var _Playout2 = _interopRequireDefault(_Playout);
 	
-	var _AnnotationList = __webpack_require__(414);
+	var _SilenceCutter = __webpack_require__(413);
 	
-	var _AnnotationList2 = _interopRequireDefault(_AnnotationList);
+	var _SilenceCutter2 = _interopRequireDefault(_SilenceCutter);
 	
-	var _recorderWorker = __webpack_require__(420);
+	var _OfflineRenderer = __webpack_require__(414);
 	
-	var _recorderWorker2 = _interopRequireDefault(_recorderWorker);
+	var _InteractiveState = __webpack_require__(408);
 	
-	var _exportWavWorker = __webpack_require__(421);
+	var _InteractiveState2 = _interopRequireDefault(_InteractiveState);
+	
+	var _inlineWorker = __webpack_require__(415);
+	
+	var _inlineWorker2 = _interopRequireDefault(_inlineWorker);
+	
+	var _exportWavWorker = __webpack_require__(416);
 	
 	var _exportWavWorker2 = _interopRequireDefault(_exportWavWorker);
-	
-	var _states = __webpack_require__(408);
-	
-	var _states2 = _interopRequireDefault(_states);
 	
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 	
@@ -10924,8 +10913,10 @@ var WaveformPlaylist =
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
 	var _class = function () {
-	  function _class() {
+	  function _class(ee) {
 	    _classCallCheck(this, _class);
+	
+	    this.ee = ee;
 	
 	    this.tracks = [];
 	    this.buffers = new Map();
@@ -10955,141 +10946,12 @@ var WaveformPlaylist =
 	    this.resetDrawTimer = undefined;
 	  }
 	
-	  // TODO extract into a plugin
-	
-	
 	  _createClass(_class, [{
-	    key: 'initExporter',
-	    value: function initExporter() {
-	      this.exportWorker = new _inlineWorker2.default(_exportWavWorker2.default);
-	    }
-	
-	    // TODO extract into a plugin
-	
-	  }, {
-	    key: 'initRecorder',
-	    value: function initRecorder(stream) {
-	      var _this = this;
-	
-	      this.mediaRecorder = new window.MediaRecorder(stream);
-	
-	      this.mediaRecorder.onstart = function () {
-	        var track = new _Track2.default(_this.tracksids++);
-	        track.setName('Recording');
-	        track.setEnabledStates();
-	        track.setEventEmitter(_this.ee);
-	
-	        _this.recordingTrack = track;
-	        _this.tracks.push(track);
-	
-	        _this.chunks = [];
-	        _this.working = false;
-	      };
-	
-	      this.mediaRecorder.ondataavailable = function (e) {
-	        _this.chunks.push(e.data);
-	
-	        // throttle peaks calculation
-	        if (!_this.working) {
-	          var recording = new Blob(_this.chunks, { type: 'audio/ogg; codecs=opus' });
-	          var loader = _LoaderFactory2.default.createLoader(recording, _this.ac);
-	          loader.load().then(function (audioBuffer) {
-	            // ask web worker for peaks.
-	            _this.recorderWorker.postMessage({
-	              samples: audioBuffer.getChannelData(0),
-	              samplesPerPixel: _this.samplesPerPixel
-	            });
-	            _this.recordingTrack.setCues(0, audioBuffer.duration);
-	            _this.recordingTrack.setBuffer(audioBuffer);
-	            _this.recordingTrack.setPlayout(new _Playout2.default(_this.ac, audioBuffer));
-	            _this.adjustDuration();
-	          });
-	          _this.working = true;
-	        }
-	      };
-	
-	      this.mediaRecorder.onstop = function () {
-	        _this.chunks = [];
-	        _this.working = false;
-	      };
-	
-	      this.recorderWorker = new _inlineWorker2.default(_recorderWorker2.default);
-	      // use a worker for calculating recording peaks.
-	      this.recorderWorker.onmessage = function (e) {
-	        _this.recordingTrack.setPeaks(e.data);
-	        _this.working = false;
-	        _this.drawRequest();
-	      };
-	    }
-	  }, {
-	    key: 'setShowTimeScale',
-	    value: function setShowTimeScale(show) {
-	      this.showTimescale = show;
-	    }
-	  }, {
-	    key: 'setMono',
-	    value: function setMono(mono) {
-	      this.mono = mono;
-	    }
-	  }, {
-	    key: 'setExclSolo',
-	    value: function setExclSolo(exclSolo) {
-	      this.exclSolo = exclSolo;
-	    }
-	  }, {
-	    key: 'setSeekStyle',
-	    value: function setSeekStyle(style) {
-	      this.seekStyle = style;
-	    }
-	  }, {
-	    key: 'getSeekStyle',
-	    value: function getSeekStyle() {
-	      return this.seekStyle;
-	    }
-	  }, {
-	    key: 'setSampleRate',
-	    value: function setSampleRate(sampleRate) {
-	      this.sampleRate = sampleRate;
-	    }
-	  }, {
-	    key: 'setSamplesPerPixel',
-	    value: function setSamplesPerPixel(samplesPerPixel) {
-	      this.samplesPerPixel = samplesPerPixel;
-	    }
-	  }, {
-	    key: 'setAudioContext',
-	    value: function setAudioContext(ac) {
-	      this.ac = ac;
-	    }
-	  }, {
-	    key: 'setControlOptions',
-	    value: function setControlOptions(controlOptions) {
-	      this.controls = controlOptions;
-	    }
-	  }, {
-	    key: 'setWaveHeight',
-	    value: function setWaveHeight(height) {
-	      this.waveHeight = height;
-	    }
-	  }, {
-	    key: 'setColors',
-	    value: function setColors(colors) {
-	      this.colors = colors;
-	    }
-	  }, {
-	    key: 'setAnnotations',
-	    value: function setAnnotations(config) {
-	      this.annotationList = new _AnnotationList2.default(this, config.annotations, config.controls, config.editable, config.linkEndpoints, config.isContinuousPlay);
-	    }
-	  }, {
-	    key: 'setEventEmitter',
-	    value: function setEventEmitter(ee) {
-	      this.ee = ee;
-	    }
-	  }, {
-	    key: 'getEventEmitter',
-	    value: function getEventEmitter() {
-	      return this.ee;
+	    key: 'setupState',
+	    value: function setupState() {
+	      this.stateObj = new _InteractiveState2.default(this.ee);
+	      this.stateObj.ee = this.ee;
+	      this.stateObj.setup(this.samplesPerPixel, this.sampleRate);
 	    }
 	  }, {
 	    key: 'setTracks',
@@ -11106,7 +10968,7 @@ var WaveformPlaylist =
 	          newTrack.setName(name);
 	          newTrack.quantize = this.quantize;
 	          newTrack.bpm = this._bpm;
-	          newTrack.setEventEmitter(this.ee);
+	          newTrack.ee = this.ee;
 	          this.tracks.push(newTrack);
 	        }
 	      } catch (err) {
@@ -11127,133 +10989,128 @@ var WaveformPlaylist =
 	  }, {
 	    key: 'setUpEventEmitter',
 	    value: function setUpEventEmitter() {
-	      var _this2 = this;
+	      var _this = this;
 	
 	      var ee = this.ee;
 	
 	      ee.on('showMenu', function (clip) {
 	
 	        clip.showMenu = true;
-	        if (_this2.openedMenuClip) {
-	          _this2.openedMenuClip.showMenu = false;
+	        if (_this.openedMenuClip) {
+	          _this.openedMenuClip.showMenu = false;
 	        }
-	        _this2.openedMenuClip = clip;
+	        _this.openedMenuClip = clip;
 	
-	        _this2.drawRequest();
+	        _this.drawRequest();
 	      });
 	      ee.on('playlistmousedown', function () {
-	        if (_this2.openedMenuClip) {
-	          _this2.openedMenuClip.showMenu = false;
-	          delete _this2.openedMenuClip;
+	        if (_this.openedMenuClip) {
+	          _this.openedMenuClip.showMenu = false;
+	          delete _this.openedMenuClip;
 	        }
 	      });
 	
 	      ee.on('interactive', function (track) {
-	        _this2.drawRequest();
-	      });
-	      ee.on('stopAndRollback', function (e) {
-	        _this2.stop().then(function (_) {
-	          _this2.seek(0, 0);
-	        });
+	        _this.drawRequest();
 	      });
 	      ee.on('activeclip', function (clip) {
 	        var segment = 60 / clip.bpm;
 	        console.log(clip.name, clip.startTime / segment);
-	        _this2.stateObj.activeClip = clip;
+	        _this.stateObj.activeClip = clip;
 	      });
 	
 	      ee.on('panknob', function (track) {
-	        _this2.drawRequest();
+	        _this.drawRequest();
 	      });
 	
 	      ee.on('automaticscroll', function (val) {
-	        _this2.isAutomaticScroll = val;
+	        _this.isAutomaticScroll = val;
 	      });
 	
 	      ee.on('destroy', function (track) {
-	        for (var a in _this2.tracks) {
-	          if (_this2.tracks[a] == track) {
-	            _this2.tracks[a].scheduleStop();
-	            _this2.tracks.splice(a, 1);
+	        for (var a in _this.tracks) {
+	          if (_this.tracks[a] == track) {
+	            _this.tracks[a].scheduleStop();
+	            _this.tracks.splice(a, 1);
 	            break;
 	          }
 	        }
-	        _this2.drawRequest();
+	        _this.drawRequest();
 	      });
 	
 	      ee.on('durationformat', function (format) {
-	        _this2.durationFormat = format;
-	        _this2.drawRequest();
+	        _this.durationFormat = format;
+	        _this.drawRequest();
 	      });
 	
 	      ee.on('select', function (start, end, track) {
-	        if (_this2.isPlaying()) {
-	          _this2.lastSeeked = start;
-	          _this2.pausedAt = undefined;
-	          _this2.restartPlayFrom(start);
+	        if (_this.isPlaying()) {
+	          _this.lastSeeked = start;
+	          _this.pausedAt = undefined;
+	          _this.restartPlayFrom(start);
 	        } else {
 	          // reset if it was paused.
-	          _this2.seek(start, end, track);
-	          _this2.ee.emit('timeupdate', start);
-	          _this2.drawRequest();
+	          _this.seek(start, end, track);
+	          _this.ee.emit('timeupdate', start);
+	          _this.drawRequest();
 	        }
 	      });
 	
 	      ee.on('startaudiorendering', function (type) {
-	        _this2.startOfflineRender(type);
+	        (0, _OfflineRenderer.startOfflineRender)(_this, type);
 	      });
 	
 	      ee.on('statechange', function (state) {
-	        _this2.setState(state);
-	        _this2.drawRequest();
+	        _this.setState(state);
+	        _this.drawRequest();
 	      });
 	
 	      ee.on('shift', function (deltaTime, clip) {
 	        clip.setStartTime(clip.getStartTime() + deltaTime);
-	        _this2.adjustDuration();
-	        _this2.drawRequest();
+	        _this.adjustDuration();
+	        _this.drawRequest();
 	      });
 	
 	      ee.on('record', function () {
-	        _this2.record();
+	        _this.record();
 	      });
 	
 	      ee.on('play', function (start, end) {
-	        if (_this2.isPlaying()) _this2.pause();else _this2.play(start, end);
+	        if (_this.isPlaying()) _this.pause();else _this.play(start, end);
 	      });
 	
 	      ee.on('pause', function () {
-	        _this2.pause();
+	        _this.pause();
 	      });
 	
 	      ee.on('stop', function () {
-	        _this2.stop();
+	        _this.stop();
 	      });
 	
 	      ee.on('rewind', function () {
-	        _this2.rewind();
+	        _this.rewind();
 	      });
 	
 	      ee.on('fastforward', function () {
-	        _this2.fastForward();
+	        _this.fastForward();
 	      });
 	
 	      ee.on('clear', function () {
-	        _this2.clear().then(function () {
-	          _this2.drawRequest();
+	        _this.clear().then(function () {
+	          _this.drawRequest();
 	        });
 	      });
 	
 	      ee.on('solo', function (track) {
-	        _this2.soloTrack(track);
-	        _this2.adjustTrackPlayout();
-	        _this2.drawRequest();
+	        _this.soloTrack(track);
+	        _this.adjustTrackPlayout();
+	        _this.drawRequest();
 	      });
 	
 	      ee.on('mute', function (track) {
-	        _this2.muteTrack(track);
-	        _this2.adjustTrackPlayout();
-	        _this2.drawRequest();
+	        _this.muteTrack(track);
+	        _this.adjustTrackPlayout();
+	        _this.drawRequest();
 	      });
 	
 	      ee.on('volumechange', function (volume, track) {
@@ -11261,9 +11118,9 @@ var WaveformPlaylist =
 	      });
 	
 	      ee.on('mastervolumechange', function (volume) {
-	        _this2.masterGain = volume / 100;
-	        _this2.tracks.forEach(function (track) {
-	          track.setMasterGainLevel(_this2.masterGain);
+	        _this.masterGain = volume / 100;
+	        _this.tracks.forEach(function (track) {
+	          track.setMasterGainLevel(_this.masterGain);
 	        });
 	      });
 	
@@ -11278,61 +11135,61 @@ var WaveformPlaylist =
 	      });
 	
 	      ee.on('fadetype', function (type) {
-	        _this2.fadeType = type;
+	        _this.fadeType = type;
 	      });
 	
 	      ee.on('newtrack', function (file) {
-	        _this2.load([{
+	        _this.load([{
 	          src: file,
 	          name: file.name
 	        }]);
 	      });
 	
 	      ee.on('trim', function () {
-	        var track = _this2.getActiveTrack();
-	        var timeSelection = _this2.getTimeSelection();
+	        var track = _this.getActiveTrack();
+	        var timeSelection = _this.timeSelection;
 	
 	        track.trim(timeSelection.start, timeSelection.end);
-	        track.calculatePeaks(_this2.samplesPerPixel, _this2.sampleRate);
+	        track.calculatePeaks(_this.samplesPerPixel, _this.sampleRate);
 	
-	        _this2.setTimeSelection(0, 0);
-	        _this2.drawRequest();
+	        _this.setTimeSelection(0, 0);
+	        _this.drawRequest();
 	      });
 	
 	      ee.on('zoomin', function () {
-	        var zoomIndex = Math.max(0, _this2.zoomIndex - 1);
-	        var zoom = _this2.zoomLevels[zoomIndex];
+	        var zoomIndex = Math.max(0, _this.zoomIndex - 1);
+	        var zoom = _this.zoomLevels[zoomIndex];
 	
-	        if (zoom !== _this2.samplesPerPixel) {
-	          _this2.setZoom(zoom);
-	          _this2.drawRequest();
+	        if (zoom !== _this.samplesPerPixel) {
+	          _this.setZoom(zoom);
+	          _this.drawRequest();
 	        }
 	      });
 	
 	      ee.on('zoomout', function () {
-	        var zoomIndex = Math.min(_this2.zoomLevels.length - 1, _this2.zoomIndex + 1);
-	        var zoom = _this2.zoomLevels[zoomIndex];
+	        var zoomIndex = Math.min(_this.zoomLevels.length - 1, _this.zoomIndex + 1);
+	        var zoom = _this.zoomLevels[zoomIndex];
 	
-	        if (zoom !== _this2.samplesPerPixel) {
-	          _this2.setZoom(zoom);
-	          _this2.drawRequest();
+	        if (zoom !== _this.samplesPerPixel) {
+	          _this.setZoom(zoom);
+	          _this.drawRequest();
 	        }
 	      });
 	
 	      ee.on('scroll', function () {
-	        _this2.isScrolling = true;
-	        _this2.drawRequest();
-	        clearTimeout(_this2.scrollTimer);
-	        _this2.scrollTimer = setTimeout(function () {
-	          _this2.isScrolling = false;
+	        _this.isScrolling = true;
+	        _this.drawRequest();
+	        clearTimeout(_this.scrollTimer);
+	        _this.scrollTimer = setTimeout(function () {
+	          _this.isScrolling = false;
 	        }, 200);
 	      });
 	      ee.on('seek', function (where) {
-	        _this2.seek(where);
+	        _this.seek(where);
 	        // console.log('yo',where);
 	      });
 	      ee.on('splitStart', function (clip) {
-	        _this2.stateObj.action = "split";
+	        _this.stateObj.action = "split";
 	      });
 	      ee.on('splitAt', function (_ref) {
 	        var clip = _ref.clip,
@@ -11343,11 +11200,11 @@ var WaveformPlaylist =
 	        info.start = clip.startTime + at;
 	        info.cuein = clip.cueIn + at;
 	        info.cueout = clip.cueOut;
-	        _this2.createClip(clip.buffer, info, false, clip.peaks);
+	        _this.createClip(clip.buffer, info, false, clip.peaks);
 	
 	        clip.endTime = clip.startTime + at;
 	
-	        _this2.ee.emit('interactive');
+	        _this.ee.emit('interactive');
 	      });
 	      ee.on('duplicate', function (clip) {
 	
@@ -11356,13 +11213,13 @@ var WaveformPlaylist =
 	        info.name = "Copy of " + info.name;
 	        info.start = clip.endTime;
 	        info.end = clip.endTime + clip.duration;
-	        _this2.createClip(clip.buffer, info, false, clip.peaks);
-	        _this2.ee.emit('interactive');
+	        _this.createClip(clip.buffer, info, false, clip.peaks);
+	        _this.ee.emit('interactive');
 	      });
 	      ee.on('delete', function (clip) {
 	        var t = clip.track.clips.indexOf(clip);
 	        clip.track.clips.splice(t, 1);
-	        _this2.ee.emit('interactive');
+	        _this.ee.emit('interactive');
 	      });
 	    }
 	  }, {
@@ -11452,16 +11309,15 @@ var WaveformPlaylist =
 	
 	      if (fadeIn !== undefined) {
 	        clip.setFadeIn(fadeIn.duration, fadeIn.shape);
-	      } else if (this.getState() == 'interactive') {
+	      } else {
 	        clip.setFadeIn(0.01, "linear");
 	      }
 	
 	      if (fadeOut !== undefined) {
 	        clip.setFadeOut(fadeOut.duration, fadeOut.shape);
-	      } else if (this.getState() == 'interactive') {
+	      } else {
 	        clip.setFadeOut(0.01, "linear");
 	      }
-	
 	      // clip.setState(this.getState());
 	      clip.setStartTime(start);
 	      clip.setPlayout(playout);
@@ -11472,106 +11328,16 @@ var WaveformPlaylist =
 	      if (readypeaks !== undefined) clip.peaks = readypeaks;else clip.calculatePeaks(this.samplesPerPixel, this.sampleRate);
 	
 	      if (removeSilences) {
-	        this.removeSilences(clip);
+	        (0, _SilenceCutter2.default)(clip, this);
 	      }
 	      this.clips.push(clip);
-	      for (var slow = 0; slow < 1000000; slow += slow % 2 ? 1 : 2) {}
 	      return clip;
-	    }
-	  }, {
-	    key: 'removeSilences',
-	    value: function removeSilences(clip) {
-	      var track = clip.track;
-	      var bpm = track.bpm;
-	      var minimumSilence = 8 * this.sampleRate;
-	      var buffer = clip.buffer;
-	      var samples = buffer.getChannelData(0);
-	      var startTime = clip.startTime;
-	      var cueIn = clip.cueIn;
-	      var cueOut = clip.cueOut;
-	      var cueInSamp = (0, _conversions.secondsToSamples)(cueIn, this.sampleRate);
-	      var cueOutSamp = (0, _conversions.secondsToSamples)(cueOut, this.sampleRate);
-	      var secsperbeat = 60 / bpm;
-	      var secsperbar = secsperbeat * this.barLength;
-	      var offsetTime = secsperbeat * this.barOffset;
-	      var startofSilence = NaN;
-	      var threshhold = 0.02;
-	
-	      for (var a = cueInSamp; a < cueOutSamp; a++) {
-	        if (!isNaN(startofSilence) && Math.abs(samples[a]) > threshhold) {
-	          if (a - startofSilence > minimumSilence) {
-	            if (!clip.bpm) {
-	              this.removeSamples(clip, startofSilence, a);
-	            } else {
-	              var qpoint = a;
-	              console.log("!->", this.secondsToMinutes(startofSilence / this.sampleRate), this.secondsToMinutes(a / this.sampleRate));
-	              while (qpoint >= 0 && Math.abs(samples[qpoint - 1]) <= threshhold) {
-	                var secs = (0, _conversions.samplesToSeconds)(qpoint, this.sampleRate) + startTime - cueIn;
-	                var secsprev = (0, _conversions.samplesToSeconds)(qpoint - 1, this.sampleRate) + startTime - cueIn;
-	                if (Math.floor((secs - offsetTime) / secsperbar) > Math.floor((secsprev - offsetTime) / secsperbar)) {
-	                  this.removeSamples(clip, startofSilence, qpoint);
-	                  break;
-	                }
-	                qpoint--;
-	              }
-	            }
-	          }
-	          startofSilence = NaN;
-	        } else if (isNaN(startofSilence) && Math.abs(samples[a]) <= threshhold) {
-	          if (!track.bpm) {
-	            startofSilence = a;
-	          } else {
-	            var _secs = (0, _conversions.samplesToSeconds)(a, this.sampleRate) + startTime - cueIn;
-	            var _secsprev = (0, _conversions.samplesToSeconds)(a - 1, this.sampleRate) + startTime - cueIn;
-	
-	            if (Math.floor((_secs - offsetTime) / secsperbar) > Math.floor((_secsprev - offsetTime) / secsperbar)) {
-	              startofSilence = a;
-	            }
-	          }
-	        }
-	      }
-	      if (!isNaN(startofSilence) && samples.length - startofSilence > minimumSilence) {
-	        this.removeSamples(clip, startofSilence, samples.length);
-	      }
-	    }
-	  }, {
-	    key: 'removeSamples',
-	    value: function removeSamples(clip, start, end) {
-	      var startSec = (0, _conversions.samplesToSeconds)(start, this.sampleRate);
-	      var endSec = (0, _conversions.samplesToSeconds)(end, this.sampleRate);
-	      var cueInSamp = clip.cueIn * this.sampleRate;
-	      var minClip = this.barLength * 60 / this.bpm || 1;
-	      if (start == cueInSamp) {
-	        if (clip.cueOut - clip.cueIn - endSec >= minClip) {
-	          clip.cueIn += endSec;
-	          clip.startTime += endSec;
-	        }
-	      } else if (end == clip.buffer.length) {
-	        if (startSec - clip.cueIn >= minClip) clip.cueOut = startSec;else clip.track.clips.pop();
-	      } else {
-	
-	        var info = clip.getTrackDetails();
-	
-	        info.cueout = startSec;
-	        console.log(clip.name, this.secondsToMinutes(info.start), this.secondsToMinutes(info.start + info.cueout - info.cuein), minClip);
-	        if (info.cueout - info.cuein >= minClip) this.createClip(clip.buffer, info, false, clip.peaks);
-	
-	        clip.startTime += endSec - clip.cueIn;
-	        clip.cueIn = endSec;
-	      }
-	    }
-	  }, {
-	    key: 'secondsToMinutes',
-	    value: function secondsToMinutes(sec) {
-	      var min = sec / 60 | 0;
-	      var secs = sec - min * 60 | 0;
-	      return min + ':' + (secs / 10 | 0) + secs % 10;
 	    }
 	  }, {
 	    key: 'load',
 	    value: function () {
 	      var _ref2 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee(clipList) {
-	        var _this3 = this;
+	        var _this2 = this;
 	
 	        var loadPromises, audioBuffers, i;
 	        return regeneratorRuntime.wrap(function _callee$(_context) {
@@ -11579,10 +11345,10 @@ var WaveformPlaylist =
 	            switch (_context.prev = _context.next) {
 	              case 0:
 	                loadPromises = clipList.map(function (clipInfo) {
-	                  var p = _this3.buffers.get(clipInfo.src);
+	                  var p = _this2.buffers.get(clipInfo.src);
 	                  if (p === undefined) {
-	                    var promise = _LoaderFactory2.default.createLoader(clipInfo.src, _this3.ac, _this3.ee).load();
-	                    _this3.buffers.set(clipInfo.src, promise);
+	                    var promise = _LoaderFactory2.default.createLoader(clipInfo.src, _this2.ac, _this2.ee).load();
+	                    _this2.buffers.set(clipInfo.src, promise);
 	                    return promise;
 	                  } else {
 	                    return p;
@@ -11697,16 +11463,6 @@ var WaveformPlaylist =
 	    */
 	
 	  }, {
-	    key: 'setActiveTrack',
-	    value: function setActiveTrack(track) {
-	      this.activeTrack = track;
-	    }
-	  }, {
-	    key: 'getActiveTrack',
-	    value: function getActiveTrack() {
-	      return this.activeTrack;
-	    }
-	  }, {
 	    key: 'isSegmentSelection',
 	    value: function isSegmentSelection() {
 	      return this.timeSelection.start !== this.timeSelection.end;
@@ -11730,128 +11486,9 @@ var WaveformPlaylist =
 	      this.cursor = start;
 	    }
 	  }, {
-	    key: 'startOfflineRender',
-	    value: function startOfflineRender(type) {
-	      var _this4 = this;
-	
-	      if (this.isRendering) {
-	        return;
-	      }
-	
-	      this.isRendering = true;
-	      this.offlineAudioContext = new OfflineAudioContext(2, 44100 * this.duration, 44100);
-	
-	      var currentTime = this.offlineAudioContext.currentTime;
-	
-	      var compressor = this.offlineAudioContext.createDynamicsCompressor();
-	
-	      this.tracks.forEach(function (track) {
-	        track.clips.forEach(function (clip) {
-	          clip.setOfflinePlayout(new _Playout2.default(_this4.offlineAudioContext, clip.buffer));
-	          clip.schedulePlay(currentTime, 0, 0, {
-	            shouldPlay: _this4.shouldTrackPlay(clip),
-	            masterGain: 1,
-	            compressor: compressor,
-	            isOffline: true
-	          });
-	        });
-	      });
-	      this.tracks.forEach(function (track) {
-	        return track.play(currentTime, 0, 0);
-	      });
-	
-	      /*
-	         this.tracks.forEach((track) => {
-	           track.schedulePlay(currentTime, start, end, {
-	             shouldPlay: this.shouldTrackPlay(track),
-	             masterGain: this.masterGain,
-	             compressor,
-	           }));
-	         });
-	         this.tracks.forEach(track=>track.play(this.ac.currentTime,start,end));
-	      */
-	
-	      /*
-	        TODO cleanup of different audio playouts handling.
-	      */
-	      this.offlineAudioContext.startRendering().then(function (audioBuffer) {
-	        if (type === 'buffer') {
-	          _this4.ee.emit('audiorenderingfinished', type, audioBuffer);
-	          _this4.isRendering = false;
-	          return;
-	        }
-	
-	        if (type === 'wav') {
-	          _this4.exportWorker.postMessage({
-	            command: 'init',
-	            config: {
-	              sampleRate: 44100
-	            }
-	          });
-	
-	          // callback for `exportWAV`
-	          _this4.exportWorker.onmessage = function (e) {
-	            _this4.ee.emit('audiorenderingfinished', type, e.data);
-	            _this4.isRendering = false;
-	
-	            // clear out the buffer for next renderings.
-	            _this4.exportWorker.postMessage({
-	              command: 'clear'
-	            });
-	          };
-	
-	          // send the channel data from our buffer to the worker
-	          _this4.exportWorker.postMessage({
-	            command: 'record',
-	            buffer: [audioBuffer.getChannelData(0), audioBuffer.getChannelData(1)]
-	          });
-	
-	          // ask the worker for a WAV
-	          _this4.exportWorker.postMessage({
-	            command: 'exportWAV',
-	            type: 'audio/wav'
-	          });
-	        }
-	      }).catch(function (e) {
-	        throw e;
-	      });
-	    }
-	  }, {
-	    key: 'getTimeSelection',
-	    value: function getTimeSelection() {
-	      return this.timeSelection;
-	    }
-	  }, {
-	    key: 'setState',
-	    value: function setState(state) {
-	      this.state = state;
-	      var StateClass = _states2.default[this.state];
-	      this.stateObj = new StateClass(this);
-	      this.stateObj.ee = this.ee;
-	      this.stateObj.setup(this.samplesPerPixel, this.sampleRate);
-	      this.tracks.forEach(function (track) {
-	        return track.setState(state);
-	      });
-	    }
-	  }, {
-	    key: 'getState',
-	    value: function getState() {
-	      return this.state;
-	    }
-	  }, {
-	    key: 'setZoomIndex',
-	    value: function setZoomIndex(index) {
-	      this.zoomIndex = index;
-	    }
-	  }, {
-	    key: 'setZoomLevels',
-	    value: function setZoomLevels(levels) {
-	      this.zoomLevels = levels;
-	    }
-	  }, {
 	    key: 'setZoom',
 	    value: function setZoom(zoom) {
-	      var _this5 = this;
+	      var _this3 = this;
 	
 	      this.samplesPerPixel = zoom;
 	      this.zoomIndex = this.zoomLevels.indexOf(zoom);
@@ -11865,7 +11502,7 @@ var WaveformPlaylist =
 	              break;
 	            }
 	          }
-	          if (a == index) clip.calculatePeaks(zoom, _this5.sampleRate);
+	          if (a == index) clip.calculatePeaks(zoom, _this3.sampleRate);
 	        });
 	      });
 	    }
@@ -11896,10 +11533,10 @@ var WaveformPlaylist =
 	  }, {
 	    key: 'adjustTrackPlayout',
 	    value: function adjustTrackPlayout() {
-	      var _this6 = this;
+	      var _this4 = this;
 	
 	      this.tracks.forEach(function (track) {
-	        track.setShouldPlay(_this6.shouldTrackPlay(track));
+	        track.setShouldPlay(_this4.shouldTrackPlay(track));
 	      });
 	    }
 	  }, {
@@ -11972,12 +11609,12 @@ var WaveformPlaylist =
 	  }, {
 	    key: 'play',
 	    value: function play(startTime, endTime) {
-	      var _this7 = this;
+	      var _this5 = this;
 	
 	      clearTimeout(this.resetDrawTimer);
 	
 	      var currentTime = this.ac.currentTime;
-	      var selected = this.getTimeSelection();
+	      var selected = this.timeSelection;
 	      var playoutPromises = [];
 	
 	      var start = startTime || this.pausedAt || this.cursor;
@@ -11991,29 +11628,17 @@ var WaveformPlaylist =
 	        return this.restartPlayFrom(start, end);
 	      }
 	
-	      /*
-	      this.tracks.forEach((track) => {
-	        track.clips.forEach(clip=>{
-	          clip.setOfflinePlayout(new Playout(this.offlineAudioContext, clip.buffer));
-	          clip.schedulePlay(currentTime, 0, 0, {
-	            shouldPlay: this.shouldTrackPlay(clip),
-	            masterGain: 1,
-	            isOffline: true,
-	          });
-	        })
-	      });
-	      */
 	      var compressor = this.ac.createDynamicsCompressor();
 	      this.tracks.forEach(function (track) {
 	        // track.setState('cursor');
 	        playoutPromises.push(track.schedulePlay(currentTime, start, end, {
-	          shouldPlay: _this7.shouldTrackPlay(track),
-	          masterGain: _this7.masterGain,
+	          shouldPlay: _this5.shouldTrackPlay(track),
+	          masterGain: _this5.masterGain,
 	          compressor: compressor
 	        }));
 	      });
 	      this.tracks.forEach(function (track) {
-	        return track.play(_this7.ac.currentTime, start, end);
+	        return track.play(_this5.ac.currentTime, start, end);
 	      });
 	
 	      this.lastPlay = this.ac.currentTime;
@@ -12061,74 +11686,47 @@ var WaveformPlaylist =
 	  }, {
 	    key: 'rewind',
 	    value: function rewind() {
-	      var _this8 = this;
+	      var _this6 = this;
 	
 	      return this.stop().then(function () {
-	        _this8.scrollLeft = 0;
-	        _this8.ee.emit('select', 0, 0);
-	      });
-	    }
-	  }, {
-	    key: 'fastForward',
-	    value: function fastForward() {
-	      var _this9 = this;
-	
-	      return this.stop().then(function () {
-	        if (_this9.viewDuration < _this9.duration) {
-	          _this9.scrollLeft = _this9.duration - _this9.viewDuration;
-	        } else {
-	          _this9.scrollLeft = 0;
-	        }
-	
-	        _this9.ee.emit('select', _this9.duration, _this9.duration);
+	        _this6.scrollLeft = 0;
+	        _this6.ee.emit('select', 0, 0);
 	      });
 	    }
 	  }, {
 	    key: 'clear',
 	    value: function clear() {
-	      var _this10 = this;
+	      var _this7 = this;
 	
 	      return this.stop().then(function () {
-	        _this10.tracks = [];
-	        _this10.clips = [];
-	        _this10.buffers = new Map();
-	        _this10.soloedTracks = [];
-	        _this10.mutedTracks = [];
-	        _this10.playoutPromises = [];
+	        _this7.tracks = [];
+	        _this7.clips = [];
+	        _this7.buffers = new Map();
+	        _this7.soloedTracks = [];
+	        _this7.mutedTracks = [];
+	        _this7.playoutPromises = [];
 	
-	        _this10.cursor = 0;
-	        _this10.playbackSeconds = 0;
-	        _this10.duration = 0;
-	        _this10.scrollLeft = 0;
+	        _this7.cursor = 0;
+	        _this7.playbackSeconds = 0;
+	        _this7.duration = 0;
+	        _this7.scrollLeft = 0;
 	
-	        _this10.seek(0, 0, undefined);
+	        _this7.seek(0, 0, undefined);
 	      });
 	    }
 	  }, {
-	    key: 'record',
-	    value: function record() {
-	      var _this11 = this;
-	
-	      var playoutPromises = [];
-	      this.mediaRecorder.start(300);
-	
-	      this.tracks.forEach(function (track) {
-	        // track.setState('none');
-	        playoutPromises.push(track.schedulePlay(_this11.ac.currentTime, 0, undefined, {
-	          shouldPlay: _this11.shouldTrackPlay(track)
-	        }));
-	      });
-	
-	      this.playoutPromises = playoutPromises;
+	    key: 'initExporter',
+	    value: function initExporter() {
+	      this.exportWorker = new _inlineWorker2.default(_exportWavWorker2.default);
 	    }
 	  }, {
 	    key: 'startAnimation',
 	    value: function startAnimation(startTime) {
-	      var _this12 = this;
+	      var _this8 = this;
 	
 	      this.lastDraw = this.ac.currentTime;
 	      this.animationRequest = window.requestAnimationFrame(function () {
-	        _this12.updateEditor(startTime);
+	        _this8.updateEditor(startTime);
 	      });
 	    }
 	  }, {
@@ -12146,7 +11744,6 @@ var WaveformPlaylist =
 	        this.restartPlayFrom(start);
 	      } else {
 	        // reset if it was paused.
-	        this.setActiveTrack(track || this.tracks[0]);
 	        this.pausedAt = start;
 	        this.setTimeSelection(start, end);
 	        this.playbackSeconds = start;
@@ -12161,10 +11758,10 @@ var WaveformPlaylist =
 	  }, {
 	    key: 'updateEditor',
 	    value: function updateEditor(cursor) {
-	      var _this13 = this;
+	      var _this9 = this;
 	
 	      var currentTime = this.ac.currentTime;
-	      var selection = this.getTimeSelection();
+	      var selection = this.timeSelection;
 	      var cursorPos = cursor || this.cursor;
 	      var elapsed = currentTime - this.lastDraw;
 	
@@ -12172,7 +11769,7 @@ var WaveformPlaylist =
 	        var playbackSeconds = cursorPos + elapsed;
 	        this.ee.emit('timeupdate', playbackSeconds);
 	        this.animationRequest = window.requestAnimationFrame(function () {
-	          _this13.updateEditor(playbackSeconds);
+	          _this9.updateEditor(playbackSeconds);
 	        });
 	
 	        this.playbackSeconds = playbackSeconds;
@@ -12189,22 +11786,22 @@ var WaveformPlaylist =
 	        this.stopAnimation();
 	
 	        this.resetDrawTimer = setTimeout(function () {
-	          _this13.pausedAt = undefined;
-	          _this13.lastSeeked = undefined;
+	          _this9.pausedAt = undefined;
+	          _this9.lastSeeked = undefined;
 	          // this.setState(this.getState());
 	
-	          _this13.playbackSeconds = 0;
-	          _this13.draw(_this13.render());
+	          _this9.playbackSeconds = 0;
+	          _this9.draw(_this9.render());
 	        }, 0);
 	      }
 	    }
 	  }, {
 	    key: 'drawRequest',
 	    value: function drawRequest() {
-	      var _this14 = this;
+	      var _this10 = this;
 	
 	      window.requestAnimationFrame(function () {
-	        _this14.draw(_this14.render());
+	        _this10.draw(_this10.render());
 	      });
 	    }
 	  }, {
@@ -12223,34 +11820,18 @@ var WaveformPlaylist =
 	      var data = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
 	
 	      var defaults = {
-	        height: this.waveHeight,
+	        height: 100,
 	        resolution: this.samplesPerPixel,
 	        sampleRate: this.sampleRate,
 	        controls: this.controls,
 	        isActive: false,
-	        timeSelection: this.getTimeSelection(),
+	        timeSelection: this.timeSelection,
 	        playlistLength: this.duration,
 	        playbackSeconds: this.playbackSeconds,
 	        colors: this.colors
 	      };
 	
 	      return (0, _lodash2.default)(data, defaults);
-	    }
-	  }, {
-	    key: 'isActiveTrack',
-	    value: function isActiveTrack(track) {
-	      var activeTrack = this.getActiveTrack();
-	
-	      if (this.isSegmentSelection()) {
-	        return activeTrack === track;
-	      }
-	
-	      return true;
-	    }
-	  }, {
-	    key: 'renderAnnotations',
-	    value: function renderAnnotations() {
-	      return this.annotationList.render();
 	    }
 	  }, {
 	    key: 'renderTimeScale',
@@ -12263,7 +11844,7 @@ var WaveformPlaylist =
 	  }, {
 	    key: 'renderTrackSection',
 	    value: function renderTrackSection() {
-	      var _this15 = this;
+	      var _this11 = this;
 	
 	      var globalEndTime = this.tracks.map(function (tr) {
 	        return tr.getEndTime();
@@ -12271,40 +11852,28 @@ var WaveformPlaylist =
 	        return Math.max(a, b);
 	      }, 0);
 	
-	      // const trackElements = this.tracks.map(track =>
-	      //   track.render(this.getTrackRenderData({
-	      //     globalEndTime,
-	      //     isActive: this.isActiveTrack(track),
-	      //     shouldPlay: this.shouldTrackPlay(track),
-	      //     soloed: this.soloedTracks.indexOf(track) > -1,
-	      //     muted: this.mutedTracks.indexOf(track) > -1,
-	      //   })),
-	      // );
-	
 	      var trackControls = this.tracks.map(function (track) {
-	        return track.renderControls(_this15.getTrackRenderData({
+	        return track.renderControls(_this11.getTrackRenderData({
 	          globalEndTime: globalEndTime,
-	          isActive: _this15.isActiveTrack(track),
-	          shouldPlay: _this15.shouldTrackPlay(track),
-	          soloed: _this15.soloedTracks.indexOf(track) > -1,
-	          muted: _this15.mutedTracks.indexOf(track) > -1
+	          shouldPlay: _this11.shouldTrackPlay(track),
+	          soloed: _this11.soloedTracks.indexOf(track) > -1,
+	          muted: _this11.mutedTracks.indexOf(track) > -1
 	        }));
 	      });
 	      var trackWaveforms = this.tracks.map(function (track) {
-	        return track.renderWaveform(_this15.getTrackRenderData({
+	        return track.renderWaveform(_this11.getTrackRenderData({
 	          globalEndTime: globalEndTime,
-	          isActive: _this15.isActiveTrack(track),
-	          shouldPlay: _this15.shouldTrackPlay(track),
-	          soloed: _this15.soloedTracks.indexOf(track) > -1,
-	          muted: _this15.mutedTracks.indexOf(track) > -1
+	          shouldPlay: _this11.shouldTrackPlay(track),
+	          soloed: _this11.soloedTracks.indexOf(track) > -1,
+	          muted: _this11.mutedTracks.indexOf(track) > -1
 	        }));
 	      });
 	
 	      return (0, _h2.default)('div.playlist-tracks', [(0, _h2.default)('div.controls-container', trackControls), (0, _h2.default)('div.waveform-container', {
 	        onscroll: function onscroll(e) {
-	          _this15.scrollLeft = (0, _conversions.pixelsToSeconds)(e.target.scrollLeft, _this15.samplesPerPixel, _this15.sampleRate);
+	          _this11.scrollLeft = (0, _conversions.pixelsToSeconds)(e.target.scrollLeft, _this11.samplesPerPixel, _this11.sampleRate);
 	
-	          _this15.ee.emit('scroll', _this15.scrollLeft);
+	          _this11.ee.emit('scroll', _this11.scrollLeft);
 	        },
 	        hook: new _ScrollHook2.default(this)
 	      }, trackWaveforms)]);
@@ -12312,7 +11881,7 @@ var WaveformPlaylist =
 	  }, {
 	    key: 'render',
 	    value: function render() {
-	      var _this16 = this;
+	      var _this12 = this;
 	
 	      var containerChildren = [];
 	
@@ -12322,25 +11891,21 @@ var WaveformPlaylist =
 	
 	      containerChildren.push(this.renderTrackSection());
 	
-	      if (this.annotationList.length) {
-	        containerChildren.push(this.renderAnnotations());
-	      }
-	
 	      return (0, _h2.default)('div#playlist-rendered', {
 	        onselectstart: function onselectstart(event) {
 	          return event.preventDefault();
 	        },
 	        onmouseleave: function onmouseleave(event) {
-	          return _this16.ee.emit("playlistmouseleave", event);
+	          return _this12.ee.emit("playlistmouseleave", event);
 	        },
 	        onmousedown: function onmousedown(event) {
-	          return _this16.ee.emit("playlistmousedown", event);
+	          return _this12.ee.emit("playlistmousedown", event);
 	        },
 	        onmouseup: function onmouseup(event) {
-	          return _this16.ee.emit("playlistmouseup", event);
+	          return _this12.ee.emit("playlistmouseup", event);
 	        },
 	        onmousemove: function onmousemove(event) {
-	          return _this16.ee.emit("playlistmousemove", event);
+	          return _this12.ee.emit("playlistmousemove", event);
 	        }
 	      }, containerChildren);
 	    }
@@ -14571,52 +14136,6 @@ var WaveformPlaylist =
 /* 387 */
 /***/ (function(module, exports) {
 
-	/* WEBPACK VAR INJECTION */(function(global) {var WORKER_ENABLED = !!(global === global.window && global.URL && global.Blob && global.Worker);
-	
-	function InlineWorker(func, self) {
-	  var _this = this;
-	  var functionBody;
-	
-	  self = self || {};
-	
-	  if (WORKER_ENABLED) {
-	    functionBody = func.toString().trim().match(
-	      /^function\s*\w*\s*\([\w\s,]*\)\s*{([\w\W]*?)}$/
-	    )[1];
-	
-	    return new global.Worker(global.URL.createObjectURL(
-	      new global.Blob([ functionBody ], { type: "text/javascript" })
-	    ));
-	  }
-	
-	  function postMessage(data) {
-	    setTimeout(function() {
-	      _this.onmessage({ data: data });
-	    }, 0);
-	  }
-	
-	  this.self = self;
-	  this.self.postMessage = postMessage;
-	
-	  setTimeout(func.bind(self, self), 0);
-	}
-	
-	InlineWorker.prototype.postMessage = function postMessage(data) {
-	  var _this = this;
-	
-	  setTimeout(function() {
-	    _this.self.onmessage({ data: data });
-	  }, 0);
-	};
-	
-	module.exports = InlineWorker;
-	
-	/* WEBPACK VAR INJECTION */}.call(exports, (function() { return this; }())))
-
-/***/ }),
-/* 388 */
-/***/ (function(module, exports) {
-
 	"use strict";
 	
 	Object.defineProperty(exports, "__esModule", {
@@ -14653,7 +14172,7 @@ var WaveformPlaylist =
 	}
 
 /***/ }),
-/* 389 */
+/* 388 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -14664,11 +14183,11 @@ var WaveformPlaylist =
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _BlobLoader = __webpack_require__(390);
+	var _BlobLoader = __webpack_require__(389);
 	
 	var _BlobLoader2 = _interopRequireDefault(_BlobLoader);
 	
-	var _XHRLoader = __webpack_require__(392);
+	var _XHRLoader = __webpack_require__(391);
 	
 	var _XHRLoader2 = _interopRequireDefault(_XHRLoader);
 	
@@ -14700,7 +14219,7 @@ var WaveformPlaylist =
 	exports.default = _class;
 
 /***/ }),
-/* 390 */
+/* 389 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -14713,7 +14232,7 @@ var WaveformPlaylist =
 	
 	var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
 	
-	var _Loader2 = __webpack_require__(391);
+	var _Loader2 = __webpack_require__(390);
 	
 	var _Loader3 = _interopRequireDefault(_Loader2);
 	
@@ -14780,7 +14299,7 @@ var WaveformPlaylist =
 	exports.default = _class;
 
 /***/ }),
-/* 391 */
+/* 390 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -14866,7 +14385,7 @@ var WaveformPlaylist =
 	exports.default = _class;
 
 /***/ }),
-/* 392 */
+/* 391 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -14879,7 +14398,7 @@ var WaveformPlaylist =
 	
 	var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
 	
-	var _Loader2 = __webpack_require__(391);
+	var _Loader2 = __webpack_require__(390);
 	
 	var _Loader3 = _interopRequireDefault(_Loader2);
 	
@@ -14942,7 +14461,7 @@ var WaveformPlaylist =
 	exports.default = _class;
 
 /***/ }),
-/* 393 */
+/* 392 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -14953,7 +14472,7 @@ var WaveformPlaylist =
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _conversions = __webpack_require__(388);
+	var _conversions = __webpack_require__(387);
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
@@ -14995,7 +14514,7 @@ var WaveformPlaylist =
 	exports.default = _class;
 
 /***/ }),
-/* 394 */
+/* 393 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -15010,9 +14529,9 @@ var WaveformPlaylist =
 	
 	var _h2 = _interopRequireDefault(_h);
 	
-	var _conversions = __webpack_require__(388);
+	var _conversions = __webpack_require__(387);
 	
-	var _TimeScaleHook = __webpack_require__(395);
+	var _TimeScaleHook = __webpack_require__(394);
 	
 	var _TimeScaleHook2 = _interopRequireDefault(_TimeScaleHook);
 	
@@ -15188,7 +14707,7 @@ var WaveformPlaylist =
 	exports.default = TimeScale;
 
 /***/ }),
-/* 395 */
+/* 394 */
 /***/ (function(module, exports) {
 
 	'use strict';
@@ -15244,7 +14763,7 @@ var WaveformPlaylist =
 	exports.default = _class;
 
 /***/ }),
-/* 396 */
+/* 395 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -15259,7 +14778,7 @@ var WaveformPlaylist =
 	
 	var _lodash2 = _interopRequireDefault(_lodash);
 	
-	var _lodash3 = __webpack_require__(397);
+	var _lodash3 = __webpack_require__(396);
 	
 	var _lodash4 = _interopRequireDefault(_lodash3);
 	
@@ -15267,21 +14786,21 @@ var WaveformPlaylist =
 	
 	var _h2 = _interopRequireDefault(_h);
 	
-	var _conversions = __webpack_require__(388);
+	var _conversions = __webpack_require__(387);
 	
-	var _VolumeSliderHook = __webpack_require__(398);
+	var _VolumeSliderHook = __webpack_require__(397);
 	
 	var _VolumeSliderHook2 = _interopRequireDefault(_VolumeSliderHook);
 	
-	var _PanKnobHook = __webpack_require__(399);
+	var _PanKnobHook = __webpack_require__(398);
 	
 	var _PanKnobHook2 = _interopRequireDefault(_PanKnobHook);
 	
-	var _GridHook = __webpack_require__(400);
+	var _GridHook = __webpack_require__(399);
 	
 	var _GridHook2 = _interopRequireDefault(_GridHook);
 	
-	var _EffectKnobHook = __webpack_require__(401);
+	var _EffectKnobHook = __webpack_require__(400);
 	
 	var _EffectKnobHook2 = _interopRequireDefault(_EffectKnobHook);
 	
@@ -15637,20 +15156,6 @@ var WaveformPlaylist =
 	        return clip.render(data);
 	      }));
 	
-	      // draw cursor selection on active track.
-	      if (data.isActive === true) {
-	        var cStartX = (0, _conversions.secondsToPixels)(data.timeSelection.start, data.resolution, data.sampleRate);
-	        var cEndX = (0, _conversions.secondsToPixels)(data.timeSelection.end, data.resolution, data.sampleRate);
-	        var cWidth = cEndX - cStartX + 1;
-	        var cClassName = cWidth > 1 ? '.segment' : '.point';
-	
-	        waveformChildren.push((0, _h2.default)('div.selection' + cClassName, {
-	          attributes: {
-	            style: 'position: absolute; width: ' + cWidth + 'px; bottom: 0; top: 0; left: ' + cStartX + 'px; z-index: 4;'
-	          }
-	        }));
-	      }
-	
 	      return (0, _h2.default)('div.waveform', {
 	        attributes: {
 	          style: 'height: ' + data.height + 'px;width:' + width + 'px'
@@ -15686,7 +15191,7 @@ var WaveformPlaylist =
 	exports.default = _class;
 
 /***/ }),
-/* 397 */
+/* 396 */
 /***/ (function(module, exports) {
 
 	/**
@@ -16194,7 +15699,7 @@ var WaveformPlaylist =
 
 
 /***/ }),
-/* 398 */
+/* 397 */
 /***/ (function(module, exports) {
 
 	"use strict";
@@ -16295,7 +15800,7 @@ var WaveformPlaylist =
 	exports.default = _class;
 
 /***/ }),
-/* 399 */
+/* 398 */
 /***/ (function(module, exports) {
 
 	'use strict';
@@ -16395,7 +15900,7 @@ var WaveformPlaylist =
 	exports.default = _class;
 
 /***/ }),
-/* 400 */
+/* 399 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -16406,7 +15911,7 @@ var WaveformPlaylist =
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _conversions = __webpack_require__(388);
+	var _conversions = __webpack_require__(387);
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
@@ -16474,7 +15979,7 @@ var WaveformPlaylist =
 	exports.default = _class;
 
 /***/ }),
-/* 401 */
+/* 400 */
 /***/ (function(module, exports) {
 
 	'use strict';
@@ -16581,7 +16086,7 @@ var WaveformPlaylist =
 	exports.default = _class;
 
 /***/ }),
-/* 402 */
+/* 401 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -16596,11 +16101,11 @@ var WaveformPlaylist =
 	
 	var _lodash2 = _interopRequireDefault(_lodash);
 	
-	var _lodash3 = __webpack_require__(397);
+	var _lodash3 = __webpack_require__(396);
 	
 	var _lodash4 = _interopRequireDefault(_lodash3);
 	
-	var _uuid = __webpack_require__(403);
+	var _uuid = __webpack_require__(402);
 	
 	var _uuid2 = _interopRequireDefault(_uuid);
 	
@@ -16608,23 +16113,23 @@ var WaveformPlaylist =
 	
 	var _h2 = _interopRequireDefault(_h);
 	
-	var _webaudioPeaks = __webpack_require__(405);
+	var _webaudioPeaks = __webpack_require__(404);
 	
 	var _webaudioPeaks2 = _interopRequireDefault(_webaudioPeaks);
 	
-	var _fadeMaker = __webpack_require__(406);
+	var _fadeMaker = __webpack_require__(405);
 	
-	var _conversions = __webpack_require__(388);
+	var _conversions = __webpack_require__(387);
 	
-	var _states = __webpack_require__(408);
+	var _states = __webpack_require__(407);
 	
 	var _states2 = _interopRequireDefault(_states);
 	
-	var _CanvasHook = __webpack_require__(410);
+	var _CanvasHook = __webpack_require__(409);
 	
 	var _CanvasHook2 = _interopRequireDefault(_CanvasHook);
 	
-	var _FadeCanvasHook = __webpack_require__(411);
+	var _FadeCanvasHook = __webpack_require__(410);
 	
 	var _FadeCanvasHook2 = _interopRequireDefault(_FadeCanvasHook);
 	
@@ -17138,7 +16643,7 @@ var WaveformPlaylist =
 	      var peaks = this.peaks.data[0];
 	
 	      var waveformChildren = [];
-	      var canvasColor = this.waveOutlineColor ? this.waveOutlineColor : data.colors.waveOutlineColor;
+	      var canvasColor = "rgba(0,0,0,0)";
 	
 	      var canvashook = new _CanvasHook2.default(peaks, 0, this.peaks.bits, canvasColor, this.cueIn, data.resolution, data.sampleRate, this.images[0]);
 	      if (!this.images[0]) {
@@ -17337,7 +16842,7 @@ var WaveformPlaylist =
 	exports.default = _class;
 
 /***/ }),
-/* 403 */
+/* 402 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	//     uuid.js
@@ -17348,7 +16853,7 @@ var WaveformPlaylist =
 	// Unique ID creation requires a high quality random # generator.  We feature
 	// detect to determine the best RNG source, normalizing to a function that
 	// returns 128-bits of randomness, since that's what's usually required
-	var _rng = __webpack_require__(404);
+	var _rng = __webpack_require__(403);
 	
 	// Maps for number <-> hex string conversion
 	var _byteToHex = [];
@@ -17526,7 +17031,7 @@ var WaveformPlaylist =
 
 
 /***/ }),
-/* 404 */
+/* 403 */
 /***/ (function(module, exports) {
 
 	/* WEBPACK VAR INJECTION */(function(global) {
@@ -17565,7 +17070,7 @@ var WaveformPlaylist =
 	/* WEBPACK VAR INJECTION */}.call(exports, (function() { return this; }())))
 
 /***/ }),
-/* 405 */
+/* 404 */
 /***/ (function(module, exports) {
 
 	'use strict';
@@ -17724,7 +17229,7 @@ var WaveformPlaylist =
 	};
 
 /***/ }),
-/* 406 */
+/* 405 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -17736,7 +17241,7 @@ var WaveformPlaylist =
 	exports.createFadeIn = createFadeIn;
 	exports.createFadeOut = createFadeOut;
 	
-	var _fadeCurves = __webpack_require__(407);
+	var _fadeCurves = __webpack_require__(406);
 	
 	var SCURVE = exports.SCURVE = "sCurve";
 	var LINEAR = exports.LINEAR = "linear";
@@ -17826,7 +17331,7 @@ var WaveformPlaylist =
 
 
 /***/ }),
-/* 407 */
+/* 406 */
 /***/ (function(module, exports) {
 
 	'use strict';
@@ -17906,7 +17411,7 @@ var WaveformPlaylist =
 
 
 /***/ }),
-/* 408 */
+/* 407 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -17915,7 +17420,7 @@ var WaveformPlaylist =
 	  value: true
 	});
 	
-	var _InteractiveState = __webpack_require__(409);
+	var _InteractiveState = __webpack_require__(408);
 	
 	var _InteractiveState2 = _interopRequireDefault(_InteractiveState);
 	
@@ -17926,7 +17431,7 @@ var WaveformPlaylist =
 	};
 
 /***/ }),
-/* 409 */
+/* 408 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -17937,12 +17442,12 @@ var WaveformPlaylist =
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _conversions = __webpack_require__(388);
+	var _conversions = __webpack_require__(387);
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
 	var _class = function () {
-	  function _class(clip) {
+	  function _class(ee) {
 	    var _this = this;
 	
 	    _classCallCheck(this, _class);
@@ -17953,7 +17458,7 @@ var WaveformPlaylist =
 	      document.body.style.cursor = "auto";
 	    };
 	
-	    this.clip = clip;
+	    this.ee = ee;
 	    // 0 : not dragging; 1 : dragging the end; -1 : dragging the begining
 	    this.draggingFrom = 0;
 	    this.action = null;
@@ -17965,23 +17470,17 @@ var WaveformPlaylist =
 	  _createClass(_class, [{
 	    key: 'setupEventListeners',
 	    value: function setupEventListeners() {
-	      var _this2 = this;
-	
 	      var self = this;
-	      this.clip.ee.on("playlistmouseleave", function (e) {
-	        if (_this2.clip && _this2.clip.state != 'interactive') return;
+	      this.ee.on("playlistmouseleave", function (e) {
 	        self.mouseleave.call(self, e);
 	      });
-	      this.clip.ee.on("playlistmouseup", function (e) {
-	        if (_this2.clip && _this2.clip.state != 'interactive') return;
+	      this.ee.on("playlistmouseup", function (e) {
 	        self.mouseup.call(self, e);
 	      });
-	      this.clip.ee.on("playlistmousedown", function (e) {
-	        if (_this2.clip && _this2.clip.state != 'interactive') return;
+	      this.ee.on("playlistmousedown", function (e) {
 	        self.mousedown.call(self, e);
 	      });
-	      this.clip.ee.on("playlistmousemove", function (e) {
-	        if (_this2.clip && _this2.clip.state != 'interactive') return;
+	      this.ee.on("playlistmousemove", function (e) {
 	        self.mousemove.call(self, e);
 	      });
 	    }
@@ -17997,7 +17496,7 @@ var WaveformPlaylist =
 	      var deltaX = x - this.prevX;
 	      var deltaTime = (0, _conversions.pixelsToSeconds)(deltaX, this.samplesPerPixel, this.sampleRate);
 	      this.prevX = x;
-	      this.clip.ee.emit('shift', deltaTime, this.clip);
+	      this.ee.emit('shift', deltaTime, this.activeClip);
 	    }
 	  }, {
 	    key: 'mousedown',
@@ -18071,7 +17570,7 @@ var WaveformPlaylist =
 	      // console.log("seek");
 	      var startTime = this.getMousepos(e);
 	      // const startTime = pixelsToSeconds(startX, this.samplesPerPixel, this.sampleRate);
-	      this.clip.ee.emit('select', startTime, startTime, this.clip);
+	      this.ee.emit('select', startTime, startTime, this.activeClip);
 	    }
 	  }, {
 	    key: 'getMousepos',
@@ -18167,7 +17666,7 @@ var WaveformPlaylist =
 	exports.default = _class;
 
 /***/ }),
-/* 410 */
+/* 409 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -18181,7 +17680,7 @@ var WaveformPlaylist =
 	                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     */
 	
 	
-	var _conversions = __webpack_require__(388);
+	var _conversions = __webpack_require__(387);
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
@@ -18195,7 +17694,7 @@ var WaveformPlaylist =
 	    this.peaks = peaks;
 	    // http://stackoverflow.com/questions/6081483/maximum-size-of-a-canvas-element
 	    this.offset = offset;
-	    this.color = color;
+	    this.color = 'white';
 	    this.bits = bits;
 	    this.bufferedwaveform = image;
 	    this.bwc = undefined; // BufferedWaveformContext
@@ -18274,10 +17773,12 @@ var WaveformPlaylist =
 	      var min = Math.abs(minPeak * h2);
 	      var max = Math.abs(maxPeak * h2);
 	
+	      cc.fillRect(x, h2 - max, 1, max + min);
+	
 	      // draw max
-	      cc.fillRect(x, 0, 1, h2 - max);
-	      // draw min
-	      cc.fillRect(x, h2 + min, 1, h2 - min);
+	      // cc.fillRect(x, 0, 1, h2 - max);
+	      // // draw min
+	      // cc.fillRect(x, h2 + min, 1, h2 - min);
 	    }
 	  }]);
 	
@@ -18287,7 +17788,7 @@ var WaveformPlaylist =
 	exports.default = CanvasHook;
 
 /***/ }),
-/* 411 */
+/* 410 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -18298,9 +17799,9 @@ var WaveformPlaylist =
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _fadeMaker = __webpack_require__(406);
+	var _fadeMaker = __webpack_require__(405);
 	
-	var _fadeCurves = __webpack_require__(407);
+	var _fadeCurves = __webpack_require__(406);
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
@@ -18402,7 +17903,7 @@ var WaveformPlaylist =
 	exports.default = FadeCanvasHook;
 
 /***/ }),
-/* 412 */
+/* 411 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -18413,9 +17914,9 @@ var WaveformPlaylist =
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 	
-	var _fadeMaker = __webpack_require__(406);
+	var _fadeMaker = __webpack_require__(405);
 	
-	var _tunajs = __webpack_require__(413);
+	var _tunajs = __webpack_require__(412);
 	
 	var _tunajs2 = _interopRequireDefault(_tunajs);
 	
@@ -18628,7 +18129,7 @@ var WaveformPlaylist =
 	exports.default = _class;
 
 /***/ }),
-/* 413 */
+/* 412 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/*
@@ -20913,6 +20414,103 @@ var WaveformPlaylist =
 
 
 /***/ }),
+/* 413 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	"use strict";
+	
+	Object.defineProperty(exports, "__esModule", {
+	    value: true
+	});
+	
+	exports.default = function (clip, playlist) {
+	    var track = clip.track;
+	    var bpm = track.bpm;
+	    var minimumSilence = 8 * playlist.sampleRate;
+	    var buffer = clip.buffer;
+	    var samples = buffer.getChannelData(0);
+	    var startTime = clip.startTime;
+	    var cueIn = clip.cueIn;
+	    var cueOut = clip.cueOut;
+	    var cueInSamp = (0, _conversions.secondsToSamples)(cueIn, playlist.sampleRate);
+	    var cueOutSamp = (0, _conversions.secondsToSamples)(cueOut, playlist.sampleRate);
+	    var secsperbeat = 60 / bpm;
+	    var secsperbar = secsperbeat * playlist.barLength;
+	    var offsetTime = secsperbeat * playlist.barOffset;
+	    var startofSilence = NaN;
+	    var threshhold = 0.02;
+	
+	    for (var a = cueInSamp; a < cueOutSamp; a++) {
+	        if (!isNaN(startofSilence) && Math.abs(samples[a]) > threshhold) {
+	            if (a - startofSilence > minimumSilence) {
+	                if (!clip.bpm) {
+	                    removeSamples(clip, startofSilence, a);
+	                } else {
+	                    var qpoint = a;
+	                    console.log("!->", secondsToMinutes(startofSilence / playlist.sampleRate), secondsToMinutes(a / playlist.sampleRate));
+	                    while (qpoint >= 0 && Math.abs(samples[qpoint - 1]) <= threshhold) {
+	                        var secs = (0, _conversions.samplesToSeconds)(qpoint, playlist.sampleRate) + startTime - cueIn;
+	                        var secsprev = (0, _conversions.samplesToSeconds)(qpoint - 1, playlist.sampleRate) + startTime - cueIn;
+	                        if (Math.floor((secs - offsetTime) / secsperbar) > Math.floor((secsprev - offsetTime) / secsperbar)) {
+	                            removeSamples(clip, startofSilence, qpoint);
+	                            break;
+	                        }
+	                        qpoint--;
+	                    }
+	                }
+	            }
+	            startofSilence = NaN;
+	        } else if (isNaN(startofSilence) && Math.abs(samples[a]) <= threshhold) {
+	            if (!track.bpm) {
+	                startofSilence = a;
+	            } else {
+	                var _secs = (0, _conversions.samplesToSeconds)(a, playlist.sampleRate) + startTime - cueIn;
+	                var _secsprev = (0, _conversions.samplesToSeconds)(a - 1, playlist.sampleRate) + startTime - cueIn;
+	
+	                if (Math.floor((_secs - offsetTime) / secsperbar) > Math.floor((_secsprev - offsetTime) / secsperbar)) {
+	                    startofSilence = a;
+	                }
+	            }
+	        }
+	    }
+	    if (!isNaN(startofSilence) && samples.length - startofSilence > minimumSilence) {
+	        removeSamples(clip, startofSilence, samples.length);
+	    }
+	};
+	
+	var _conversions = __webpack_require__(387);
+	
+	function removeSamples(clip, start, end) {
+	    var startSec = (0, _conversions.samplesToSeconds)(start, playlist.sampleRate);
+	    var endSec = (0, _conversions.samplesToSeconds)(end, playlist.sampleRate);
+	    var cueInSamp = clip.cueIn * playlist.sampleRate;
+	    var minClip = playlist.barLength * 60 / playlist.bpm || 1;
+	    if (start == cueInSamp) {
+	        if (clip.cueOut - clip.cueIn - endSec >= minClip) {
+	            clip.cueIn += endSec;
+	            clip.startTime += endSec;
+	        }
+	    } else if (end == clip.buffer.length) {
+	        if (startSec - clip.cueIn >= minClip) clip.cueOut = startSec;else clip.track.clips.pop();
+	    } else {
+	
+	        var info = clip.getTrackDetails();
+	
+	        info.cueout = startSec;
+	        console.log(clip.name, secondsToMinutes(info.start), secondsToMinutes(info.start + info.cueout - info.cuein), minClip);
+	        if (info.cueout - info.cuein >= minClip) playlist.createClip(clip.buffer, info, false, clip.peaks);
+	
+	        clip.startTime += endSec - clip.cueIn;
+	        clip.cueIn = endSec;
+	    }
+	}
+	function secondsToMinutes(sec) {
+	    var min = sec / 60 | 0;
+	    var secs = sec - min * 60 | 0;
+	    return min + ":" + (secs / 10 | 0) + secs % 10;
+	}
+
+/***/ }),
 /* 414 */
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -20921,629 +20519,132 @@ var WaveformPlaylist =
 	Object.defineProperty(exports, "__esModule", {
 	  value: true
 	});
+	exports.startOfflineRender = startOfflineRender;
 	
-	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+	var _Playout = __webpack_require__(411);
 	
-	var _h = __webpack_require__(366);
-	
-	var _h2 = _interopRequireDefault(_h);
-	
-	var _aeneas = __webpack_require__(415);
-	
-	var _aeneas2 = _interopRequireDefault(_aeneas);
-	
-	var _aeneas3 = __webpack_require__(416);
-	
-	var _aeneas4 = _interopRequireDefault(_aeneas3);
-	
-	var _conversions = __webpack_require__(388);
-	
-	var _DragInteraction = __webpack_require__(417);
-	
-	var _DragInteraction2 = _interopRequireDefault(_DragInteraction);
-	
-	var _ScrollTopHook = __webpack_require__(418);
-	
-	var _ScrollTopHook2 = _interopRequireDefault(_ScrollTopHook);
-	
-	var _timeformat = __webpack_require__(419);
-	
-	var _timeformat2 = _interopRequireDefault(_timeformat);
+	var _Playout2 = _interopRequireDefault(_Playout);
 	
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 	
-	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-	
-	var AnnotationList = function () {
-	  function AnnotationList(playlist, annotations) {
-	    var controls = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : [];
-	    var editable = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : false;
-	    var linkEndpoints = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : false;
-	    var isContinuousPlay = arguments.length > 5 && arguments[5] !== undefined ? arguments[5] : false;
-	
-	    _classCallCheck(this, AnnotationList);
-	
-	    this.playlist = playlist;
-	    this.resizeHandlers = [];
-	    this.editable = editable;
-	    this.annotations = annotations.map(function (a) {
-	      return (
-	        // TODO support different formats later on.
-	        (0, _aeneas2.default)(a)
-	      );
-	    });
-	    this.setupInteractions();
-	
-	    this.controls = controls;
-	    this.setupEE(playlist.ee);
-	
-	    // TODO actually make a real plugin system that's not terrible.
-	    this.playlist.isContinuousPlay = isContinuousPlay;
-	    this.playlist.linkEndpoints = linkEndpoints;
-	    this.length = this.annotations.length;
+	function startOfflineRender(playlist, type) {
+	  if (playlist.isRendering) {
+	    return;
 	  }
 	
-	  _createClass(AnnotationList, [{
-	    key: 'setupInteractions',
-	    value: function setupInteractions() {
-	      var _this = this;
+	  playlist.isRendering = true;
+	  playlist.offlineAudioContext = new OfflineAudioContext(2, 44100 * playlist.duration, 44100);
 	
-	      this.annotations.forEach(function (a, i) {
-	        var leftShift = new _DragInteraction2.default(_this.playlist, {
-	          direction: 'left',
-	          index: i
+	  var currentTime = playlist.offlineAudioContext.currentTime;
+	
+	  var compressor = playlist.offlineAudioContext.createDynamicsCompressor();
+	
+	  playlist.tracks.forEach(function (track) {
+	    track.clips.forEach(function (clip) {
+	      clip.setOfflinePlayout(new _Playout2.default(playlist.offlineAudioContext, clip.buffer));
+	      clip.schedulePlay(currentTime, 0, 0, {
+	        shouldPlay: playlist.shouldTrackPlay(clip),
+	        masterGain: 1,
+	        compressor: compressor,
+	        isOffline: true
+	      });
+	    });
+	  });
+	  playlist.tracks.forEach(function (track) {
+	    return track.play(currentTime, 0, 0);
+	  });
+	
+	  playlist.offlineAudioContext.startRendering().then(function (audioBuffer) {
+	    if (type === 'buffer') {
+	      playlist.ee.emit('audiorenderingfinished', type, audioBuffer);
+	      playlist.isRendering = false;
+	      return;
+	    }
+	
+	    if (type === 'wav') {
+	      playlist.exportWorker.postMessage({
+	        command: 'init',
+	        config: {
+	          sampleRate: 44100
+	        }
+	      });
+	
+	      // callback for `exportWAV`
+	      playlist.exportWorker.onmessage = function (e) {
+	        playlist.ee.emit('audiorenderingfinished', type, e.data);
+	        playlist.isRendering = false;
+	
+	        // clear out the buffer for next renderings.
+	        playlist.exportWorker.postMessage({
+	          command: 'clear'
 	        });
-	        var rightShift = new _DragInteraction2.default(_this.playlist, {
-	          direction: 'right',
-	          index: i
-	        });
+	      };
 	
-	        _this.resizeHandlers.push(leftShift);
-	        _this.resizeHandlers.push(rightShift);
+	      // send the channel data from our buffer to the worker
+	      playlist.exportWorker.postMessage({
+	        command: 'record',
+	        buffer: [audioBuffer.getChannelData(0), audioBuffer.getChannelData(1)]
+	      });
+	
+	      // ask the worker for a WAV
+	      playlist.exportWorker.postMessage({
+	        command: 'exportWAV',
+	        type: 'audio/wav'
 	      });
 	    }
-	  }, {
-	    key: 'setupEE',
-	    value: function setupEE(ee) {
-	      var _this2 = this;
-	
-	      ee.on('dragged', function (deltaTime, data) {
-	        var annotationIndex = data.index;
-	        var annotations = _this2.annotations;
-	        var note = annotations[annotationIndex];
-	
-	        // resizing to the left
-	        if (data.direction === 'left') {
-	          var originalVal = note.start;
-	          note.start += deltaTime;
-	
-	          if (note.start < 0) {
-	            note.start = 0;
-	          }
-	
-	          if (annotationIndex && annotations[annotationIndex - 1].end > note.start) {
-	            annotations[annotationIndex - 1].end = note.start;
-	          }
-	
-	          if (_this2.playlist.linkEndpoints && annotationIndex && annotations[annotationIndex - 1].end === originalVal) {
-	            annotations[annotationIndex - 1].end = note.start;
-	          }
-	        } else {
-	          // resizing to the right
-	          var _originalVal = note.end;
-	          note.end += deltaTime;
-	
-	          if (note.end > _this2.playlist.duration) {
-	            note.end = _this2.playlist.duration;
-	          }
-	
-	          if (annotationIndex < annotations.length - 1 && annotations[annotationIndex + 1].start < note.end) {
-	            annotations[annotationIndex + 1].start = note.end;
-	          }
-	
-	          if (_this2.playlist.linkEndpoints && annotationIndex < annotations.length - 1 && annotations[annotationIndex + 1].start === _originalVal) {
-	            annotations[annotationIndex + 1].start = note.end;
-	          }
-	        }
-	
-	        _this2.playlist.drawRequest();
-	      });
-	
-	      ee.on('continuousplay', function (val) {
-	        _this2.playlist.isContinuousPlay = val;
-	      });
-	
-	      ee.on('linkendpoints', function (val) {
-	        _this2.playlist.linkEndpoints = val;
-	      });
-	
-	      ee.on('annotationsrequest', function () {
-	        _this2.export();
-	      });
-	
-	      return ee;
-	    }
-	  }, {
-	    key: 'export',
-	    value: function _export() {
-	      var output = this.annotations.map(function (a) {
-	        return (0, _aeneas4.default)(a);
-	      });
-	      var dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(output));
-	      var a = document.createElement('a');
-	
-	      document.body.appendChild(a);
-	      a.href = dataStr;
-	      a.download = 'annotations.json';
-	      a.click();
-	      document.body.removeChild(a);
-	    }
-	  }, {
-	    key: 'renderResizeLeft',
-	    value: function renderResizeLeft(i) {
-	      var events = _DragInteraction2.default.getEvents();
-	      var config = { attributes: {
-	          style: 'position: absolute; height: 30px; width: 10px; top: 0; left: -2px',
-	          draggable: true
-	        } };
-	      var handler = this.resizeHandlers[i * 2];
-	
-	      events.forEach(function (event) {
-	        config['on' + event] = handler[event].bind(handler);
-	      });
-	
-	      return (0, _h2.default)('div.resize-handle.resize-w', config);
-	    }
-	  }, {
-	    key: 'renderResizeRight',
-	    value: function renderResizeRight(i) {
-	      var events = _DragInteraction2.default.getEvents();
-	      var config = { attributes: {
-	          style: 'position: absolute; height: 30px; width: 10px; top: 0; right: -2px',
-	          draggable: true
-	        } };
-	      var handler = this.resizeHandlers[i * 2 + 1];
-	
-	      events.forEach(function (event) {
-	        config['on' + event] = handler[event].bind(handler);
-	      });
-	
-	      return (0, _h2.default)('div.resize-handle.resize-e', config);
-	    }
-	  }, {
-	    key: 'renderControls',
-	    value: function renderControls(note, i) {
-	      var _this3 = this;
-	
-	      // seems to be a bug with references, or I'm missing something.
-	      var that = this;
-	      return this.controls.map(function (ctrl) {
-	        return (0, _h2.default)('i.' + ctrl.class, {
-	          attributes: {
-	            title: ctrl.title
-	          },
-	          onclick: function onclick() {
-	            ctrl.action(note, i, that.annotations, {
-	              linkEndpoints: that.playlist.linkEndpoints
-	            });
-	            _this3.setupInteractions();
-	            that.playlist.drawRequest();
-	          }
-	        });
-	      });
-	    }
-	  }, {
-	    key: 'render',
-	    value: function render() {
-	      var _this4 = this;
-	
-	      var boxes = (0, _h2.default)('div.annotations-boxes', {
-	        attributes: {
-	          style: 'height: 30px;'
-	        }
-	      }, this.annotations.map(function (note, i) {
-	        var samplesPerPixel = _this4.playlist.samplesPerPixel;
-	        var sampleRate = _this4.playlist.sampleRate;
-	        var pixPerSec = sampleRate / samplesPerPixel;
-	        var pixOffset = (0, _conversions.secondsToPixels)(_this4.playlist.scrollLeft, samplesPerPixel, sampleRate);
-	        var left = Math.floor(note.start * pixPerSec - pixOffset);
-	        var width = Math.ceil(note.end * pixPerSec - note.start * pixPerSec);
-	
-	        return (0, _h2.default)('div.annotation-box', {
-	          attributes: {
-	            style: 'position: absolute; height: 30px; width: ' + width + 'px; left: ' + left + 'px',
-	            'data-id': note.id
-	          }
-	        }, [_this4.renderResizeLeft(i), (0, _h2.default)('span.id', {
-	          onclick: function onclick() {
-	            if (_this4.playlist.isContinuousPlay) {
-	              _this4.playlist.ee.emit('play', _this4.annotations[i].start);
-	            } else {
-	              _this4.playlist.ee.emit('play', _this4.annotations[i].start, _this4.annotations[i].end);
-	            }
-	          }
-	        }, [note.id]), _this4.renderResizeRight(i)]);
-	      }));
-	
-	      var boxesWrapper = (0, _h2.default)('div.annotations-boxes-wrapper', {
-	        attributes: {
-	          style: 'overflow: hidden;'
-	        }
-	      }, [boxes]);
-	
-	      var text = (0, _h2.default)('div.annotations-text', {
-	        hook: new _ScrollTopHook2.default()
-	      }, this.annotations.map(function (note, i) {
-	        var format = (0, _timeformat2.default)(_this4.playlist.durationFormat);
-	        var start = format(note.start);
-	        var end = format(note.end);
-	
-	        var segmentClass = '';
-	        if (_this4.playlist.isPlaying() && _this4.playlist.playbackSeconds >= note.start && _this4.playlist.playbackSeconds <= note.end) {
-	          segmentClass = '.current';
-	        }
-	
-	        var editableConfig = {
-	          attributes: {
-	            contenteditable: true
-	          },
-	          oninput: function oninput(e) {
-	            // needed currently for references
-	            // eslint-disable-next-line no-param-reassign
-	            note.lines = [e.target.innerText];
-	          },
-	          onkeypress: function onkeypress(e) {
-	            if (e.which === 13 || e.keyCode === 13) {
-	              e.target.blur();
-	              e.preventDefault();
-	            }
-	          }
-	        };
-	
-	        var linesConfig = _this4.editable ? editableConfig : {};
-	
-	        return (0, _h2.default)('div.annotation' + segmentClass, [(0, _h2.default)('span.annotation-id', [note.id]), (0, _h2.default)('span.annotation-start', [start]), (0, _h2.default)('span.annotation-end', [end]), (0, _h2.default)('span.annotation-lines', linesConfig, [note.lines]), (0, _h2.default)('span.annotation-actions', _this4.renderControls(note, i))]);
-	      }));
-	
-	      return (0, _h2.default)('div.annotations', [boxesWrapper, text]);
-	    }
-	  }]);
-	
-	  return AnnotationList;
-	}();
-	
-	exports.default = AnnotationList;
+	  }).catch(function (e) {
+	    throw e;
+	  });
+	}
 
 /***/ }),
 /* 415 */
-/***/ (function(module, exports, __webpack_require__) {
+/***/ (function(module, exports) {
 
-	'use strict';
+	/* WEBPACK VAR INJECTION */(function(global) {var WORKER_ENABLED = !!(global === global.window && global.URL && global.Blob && global.Worker);
 	
-	Object.defineProperty(exports, "__esModule", {
-	  value: true
-	});
+	function InlineWorker(func, self) {
+	  var _this = this;
+	  var functionBody;
 	
-	exports.default = function (aeneas) {
-	  var annotation = {
-	    id: aeneas.id || _uuid2.default.v4(),
-	    start: Number(aeneas.begin) || 0,
-	    end: Number(aeneas.end) || 0,
-	    lines: aeneas.lines || [''],
-	    lang: aeneas.language || 'en'
-	  };
+	  self = self || {};
 	
-	  return annotation;
+	  if (WORKER_ENABLED) {
+	    functionBody = func.toString().trim().match(
+	      /^function\s*\w*\s*\([\w\s,]*\)\s*{([\w\W]*?)}$/
+	    )[1];
+	
+	    return new global.Worker(global.URL.createObjectURL(
+	      new global.Blob([ functionBody ], { type: "text/javascript" })
+	    ));
+	  }
+	
+	  function postMessage(data) {
+	    setTimeout(function() {
+	      _this.onmessage({ data: data });
+	    }, 0);
+	  }
+	
+	  this.self = self;
+	  this.self.postMessage = postMessage;
+	
+	  setTimeout(func.bind(self, self), 0);
+	}
+	
+	InlineWorker.prototype.postMessage = function postMessage(data) {
+	  var _this = this;
+	
+	  setTimeout(function() {
+	    _this.self.onmessage({ data: data });
+	  }, 0);
 	};
 	
-	var _uuid = __webpack_require__(403);
+	module.exports = InlineWorker;
 	
-	var _uuid2 = _interopRequireDefault(_uuid);
-
-	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+	/* WEBPACK VAR INJECTION */}.call(exports, (function() { return this; }())))
 
 /***/ }),
 /* 416 */
-/***/ (function(module, exports) {
-
-	"use strict";
-	
-	Object.defineProperty(exports, "__esModule", {
-	  value: true
-	});
-	
-	exports.default = function (annotation) {
-	  return {
-	    begin: String(annotation.start.toFixed(3)),
-	    end: String(annotation.end.toFixed(3)),
-	    id: String(annotation.id),
-	    language: annotation.lang,
-	    lines: annotation.lines
-	  };
-	};
-
-/***/ }),
-/* 417 */
-/***/ (function(module, exports, __webpack_require__) {
-
-	'use strict';
-	
-	Object.defineProperty(exports, "__esModule", {
-	  value: true
-	});
-	
-	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-	
-	var _conversions = __webpack_require__(388);
-	
-	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-	
-	var _class = function () {
-	  function _class(playlist) {
-	    var _this = this;
-	
-	    var data = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
-	
-	    _classCallCheck(this, _class);
-	
-	    this.playlist = playlist;
-	    this.data = data;
-	    this.active = false;
-	
-	    this.ondragover = function (e) {
-	      if (_this.active) {
-	        e.preventDefault();
-	        _this.emitDrag(e.clientX);
-	      }
-	    };
-	  }
-	
-	  _createClass(_class, [{
-	    key: 'emitDrag',
-	    value: function emitDrag(x) {
-	      var deltaX = x - this.prevX;
-	
-	      // emit shift event if not 0
-	      if (deltaX) {
-	        var deltaTime = (0, _conversions.pixelsToSeconds)(deltaX, this.playlist.samplesPerPixel, this.playlist.sampleRate);
-	        this.prevX = x;
-	        this.playlist.ee.emit('dragged', deltaTime, this.data);
-	      }
-	    }
-	  }, {
-	    key: 'complete',
-	    value: function complete() {
-	      this.active = false;
-	      document.removeEventListener('dragover', this.ondragover);
-	    }
-	  }, {
-	    key: 'dragstart',
-	    value: function dragstart(e) {
-	      var ev = e;
-	      this.active = true;
-	      this.prevX = e.clientX;
-	
-	      ev.dataTransfer.dropEffect = 'move';
-	      ev.dataTransfer.effectAllowed = 'move';
-	      ev.dataTransfer.setData('text/plain', '');
-	      document.addEventListener('dragover', this.ondragover);
-	    }
-	  }, {
-	    key: 'dragend',
-	    value: function dragend(e) {
-	      if (this.active) {
-	        e.preventDefault();
-	        this.complete();
-	      }
-	    }
-	  }], [{
-	    key: 'getClass',
-	    value: function getClass() {
-	      return '.shift';
-	    }
-	  }, {
-	    key: 'getEvents',
-	    value: function getEvents() {
-	      return ['dragstart', 'dragend'];
-	    }
-	  }]);
-
-	  return _class;
-	}();
-
-	exports.default = _class;
-
-/***/ }),
-/* 418 */
-/***/ (function(module, exports) {
-
-	'use strict';
-	
-	Object.defineProperty(exports, "__esModule", {
-	  value: true
-	});
-	/*
-	* virtual-dom hook for scrolling to the text annotation.
-	*/
-	var Hook = function ScrollTopHook() {};
-	Hook.prototype.hook = function hook(node) {
-	  var el = node.querySelector('.current');
-	  if (el) {
-	    var box = node.getBoundingClientRect();
-	    var row = el.getBoundingClientRect();
-	    var diff = row.top - box.top;
-	    var list = node;
-	    list.scrollTop += diff;
-	  }
-	};
-	
-	exports.default = Hook;
-
-/***/ }),
-/* 419 */
-/***/ (function(module, exports) {
-
-	'use strict';
-	
-	Object.defineProperty(exports, "__esModule", {
-	  value: true
-	});
-	
-	exports.default = function (format) {
-	  function clockFormat(seconds, decimals) {
-	    var hours = parseInt(seconds / 3600, 10) % 24;
-	    var minutes = parseInt(seconds / 60, 10) % 60;
-	    var secs = (seconds % 60).toFixed(decimals);
-	
-	    var sHours = hours < 10 ? '0' + hours : hours;
-	    var sMinutes = minutes < 10 ? '0' + minutes : minutes;
-	    var sSeconds = secs < 10 ? '0' + secs : secs;
-	
-	    return sHours + ':' + sMinutes + ':' + sSeconds;
-	  }
-	
-	  var formats = {
-	    seconds: function seconds(_seconds) {
-	      return _seconds.toFixed(0);
-	    },
-	    thousandths: function thousandths(seconds) {
-	      return seconds.toFixed(3);
-	    },
-	
-	    'hh:mm:ss': function hhmmss(seconds) {
-	      return clockFormat(seconds, 0);
-	    },
-	    'hh:mm:ss.u': function hhmmssu(seconds) {
-	      return clockFormat(seconds, 1);
-	    },
-	    'hh:mm:ss.uu': function hhmmssuu(seconds) {
-	      return clockFormat(seconds, 2);
-	    },
-	    'hh:mm:ss.uuu': function hhmmssuuu(seconds) {
-	      return clockFormat(seconds, 3);
-	    }
-	  };
-	
-	  return formats[format];
-	};
-
-/***/ }),
-/* 420 */
-/***/ (function(module, exports) {
-
-	'use strict';
-	
-	Object.defineProperty(exports, "__esModule", {
-	  value: true
-	});
-	
-	exports.default = function () {
-	  // http://jsperf.com/typed-array-min-max/2
-	  // plain for loop for finding min/max is way faster than anything else.
-	  /**
-	  * @param {TypedArray} array - Subarray of audio to calculate peaks from.
-	  */
-	  function findMinMax(array) {
-	    var min = Infinity;
-	    var max = -Infinity;
-	    var curr = void 0;
-	
-	    for (var i = 0; i < array.length; i += 1) {
-	      curr = array[i];
-	      if (min > curr) {
-	        min = curr;
-	      }
-	      if (max < curr) {
-	        max = curr;
-	      }
-	    }
-	
-	    return {
-	      min: min,
-	      max: max
-	    };
-	  }
-	
-	  /**
-	  * @param {Number} n - peak to convert from float to Int8, Int16 etc.
-	  * @param {Number} bits - convert to #bits two's complement signed integer
-	  */
-	  function convert(n, bits) {
-	    var max = Math.pow(2, bits - 1);
-	    var v = n < 0 ? n * max : n * max - 1;
-	    return Math.max(-max, Math.min(max - 1, v));
-	  }
-	
-	  /**
-	  * @param {TypedArray} channel - Audio track frames to calculate peaks from.
-	  * @param {Number} samplesPerPixel - Audio frames per peak
-	  */
-	  function extractPeaks(channel, samplesPerPixel, bits) {
-	    var chanLength = channel.length;
-	    var numPeaks = Math.ceil(chanLength / samplesPerPixel);
-	    var start = void 0;
-	    var end = void 0;
-	    var segment = void 0;
-	    var max = void 0;
-	    var min = void 0;
-	    var extrema = void 0;
-	
-	    // create interleaved array of min,max
-	    var peaks = new self['Int' + bits + 'Array'](numPeaks * 2);
-	
-	    for (var i = 0; i < numPeaks; i += 1) {
-	      start = i * samplesPerPixel;
-	      end = (i + 1) * samplesPerPixel > chanLength ? chanLength : (i + 1) * samplesPerPixel;
-	
-	      segment = channel.subarray(start, end);
-	      extrema = findMinMax(segment);
-	      min = convert(extrema.min, bits);
-	      max = convert(extrema.max, bits);
-	
-	      peaks[i * 2] = min;
-	      peaks[i * 2 + 1] = max;
-	    }
-	
-	    return peaks;
-	  }
-	
-	  /**
-	  * @param {TypedArray} source - Source of audio samples for peak calculations.
-	  * @param {Number} samplesPerPixel - Number of audio samples per peak.
-	  * @param {Number} cueIn - index in channel to start peak calculations from.
-	  * @param {Number} cueOut - index in channel to end peak calculations from (non-inclusive).
-	  */
-	  function audioPeaks(source) {
-	    var samplesPerPixel = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 10000;
-	    var bits = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 8;
-	
-	    if ([8, 16, 32].indexOf(bits) < 0) {
-	      throw new Error('Invalid number of bits specified for peaks.');
-	    }
-	
-	    var peaks = [];
-	    var start = 0;
-	    var end = source.length;
-	    peaks.push(extractPeaks(source.subarray(start, end), samplesPerPixel, bits));
-	
-	    var length = peaks[0].length / 2;
-	
-	    return {
-	      bits: bits,
-	      length: length,
-	      data: peaks
-	    };
-	  }
-	
-	  onmessage = function onmessage(e) {
-	    var peaks = audioPeaks(e.data.samples, e.data.samplesPerPixel);
-	
-	    postMessage(peaks);
-	  };
-	};
-
-/***/ }),
-/* 421 */
 /***/ (function(module, exports) {
 
 	'use strict';
