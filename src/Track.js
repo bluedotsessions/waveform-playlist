@@ -330,20 +330,6 @@ export default class {
       )
     );
 
-    // draw cursor selection on active track.
-    if (data.isActive === true) {
-      const cStartX = secondsToPixels(data.timeSelection.start, data.resolution, data.sampleRate);
-      const cEndX = secondsToPixels(data.timeSelection.end, data.resolution, data.sampleRate);
-      const cWidth = (cEndX - cStartX) + 1;
-      const cClassName = (cWidth > 1) ? '.segment' : '.point';
-
-      waveformChildren.push(h(`div.selection${cClassName}`, {
-        attributes: {
-          style: `position: absolute; width: ${cWidth}px; bottom: 0; top: 0; left: ${cStartX}px; z-index: 4;`,
-        },
-      }));
-    }
-
 
     return h('div.waveform',
       {

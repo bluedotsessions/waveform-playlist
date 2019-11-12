@@ -1,8 +1,8 @@
 import { pixelsToSeconds , secondsToPixels } from '../../utils/conversions';
 
 export default class {
-  constructor(clip) {
-    this.clip = clip;
+  constructor(ee) {
+    this.ee = ee;
     // 0 : not dragging; 1 : dragging the end; -1 : dragging the begining
     this.draggingFrom = 0;
     this.action = null;
@@ -21,24 +21,16 @@ export default class {
 
   setupEventListeners(){
     const self = this;
-    this.clip.ee.on("playlistmouseleave",e=>{
-      if (this.clip && this.clip.state != 'interactive')
-        return;
+    this.ee.on("playlistmouseleave",e=>{
       self.mouseleave.call(self,e);
     })
-    this.clip.ee.on("playlistmouseup",e=>{
-      if (this.clip && this.clip.state != 'interactive')
-        return;
+    this.ee.on("playlistmouseup",e=>{
       self.mouseup.call(self,e);
     })
-    this.clip.ee.on("playlistmousedown",e=>{
-      if (this.clip && this.clip.state != 'interactive')
-        return;
+    this.ee.on("playlistmousedown",e=>{
       self.mousedown.call(self,e);
     })
-    this.clip.ee.on("playlistmousemove",e=>{
-      if (this.clip && this.clip.state != 'interactive')
-        return;
+    this.ee.on("playlistmousemove",e=>{
       self.mousemove.call(self,e);
     })
   }
@@ -52,7 +44,7 @@ export default class {
     const deltaX = x - this.prevX;
     const deltaTime = pixelsToSeconds(deltaX, this.samplesPerPixel, this.sampleRate);
     this.prevX = x;
-    this.clip.ee.emit('shift', deltaTime, this.clip);
+    this.ee.emit('shift', deltaTime, this.activeClip);
   }
 
   mousedown(e) {
@@ -140,7 +132,7 @@ export default class {
     // console.log("seek");
     const startTime = this.getMousepos(e);
     // const startTime = pixelsToSeconds(startX, this.samplesPerPixel, this.sampleRate);
-    this.clip.ee.emit('select', startTime, startTime, this.clip);
+    this.ee.emit('select', startTime, startTime, this.activeClip);
   }
 
   mouseleave = e => {

@@ -58,28 +58,19 @@ export function init(options = {}, ee = EventEmitter()) {
     throw new Error('initial samplesPerPixel must be included in array zoomLevels');
   }
 
-  const playlist = new Playlist();
-  playlist.setSampleRate(config.sampleRate);
-  playlist.setSamplesPerPixel(config.samplesPerPixel);
-  playlist.setAudioContext(config.ac);
-  playlist.setEventEmitter(ee);
+  const playlist = new Playlist(ee);
+  playlist.sampleRate = config.sampleRate;
+  playlist.samplesPerPixel = config.samplesPerPixel;
+  playlist.ac = config.ac;
+
   playlist.setUpEventEmitter();
   
   playlist.setTimeSelection(0, 0);
-  playlist.setState(config.state);
-  playlist.setControlOptions(config.controls);
-  playlist.setWaveHeight(config.waveHeight);
-  playlist.setColors(config.colors);
-  playlist.setZoomLevels(config.zoomLevels);
-  playlist.setZoomIndex(zoomIndex);
-  playlist.setMono(config.mono);
-  playlist.setExclSolo(config.exclSolo);
-  playlist.setShowTimeScale(config.timescale);
-  playlist.setSeekStyle(config.seekStyle);
-  playlist.setAnnotations(config.annotationList);
-  playlist.isAutomaticScroll = config.isAutomaticScroll;
-  playlist.isContinuousPlay = config.isContinuousPlay;
-  playlist.linkedEndpoints = config.linkedEndpoints;
+  playlist.setupState();
+  playlist.controls = config.controls;
+  playlist.zoomLevels = config.zoomLevels;
+  playlist.seekStyle = config.seekStyle;
+  playlist.annotationList = config.annotationList;
 
   playlist.bpm = config.bpm;   //GH  Galen
   playlist.quantize = config.quantize;  //GH Galen

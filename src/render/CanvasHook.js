@@ -12,7 +12,7 @@ class CanvasHook {
     this.peaks = peaks;
     // http://stackoverflow.com/questions/6081483/maximum-size-of-a-canvas-element
     this.offset = offset;
-    this.color = color;
+    this.color = 'white';
     this.bits = bits;
     this.bufferedwaveform = image;
     this.bwc = undefined; // BufferedWaveformContext
@@ -22,10 +22,12 @@ class CanvasHook {
     const min = Math.abs(minPeak * h2);
     const max = Math.abs(maxPeak * h2);
 
+    cc.fillRect(x,h2 - max,1, max + min);  
+
     // draw max
-    cc.fillRect(x, 0, 1, h2 - max);
-    // draw min
-    cc.fillRect(x, h2 + min, 1, h2 - min);
+    // cc.fillRect(x, 0, 1, h2 - max);
+    // // draw min
+    // cc.fillRect(x, h2 + min, 1, h2 - min);
   }
 
   drawCanvas (cc, len, h2){
@@ -89,9 +91,8 @@ class CanvasHook {
 
     cc.clearRect(0,0,canvas.width,canvas.height);
     const offsettotal = secondsToPixels(-this.cueIn,this.resolution,this.sampleRate);
-
-    cc.drawImage(this.bufferedwaveform,offsettotal,0);
     
+    cc.drawImage(this.bufferedwaveform,offsettotal,0); 
   }
 }
 

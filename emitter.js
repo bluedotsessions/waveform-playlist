@@ -2,7 +2,7 @@ const $ = s=>document.querySelector(s);
 const emit = (s,e)=>playlist.ee.emit(s,e);
 
 $("#play-button").onclick = e=>emit("play",0);
-$("#prev-button").onclick = e=>emit("stopAndRollback",e);
+$("#prev-button").onclick = e=>emit("rewind");
 $("#render").onclick = e=>emit('startaudiorendering', 'wav');
 $("#save").onclick = e=>emit("save",e);
 $("#reset").onclick = e=>emit("reset",e);

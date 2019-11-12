@@ -3,7 +3,6 @@ import _defaults from 'lodash.defaults';
 import h from 'virtual-dom/h';
 import diff from 'virtual-dom/diff';
 import patch from 'virtual-dom/patch';
-import InlineWorker from 'inline-worker';
 
 import { pixelsToSeconds, samplesToSeconds, secondsToSamples } from './utils/conversions';
 import LoaderFactory from './track/loader/LoaderFactory';
@@ -12,17 +11,20 @@ import TimeScale from './TimeScale';
 import Track from './Track';
 import Clip from './Clip';
 import Playout from './Playout';
-import AnnotationList from './annotation/AnnotationList';
 
-import RecorderWorkerFunction from './utils/recorderWorker';
+import silenceCutter from './SilenceCutter';
+import {startOfflineRender} from './OfflineRenderer';
+
+import InteractiveState from './track/states/InteractiveState'
+
+import InlineWorker from 'inline-worker'
 import ExportWavWorkerFunction from './utils/exportWavWorker';
 
-import stateClasses from './track/states';
-
-
 export default class {
-  constructor() {
+  constructor(ee) {
     
+    this.ee = ee;
+
     this.tracks = [];
     this.buffers= new Map;
     this.clips = [];
@@ -52,125 +54,10 @@ export default class {
     this.resetDrawTimer = undefined;
   }
 
-  // TODO extract into a plugin
-  initExporter() {
-    this.exportWorker = new InlineWorker(ExportWavWorkerFunction);
-  }
-
-  // TODO extract into a plugin
-  initRecorder(stream) {
-    this.mediaRecorder = new window.MediaRecorder(stream);
-
-    this.mediaRecorder.onstart = () => {
-      const track = new Track(this.tracksids ++);
-      track.setName('Recording');
-      track.setEnabledStates();
-      track.setEventEmitter(this.ee);
-
-      this.recordingTrack = track;
-      this.tracks.push(track);
-
-      this.chunks = [];
-      this.working = false;
-    };
-
-    this.mediaRecorder.ondataavailable = (e) => {
-      this.chunks.push(e.data);
-
-      // throttle peaks calculation
-      if (!this.working) {
-        const recording = new Blob(this.chunks, { type: 'audio/ogg; codecs=opus' });
-        const loader = LoaderFactory.createLoader(recording, this.ac);
-        loader.load().then((audioBuffer) => {
-          // ask web worker for peaks.
-          this.recorderWorker.postMessage({
-            samples: audioBuffer.getChannelData(0),
-            samplesPerPixel: this.samplesPerPixel,
-          });
-          this.recordingTrack.setCues(0, audioBuffer.duration);
-          this.recordingTrack.setBuffer(audioBuffer);
-          this.recordingTrack.setPlayout(new Playout(this.ac, audioBuffer));
-          this.adjustDuration();
-        });
-        this.working = true;
-      }
-    };
-
-    this.mediaRecorder.onstop = () => {
-      this.chunks = [];
-      this.working = false;
-    };
-
-    this.recorderWorker = new InlineWorker(RecorderWorkerFunction);
-    // use a worker for calculating recording peaks.
-    this.recorderWorker.onmessage = (e) => {
-      this.recordingTrack.setPeaks(e.data);
-      this.working = false;
-      this.drawRequest();
-    };
-  }
-
-  setShowTimeScale(show) {
-    this.showTimescale = show;
-  }
-
-  setMono(mono) {
-    this.mono = mono;
-  }
-
-  setExclSolo(exclSolo) {
-    this.exclSolo = exclSolo;
-  }
-
-  setSeekStyle(style) {
-    this.seekStyle = style;
-  }
-
-  getSeekStyle() {
-    return this.seekStyle;
-  }
-
-  setSampleRate(sampleRate) {
-    this.sampleRate = sampleRate;
-  }
-
-  setSamplesPerPixel(samplesPerPixel) {
-    this.samplesPerPixel = samplesPerPixel;
-  }
-
-  setAudioContext(ac) {
-    this.ac = ac;
-  }
-
-  setControlOptions(controlOptions) {
-    this.controls = controlOptions;
-  }
-
-  setWaveHeight(height) {
-    this.waveHeight = height;
-  }
-
-  setColors(colors) {
-    this.colors = colors;
-  }
-
-  setAnnotations(config) {
-    this.annotationList = new AnnotationList(
-      this,
-      config.annotations,
-      config.controls,
-      config.editable,
-      config.linkEndpoints,
-      config.isContinuousPlay,
-    );
-  }
-
-  setEventEmitter(ee) {
-    this.ee = ee;
-  }
-
-  getEventEmitter() {
-    return this.ee;
+  setupState(){
+    this.stateObj = new InteractiveState(this.ee);
+    this.stateObj.ee = this.ee;
+    this.stateObj.setup(this.samplesPerPixel,this.sampleRate);
   }
 
   setTracks(tracks){
@@ -179,7 +66,7 @@ export default class {
       newTrack.setName(name);
       newTrack.quantize = this.quantize;
       newTrack.bpm = this._bpm;
-      newTrack.setEventEmitter(this.ee);
+      newTrack.ee = this.ee;
       this.tracks.push(newTrack);
     }
   }
@@ -263,11 +150,6 @@ export default class {
     ee.on ('interactive', (track) => {
       this.drawRequest();
     });
-    ee.on('stopAndRollback',e=>{
-      this.stop().then(_=>{
-        this.seek(0,0);
-      })
-    })
     ee.on('activeclip',(clip)=>{
       const segment = 60/clip.bpm;
       console.log(clip.name,clip.startTime/segment);
@@ -312,7 +194,7 @@ export default class {
     });
 
     ee.on('startaudiorendering', (type) => {
-      this.startOfflineRender(type);
+      startOfflineRender(this,type);
     });
 
     ee.on('statechange', (state) => {
@@ -405,7 +287,7 @@ export default class {
 
     ee.on('trim', () => {
       const track = this.getActiveTrack();
-      const timeSelection = this.getTimeSelection();
+      const timeSelection = this.timeSelection;
 
       track.trim(timeSelection.start, timeSelection.end);
       track.calculatePeaks(this.samplesPerPixel, this.sampleRate);
@@ -539,20 +421,16 @@ export default class {
     if (fadeIn !== undefined) {
       clip.setFadeIn(fadeIn.duration, fadeIn.shape);
     }
-    else if (this.getState() == 'interactive'){
+    else{
       clip.setFadeIn(0.01, "linear");
     }
 
     if (fadeOut !== undefined) {
       clip.setFadeOut(fadeOut.duration, fadeOut.shape);
     }
-    else if (this.getState() == 'interactive'){
+    else{
       clip.setFadeOut(0.01, "linear");
     }
-
-
-
-
     // clip.setState(this.getState());
     clip.setStartTime(start);
     clip.setPlayout(playout);
@@ -566,112 +444,10 @@ export default class {
       clip.calculatePeaks(this.samplesPerPixel, this.sampleRate);
 
     if(removeSilences){
-      this.removeSilences(clip);
+      silenceCutter(clip,this);
     }
     this.clips.push(clip);
-    for(var slow=0;slow<1000000;slow+=slow%2?1:2);
     return clip;
-  }
-
-  removeSilences(clip){
-    const track = clip.track;
-    const bpm = track.bpm;
-    const minimumSilence = 8*this.sampleRate;
-    const buffer = clip.buffer;
-    const samples = buffer.getChannelData(0);
-    const startTime = clip.startTime;
-    const cueIn = clip.cueIn;
-    const cueOut = clip.cueOut;
-    const cueInSamp = secondsToSamples(cueIn,this.sampleRate)
-    const cueOutSamp = secondsToSamples(cueOut,this.sampleRate)
-    const secsperbeat = 60/bpm;
-    const secsperbar = secsperbeat * this.barLength;
-    const offsetTime = secsperbeat * this.barOffset;
-    let startofSilence = NaN;
-    const threshhold = 0.02;
-
-    for (let a=cueInSamp;a<cueOutSamp;a++){
-      if(!isNaN(startofSilence) && Math.abs(samples[a])>threshhold){
-        if(a - startofSilence > minimumSilence){
-          if (!clip.bpm){
-            this.removeSamples(clip,startofSilence,a);
-          }
-          else {
-            let qpoint = a;
-            console.log("!->",
-              this.secondsToMinutes(startofSilence/this.sampleRate),
-              this.secondsToMinutes(a/this.sampleRate)
-            )
-            while(qpoint>=0 && Math.abs(samples[qpoint-1])<=threshhold){
-              const secs = samplesToSeconds(qpoint,this.sampleRate) + startTime - cueIn;
-              const secsprev =  samplesToSeconds(qpoint-1,this.sampleRate) + startTime - cueIn;
-              if (Math.floor((secs - offsetTime) / secsperbar) > Math.floor((secsprev- offsetTime) / secsperbar)){
-                this.removeSamples(clip,startofSilence,qpoint);
-                break;
-              }
-              qpoint --;
-            }
-          }
-        }
-        startofSilence = NaN;
-      }
-      else if (isNaN(startofSilence) && Math.abs(samples[a])<=threshhold){
-        if (!track.bpm){
-          startofSilence = a;
-        }
-        else{
-          const secs = samplesToSeconds(a,this.sampleRate) + startTime - cueIn;
-          const secsprev =  samplesToSeconds(a-1,this.sampleRate) + startTime - cueIn;
-
-          if (Math.floor((secs - offsetTime) / secsperbar) > Math.floor((secsprev - offsetTime) / secsperbar)){
-            startofSilence = a;
-          }
-        }
-      }
-    }
-    if (!isNaN(startofSilence) && samples.length - startofSilence > minimumSilence){
-      this.removeSamples(clip,startofSilence,samples.length);
-    }
-  }
-  removeSamples(clip,start,end){
-    const startSec = samplesToSeconds(start,this.sampleRate);
-    const endSec = samplesToSeconds(end,this.sampleRate);
-    const cueInSamp = clip.cueIn*this.sampleRate;
-    const minClip = this.barLength * 60/this.bpm || 1;
-    if (start == cueInSamp){
-      if (clip.cueOut - clip.cueIn - endSec >= minClip){
-        clip.cueIn += endSec;
-        clip.startTime += endSec; 
-      }
-    }
-    else if (end == clip.buffer.length){
-      if (startSec - clip.cueIn >= minClip)
-        clip.cueOut = startSec;
-      else
-        clip.track.clips.pop();
-    }
-    else{
-      
-      let info = clip.getTrackDetails();
-      
-      info.cueout = startSec;
-      console.log(
-        clip.name,
-        this.secondsToMinutes(info.start),
-        this.secondsToMinutes(info.start+info.cueout-info.cuein),
-        minClip
-      );
-      if (info.cueout - info.cuein >= minClip)
-        this.createClip(clip.buffer,info,false,clip.peaks);
-      
-      clip.startTime += endSec - clip.cueIn;
-      clip.cueIn = endSec;
-    }
-  }
-  secondsToMinutes(sec){
-    const min = sec/60|0;
-    const secs = (sec - min*60)|0;
-    return `${min}:${secs/10|0}${secs%10}`
   }
 
   async load(clipList) {
@@ -714,13 +490,6 @@ export default class {
   /*
     track instance of Track.
   */
-  setActiveTrack(track) {
-    this.activeTrack = track;
-  }
-
-  getActiveTrack() {
-    return this.activeTrack;
-  }
 
   isSegmentSelection() {
     return this.timeSelection.start !== this.timeSelection.end;
@@ -736,116 +505,6 @@ export default class {
     };
 
     this.cursor = start;
-  }
-
-  startOfflineRender(type) {
-    if (this.isRendering) {
-      return;
-    }
-
-    this.isRendering = true;
-    this.offlineAudioContext = new OfflineAudioContext(2, 44100 * this.duration, 44100);
-
-    const currentTime = this.offlineAudioContext.currentTime;
-
-    const compressor = this.offlineAudioContext.createDynamicsCompressor();
-
-    this.tracks.forEach((track) => {
-      track.clips.forEach(clip=>{
-        clip.setOfflinePlayout(new Playout(this.offlineAudioContext, clip.buffer));
-        clip.schedulePlay(currentTime, 0, 0, {
-          shouldPlay: this.shouldTrackPlay(clip),
-          masterGain: 1,
-          compressor,
-          isOffline: true,
-        });
-      })
-    });
-    this.tracks.forEach(track=>track.play(currentTime, 0, 0));
-
-    /*
-       this.tracks.forEach((track) => {
-         track.schedulePlay(currentTime, start, end, {
-           shouldPlay: this.shouldTrackPlay(track),
-           masterGain: this.masterGain,
-           compressor,
-         }));
-       });
-       this.tracks.forEach(track=>track.play(this.ac.currentTime,start,end));
-    */
-
-    /*
-      TODO cleanup of different audio playouts handling.
-    */
-    this.offlineAudioContext.startRendering().then((audioBuffer) => {
-      if (type === 'buffer') {
-        this.ee.emit('audiorenderingfinished', type, audioBuffer);
-        this.isRendering = false;
-        return;
-      }
-
-      if (type === 'wav') {
-        this.exportWorker.postMessage({
-          command: 'init',
-          config: {
-            sampleRate: 44100,
-          },
-        });
-
-        // callback for `exportWAV`
-        this.exportWorker.onmessage = (e) => {
-          this.ee.emit('audiorenderingfinished', type, e.data);
-          this.isRendering = false;
-
-          // clear out the buffer for next renderings.
-          this.exportWorker.postMessage({
-            command: 'clear',
-          });
-        };
-
-        // send the channel data from our buffer to the worker
-        this.exportWorker.postMessage({
-          command: 'record',
-          buffer: [
-            audioBuffer.getChannelData(0),
-            audioBuffer.getChannelData(1),
-          ],
-        });
-
-        // ask the worker for a WAV
-        this.exportWorker.postMessage({
-          command: 'exportWAV',
-          type: 'audio/wav',
-        });
-      }
-    }).catch((e) => {
-      throw e;
-    });
-  }
-
-  getTimeSelection() {
-    return this.timeSelection;
-  }
-
-  setState(state) {
-    this.state = state;
-    const StateClass = stateClasses[this.state];
-    this.stateObj = new StateClass(this);
-    this.stateObj.ee = this.ee;
-    this.stateObj.setup(this.samplesPerPixel,this.sampleRate);
-    this.tracks.forEach((track) => track.setState(state));
-  }1
-
-  getState() {
-    return this.state;
-  }
-
-  setZoomIndex(index) {
-    this.zoomIndex = index;
-  }
-
-  setZoomLevels(levels) {
-    this.zoomLevels = levels;
   }
 
   setZoom(zoom) {
@@ -959,7 +618,7 @@ export default class {
     clearTimeout(this.resetDrawTimer);
 
     const currentTime = this.ac.currentTime;
-    const selected = this.getTimeSelection();
+    const selected = this.timeSelection;
     const playoutPromises = [];
 
     const start = startTime || this.pausedAt || this.cursor;
@@ -973,18 +632,6 @@ export default class {
       return this.restartPlayFrom(start, end);
     }
 
-    /*
-    this.tracks.forEach((track) => {
-      track.clips.forEach(clip=>{
-        clip.setOfflinePlayout(new Playout(this.offlineAudioContext, clip.buffer));
-        clip.schedulePlay(currentTime, 0, 0, {
-          shouldPlay: this.shouldTrackPlay(clip),
-          masterGain: 1,
-          isOffline: true,
-        });
-      })
-    });
-    */
     const compressor = this.ac.createDynamicsCompressor();
     this.tracks.forEach((track) => {
       // track.setState('cursor');
@@ -1043,18 +690,6 @@ export default class {
     });
   }
 
-  fastForward() {
-    return this.stop().then(() => {
-      if (this.viewDuration < this.duration) {
-        this.scrollLeft = this.duration - this.viewDuration;
-      } else {
-        this.scrollLeft = 0;
-      }
-
-      this.ee.emit('select', this.duration, this.duration);
-    });
-  }
-
   clear() {
     return this.stop().then(() => {
       this.tracks = [];
@@ -1073,18 +708,8 @@ export default class {
     });
   }
 
-  record() {
-    const playoutPromises = [];
-    this.mediaRecorder.start(300);
-
-    this.tracks.forEach((track) => {
-      // track.setState('none');
-      playoutPromises.push(track.schedulePlay(this.ac.currentTime, 0, undefined, {
-        shouldPlay: this.shouldTrackPlay(track),
-      }));
-    });
-
-    this.playoutPromises = playoutPromises;
+  initExporter() {
+    this.exportWorker = new InlineWorker(ExportWavWorkerFunction);
   }
 
   startAnimation(startTime) {
@@ -1106,7 +731,6 @@ export default class {
       this.restartPlayFrom(start);
     } else {
       // reset if it was paused.
-      this.setActiveTrack(track || this.tracks[0]);
       this.pausedAt = start;
       this.setTimeSelection(start, end);
       this.playbackSeconds = start;
@@ -1119,7 +743,7 @@ export default class {
   */
   updateEditor(cursor) {
     const currentTime = this.ac.currentTime;
-    const selection = this.getTimeSelection();
+    const selection = this.timeSelection;
     const cursorPos = cursor || this.cursor;
     const elapsed = currentTime - this.lastDraw;
 
@@ -1174,12 +798,12 @@ export default class {
 
   getTrackRenderData(data = {}) {
     const defaults = {
-      height: this.waveHeight,
+      height: 100,
       resolution: this.samplesPerPixel,
       sampleRate: this.sampleRate,
       controls: this.controls,
       isActive: false,
-      timeSelection: this.getTimeSelection(),
+      timeSelection: this.timeSelection,
       playlistLength: this.duration,
       playbackSeconds: this.playbackSeconds,
       colors: this.colors,
@@ -1188,19 +812,6 @@ export default class {
     return _defaults(data, defaults);
   }
 
-  isActiveTrack(track) {
-    const activeTrack = this.getActiveTrack();
-
-    if (this.isSegmentSelection()) {
-      return activeTrack === track;
-    }
-
-    return true;
-  }
-
-  renderAnnotations() {
-    return this.annotationList.render();
-  }
 
   renderTimeScale() {
     const controlWidth = this.controls.show ? this.controls.width : 0;
@@ -1214,21 +825,10 @@ export default class {
     const globalEndTime = this.tracks
       .map(tr=>tr.getEndTime())
       .reduce((a,b)=>Math.max(a,b),0);
-    
-    // const trackElements = this.tracks.map(track =>
-    //   track.render(this.getTrackRenderData({
-    //     globalEndTime,
-    //     isActive: this.isActiveTrack(track),
-    //     shouldPlay: this.shouldTrackPlay(track),
-    //     soloed: this.soloedTracks.indexOf(track) > -1,
-    //     muted: this.mutedTracks.indexOf(track) > -1,
-    //   })),
-    // );
 
     const trackControls = this.tracks.map(track=>
       track.renderControls(this.getTrackRenderData({
         globalEndTime,
-        isActive: this.isActiveTrack(track),
         shouldPlay: this.shouldTrackPlay(track),
         soloed: this.soloedTracks.indexOf(track) > -1,
         muted: this.mutedTracks.indexOf(track) > -1,
@@ -1237,7 +837,6 @@ export default class {
     const trackWaveforms = this.tracks.map(track=>
       track.renderWaveform(this.getTrackRenderData({
         globalEndTime,
-        isActive: this.isActiveTrack(track),
         shouldPlay: this.shouldTrackPlay(track),
         soloed: this.soloedTracks.indexOf(track) > -1,
         muted: this.mutedTracks.indexOf(track) > -1,
@@ -1271,10 +870,7 @@ export default class {
     }
 
     containerChildren.push(this.renderTrackSection());
-
-    if (this.annotationList.length) {
-      containerChildren.push(this.renderAnnotations());
-    }
+    
 
     return h('div#playlist-rendered',
       {

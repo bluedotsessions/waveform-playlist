@@ -532,9 +532,7 @@ export default class {
     const peaks = this.peaks.data[0];
 
     let waveformChildren = [];
-    const canvasColor = this.waveOutlineColor
-      ? this.waveOutlineColor
-      : data.colors.waveOutlineColor;
+    const canvasColor = "rgba(0,0,0,0)"
 
     const canvashook = new CanvasHook(
         peaks, 
