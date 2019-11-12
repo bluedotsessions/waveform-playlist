@@ -32,4 +32,23 @@ playlist.ee.on('bpm-change',bpm=>{
 })
 emit('name-change',playlist.name);//initial setting
 emit('bpm-change',playlist.bpm);//initial setting
+
+$("#dropzone").addEventListener("dragover", function(e) { 
+    e.stopPropagation();
+    e.preventDefault();
+});
+$("#dropzone").addEventListener("drop", function(e) { 
+    e.stopPropagation();
+    e.preventDefault();
+    for (var f of e.dataTransfer.files) {
+      playlist.ee.emit("newtrack", f);
+    }
+  });
   
+$("#zoomin").addEventListener("click",e=>{
+    playlist.ee.emit("zoomin");
+})
+
+$("#zoomout").addEventListener("click",e=>{
+    playlist.ee.emit("zoomout");
+})

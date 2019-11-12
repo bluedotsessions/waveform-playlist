@@ -275,7 +275,6 @@ export default class {
     })
 
     ee.on('panknob',track=>{
-    //   track.pan = track.pan;
       this.drawRequest();
     })
 
@@ -589,8 +588,7 @@ export default class {
     const secsperbar = secsperbeat * this.barLength;
     const offsetTime = secsperbeat * this.barOffset;
     let startofSilence = NaN;
-    let endofSilenece = NaN;
-    const threshhold = 0;
+    const threshhold = 0.02;
 
     for (let a=cueInSamp;a<cueOutSamp;a++){
       if(!isNaN(startofSilence) && Math.abs(samples[a])>threshhold){
@@ -1247,21 +1245,20 @@ export default class {
     )
 
     return h('div.playlist-tracks',
-      {
-        onscroll: (e) => {
-          this.scrollLeft = pixelsToSeconds(
-            e.target.scrollLeft,
-            this.samplesPerPixel,
-            this.sampleRate,
-          );
-
-          this.ee.emit('scroll', this.scrollLeft);
-        },
-        hook: new ScrollHook(this),
-      },
       [
         h('div.controls-container',trackControls),
-        h('div.waveform-container',trackWaveforms)
+        h('div.waveform-container',{
+          onscroll: (e) => {
+            this.scrollLeft = pixelsToSeconds(
+              e.target.scrollLeft,
+              this.samplesPerPixel,
+              this.sampleRate,
+            );
+  
+            this.ee.emit('scroll', this.scrollLeft);
+          },
+          hook: new ScrollHook(this),
+        },trackWaveforms)
       ],
     );
   }

@@ -37,10 +37,10 @@ body {
     margin-left: 200px;
 }
 
-
 #controls{
     margin-left:200px;
     display:flex;
+    position:relative;
     color:white;
     padding: 10px;
     justify-content: space-between;
@@ -106,11 +106,31 @@ body {
     overflow:visible;
     left:0;
 }
-.track-controls header{
-    padding-left:10px;
+.track-title{
     background-color: #464646;
-    color: white;
+    display:flex;
+    justify-content: space-between;
 }
+.track-title-text{
+    color: white;
+    padding-left:10px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow:hidden;
+    width: 160px;
+}
+.track-title-control-container{
+    visibility: hidden;
+}
+.visible{
+    visibility: visible !important;
+}
+.track-title-control-container > span{
+    margin-right: 5px;
+    cursor: pointer;
+}
+
+
 .track-buttons-container{
     display:flex;
     padding: 5px;
@@ -143,3 +163,18 @@ div.cursor{
     bottom: 0;
     z-index: 5;
 }
+
+#dropzone{
+    margin-left: 100px;
+    padding: 30px;
+    border: 1px solid black;
+    width: 100px;
+    height: 100px;
+}
+
+#zoomcontrols{
+    position:absolute;
+    bottom:0;
+}
+
+

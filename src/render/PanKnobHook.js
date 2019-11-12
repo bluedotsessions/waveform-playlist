@@ -2,46 +2,48 @@ export default class {
     constructor (pan,track){
         this.pan = pan;
         this.track = track;
-        this.id = Math.random()*100|0;
         this.lineWidth = 5;
         this.gap = Math.PI*.14; //This is doubled
         this.gapPosition = Math.PI*.5;
         this.track.pan = this.pan;
     }
-    setupEvents(canvas){
-        //pan Change
-        canvas.onclick = e => {
-            console.log(this.id);
-            const {offsetX,offsetY} = e;
-            const center = {x:canvas.width/2,y:canvas.height/2};
-            const TAU = Math.PI*2;
-
-            const angle = Math.atan2(offsetY-center.y,offsetX-center.x);
-            
-            const top = this.gapPosition - 3*Math.PI;
-
-            const dangle = (angle - top)%TAU;
-
-            const adjustedNegatives = dangle > Math.PI?dangle-TAU:dangle;
-
-            const amount = adjustedNegatives/(Math.PI-this.gap);
-
-            const realamount = amount > 1 ? 1 : (amount < -1 ? -1 : amount); //clamping to -1 to 1
-
-            // console.log(adjustedNegatives*180/Math.PI);
-            // console.log(realamount);
-            this.track.pan = realamount;
-
-            this.track.ee.emit('panknob',this.track);
-
-        };
-    }
-    draw(g,canvas){
-        const center = {x:canvas.width/2,y:canvas.height/2};
+    onclick (e) {
+        if ( this.canvas != e.target){
+            // console.log("why?!!");
+            this.canvas = e.target;
+            this.g = this.canvas.getContext('2d');
+        }
+        
+        const {offsetX,offsetY} = e;
+        const center = {x:this.canvas.width/2,y:this.canvas.height/2};
         const TAU = Math.PI*2;
 
-        //Background
+        const angle = Math.atan2(offsetY-center.y,offsetX-center.x);
+        
+        const top = this.gapPosition - 3*Math.PI;
 
+        const dangle = (angle - top)%TAU;
+
+        const adjustedNegatives = dangle > Math.PI?dangle-TAU:dangle;
+
+        const amount = adjustedNegatives/(Math.PI-this.gap);
+
+        const realamount = amount > 1 ? 1 : (amount < -1 ? -1 : amount); //clamping to -1 to 1
+
+        // console.log(adjustedNegatives*180/Math.PI);
+        // console.log(realamount);
+        this.track.pan = realamount;
+        this.draw();
+        // self.track.ee.emit('panknob',self.track);
+    };
+    draw(){
+
+        const canvas = this.canvas;
+        const g = this.g;
+        const center = {x:canvas.width/2,y:canvas.height/2};
+        const TAU = Math.PI*2;
+        this.pan = this.track.pan;
+        //Background
         g.lineWidth = this.lineWidth;
         g.strokeStyle = canvas.getAttribute('data-ringbgcolor') || '#EEE';
         g.clearRect(0,0,canvas.width,canvas.height);
@@ -69,15 +71,13 @@ export default class {
             this.pan<0
         )
         g.stroke();
-
-        // console.log('drawing pan',g.strokeStyle,center);
     }
     hook(canvas,_,prev){
         if (prev && prev.pan == this.pan)
             return;
-        
-        this.setupEvents(canvas);
-        const g = canvas.getContext('2d');
-        this.draw(g,canvas);
+        this.canvas = canvas;
+        this.g = canvas.getContext('2d');
+        // this.setupEvents();
+        this.draw();
     }
 }

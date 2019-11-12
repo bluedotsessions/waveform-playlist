@@ -1,18 +1,13 @@
 import _assign from 'lodash.assign';
 import _forOwn from 'lodash.forown';
-
 import h from 'virtual-dom/h';
-
 import { secondsToPixels } from './utils/conversions';
-
 import VolumeSliderHook from './render/VolumeSliderHook';
 import PanKnob from './render/PanKnobHook';
 import GridHook from './render/GridHook';
 import EffectKnobHook from './render/EffectKnobHook';
-import { relative } from 'path';
 
 export default class {
-
   constructor(id) {
     this.name = 'Untitled'; // Track
     this.customClass = undefined; //Track
@@ -26,12 +21,13 @@ export default class {
     
     this.analyzer = undefined;
     this.analyzerHook = new VolumeSliderHook(this);
-
+    
     this.delay = 1;
     this.bitcrusher = 1;
     this.lowpass = 10;
-
+    
     this.clips = [];
+    this.panHook = new PanKnob(this.pan,this);
   }
   updatedBMeter(){
     this.analyzerHook.update();
@@ -121,8 +117,9 @@ export default class {
     this.gain = level;
     this.analyzerHook.update();
     this.clips.forEach(clip=>{
-      clip.gain = level;
-      clip.playout.setVolumeGainLevel(level);
+      // clip.gain = Math.log10(level+0.1)+1;
+      clip.gain = Math.pow(8,(level-1)/0.8)-0.075;
+      clip.playout.setVolumeGainLevel(clip.gain);
     })
   }
 
@@ -138,11 +135,6 @@ export default class {
     const muteClass = data.muted ? '.active' : '';
     const soloClass = data.soloed ? '.active' : '';
     return h('div.track-buttons-container', [
-      // h('span.destroy-button',{
-      //   onclick: ()=>{
-      //     this.ee.emit('destroy',this);
-      //   }
-      // },['X']),
       h(`span.mute-button.bordered-track-button`, {
         onclick: () => {
           this.ee.emit('mute', this);
@@ -160,13 +152,14 @@ export default class {
           }
         },["FX"]),
       h(`div.protectFromStreching`,[
-        h(`canvas.knobCanvas`,{
+        h(`canvas.knobCanvas#id${this.id}`,{
+          onclick: e=>this.panHook.onclick(e),
           attributes:{
               width: 25,
               height: 25,
               "data-ringbgcolor": '#EEE',
           },
-          hook: new PanKnob(this.pan,this)
+          hook: this.panHook
         }),
       ]),
 
@@ -250,16 +243,38 @@ export default class {
     })
   }
 
+  renameTrack(){
+
+  }
 
   renderControls(data) {
     return h('div.track-controls',
       {
+        onmouseenter:e=>{
+          this.showhovermenu = true;
+          this.ee.emit("interactive");
+        },
+        onmouseleave:e=>{
+          this.showhovermenu = false;
+          this.ee.emit("interactive");
+        },
         attributes: {
-          style: `
-            z-index: ${30 - this.id};`,
+          style: `z-index: ${30 - this.id};`,
         },
       }, [
-        h('header', [this.name]),
+        h('div.track-title',[
+          h('span.track-title-text', [this.name]),
+          h(`div.track-title-control-container${this.showhovermenu?".visible":""}`,[
+            h('span.rename-track',{
+              onclick:this.renameTrack
+            },"ren"),
+            h('span.delete-track',{
+              onclick:()=>{
+                this.ee.emit('destroy',this);
+              }
+            },"del")
+          ])
+        ]),
         this.renderButtons(data),        
         this.renderEffects(data),
       ],
