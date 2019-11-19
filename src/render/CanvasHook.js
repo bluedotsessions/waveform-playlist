@@ -91,7 +91,6 @@ class CanvasHook {
 
     cc.clearRect(0,0,canvas.width,canvas.height);
     const offsettotal = secondsToPixels(-this.cueIn,this.resolution,this.sampleRate);
-    
     cc.drawImage(this.bufferedwaveform,offsettotal,0); 
   }
 }

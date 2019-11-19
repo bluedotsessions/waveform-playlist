@@ -116,15 +116,15 @@ export default class {
       .connect(this.panner)
 
     let tunachain = this.panner;
-    if (this.toggleDelay){
+    if (this.toggle_delay){
       tunachain.connect(this.delay);
       tunachain = this.delay;
     }
-    if(this.togglePhaser){
+    if(this.toggle_phaser){
       tunachain.connect(this.bitcrusher);
       tunachain = this.bitcrusher;
     }
-    if(this.toggleLowpass){
+    if(this.toggle_lowpass){
       tunachain.connect(this.lowpass);
       tunachain = this.lowpass;
     }

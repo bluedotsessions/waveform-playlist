@@ -14806,6 +14806,8 @@ var WaveformPlaylist =
 	
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 	
+	function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
+	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
 	var _class = function () {
@@ -14831,6 +14833,10 @@ var WaveformPlaylist =
 	
 	    this.clips = [];
 	    this.panHook = new _PanKnobHook2.default(this.pan, this);
+	
+	    this.buttonsList = ["Lo-Pass", "Delay - Simple", "Verb - Hall"];
+	
+	    this.effectsList = [{ name: "Chorus", knob: "chorus", params: [{ name: "bypass", tunaparam: "bypass", init: 0, min: 0, max: 1 }, { name: "somethingelse", tunaparam: "blabla", init: 0, min: 0.1, max: 0.2 }] }, { name: "Overdrive", knob: "overdrive", params: [{ name: "bypass", tunaparam: "bypass", init: 0, min: 0, max: 1 }, { name: "somethingelse", tunaparam: "blabla", init: 0, min: 0.1, max: 0.2 }] }, { name: "BitCrusher", knob: "bitcrusher", params: [{ name: "bypass", tunaparam: "bypass", init: 0, min: 0, max: 1 }, { name: "somethingelse", tunaparam: "blabla", init: 0, min: 0.1, max: 0.2 }] }, { name: "Lo-Pass", knob: "lowpass", params: [{ name: "bypass", tunaparam: "bypass", init: 0, min: 0, max: 1 }, { name: "somethingelse", tunaparam: "blabla", init: 0, min: 0.1, max: 0.2 }] }, { name: "Hi-Pass", knob: "hipass", params: [{ name: "bypass", tunaparam: "bypass", init: 0, min: 0, max: 1 }, { name: "somethingelse", tunaparam: "blabla", init: 0, min: 0.1, max: 0.2 }] }, { name: "Band-Pass", knob: "bandpass", params: [{ name: "bypass", tunaparam: "bypass", init: 0, min: 0, max: 1 }, { name: "somethingelse", tunaparam: "blabla", init: 0, min: 0.1, max: 0.2 }] }, { name: "Cabinet", knob: "cabinet", params: [{ name: "bypass", tunaparam: "bypass", init: 0, min: 0, max: 1 }, { name: "somethingelse", tunaparam: "blabla", init: 0, min: 0.1, max: 0.2 }] }, { name: "Delay - Simple", knob: "delay", params: [{ name: "bypass", tunaparam: "bypass", init: 0, min: 0, max: 1 }, { name: "somethingelse", tunaparam: "blabla", init: 0, min: 0.1, max: 0.2 }] }, { name: "Delay - Stereo", knob: "delay", params: [{ name: "bypass", tunaparam: "bypass", init: 0, min: 0, max: 1 }, { name: "somethingelse", tunaparam: "blabla", init: 0, min: 0.1, max: 0.2 }] }, { name: "Verb - Hall", knob: "reverb", params: [{ name: "bypass", tunaparam: "bypass", init: 0, min: 0, max: 1 }, { name: "somethingelse", tunaparam: "blabla", init: 0, min: 0.1, max: 0.2 }] }, { name: "Verb - Church", knob: "reverb", params: [{ name: "bypass", tunaparam: "bypass", init: 0, min: 0, max: 1 }, { name: "somethingelse", tunaparam: "blabla", init: 0, min: 0.1, max: 0.2 }] }, { name: "Verb - Room", knob: "reverb", params: [{ name: "bypass", tunaparam: "bypass", init: 0, min: 0, max: 1 }, { name: "somethingelse", tunaparam: "blabla", init: 0, min: 0.1, max: 0.2 }] }, { name: "Verb - Spring", knob: "reverb", params: [{ name: "bypass", tunaparam: "bypass", init: 0, min: 0, max: 1 }, { name: "somethingelse", tunaparam: "blabla", init: 0, min: 0.1, max: 0.2 }] }];
 	  }
 	
 	  _createClass(_class, [{
@@ -15018,51 +15024,116 @@ var WaveformPlaylist =
 	      })]), this.renderVolumeSlider(data)]);
 	    }
 	  }, {
+	    key: 'renderChooseEffectMenu',
+	    value: function renderChooseEffectMenu(data) {
+	      var _this3 = this;
+	
+	      var children = this.effectsList.filter(function (ef) {
+	        return !_this3.buttonsList.find(function (i) {
+	          return i == ef.name;
+	        });
+	      }).map(function (i) {
+	        return i.name;
+	      }).map(function (name) {
+	        return (0, _h2.default)('div.effectlabel', {
+	          onclick: function onclick(e) {
+	            var ind = _this3.buttonsList.indexOf(_this3.changeEffect);
+	            _this3.buttonsList[ind] = e.target.innerHTML;
+	            _this3.changeEffect = undefined;
+	            _this3.ee.emit("interactive");
+	          }
+	        }, name);
+	      });
+	
+	      return (0, _h2.default)("div.choose-effect-menu", {
+	        onclick: function onclick(e) {
+	          _this3.changeEffect = undefined;
+	          _this3.ee.emit("interactive");
+	        }
+	      }, [(0, _h2.default)("div.effectlabel.highlight", this.changeEffect)].concat(_toConsumableArray(children)));
+	    }
+	  }, {
 	    key: 'renderSingleEffect',
 	    value: function renderSingleEffect(data, name, hook) {
-	      return (0, _h2.default)("div.effectBox", { attributes: { style: '\n      display:inline-block;\n    ' } }, [(0, _h2.default)('canvas.effect.' + name, {
-	        hook: hook,
-	        attributes: {
-	          width: '40px',
-	          height: '40px',
-	          style: '\n            display:inline-block;\n            margin:0 10px;\n          '
+	      var _this4 = this;
+	
+	      // console.log(this.changeEffect);
+	      return (0, _h2.default)("div.effectBox", {
+	        onmouseenter: function onmouseenter(e) {
+	          _this4.showSubMenu = name;
+	          _this4.ee.emit("interactive");
+	        },
+	        onmouseleave: function onmouseleave(e) {
+	          _this4.showSubMenu = undefined;
+	          _this4.ee.emit("interactive");
 	        }
-	      }), (0, _h2.default)('div.effectlabel', name)]);
+	      }, [this.changeEffect == name ? this.renderChooseEffectMenu(data) : (0, _h2.default)('div.effectlabel', {
+	        onclick: function onclick(e) {
+	          _this4.changeEffect = name;
+	          _this4.ee.emit("interactive");
+	        }
+	      }, name), (0, _h2.default)('canvas.effect.' + name, {
+	
+	        attributes: {
+	          width: '35px',
+	          height: '35px'
+	        },
+	        hook: hook
+	      }), this.showSubMenu == name ? this.renderEffectSubmenu(data) : ""]);
 	    }
 	  }, {
 	    key: 'renderEffects',
 	    value: function renderEffects(data) {
-	      var _this3 = this;
+	      var _this5 = this;
 	
-	      return (0, _h2.default)('div.effectsmenu', {
-	        attributes: {
-	          style: '\n          position:absolute;\n          top:60px;\n          width:100%;\n          height:70px;\n          background-color:lightgray;\n          z-index:31;\n          ' + (this.showmenu ? '' : "visibility:hidden;") + '\n        '
-	        }
-	      }, [this.renderSingleEffect(data, 'delay', new _EffectKnobHook2.default(this.ee, this.delay, function (value) {
-	        _this3.delay = value;
-	        _this3.clips.forEach(function (clip) {
-	          clip.playout.toggleDelay = value > 1;
-	          clip.playout.delay.delayTime.value = value;
+	      var effects = this.buttonsList.map(function (name) {
+	        return _this5.effectsList.find(function (i) {
+	          return i.name == name;
 	        });
-	      }, 1, 10)), this.renderSingleEffect(data, 'bitcrusher', new _EffectKnobHook2.default(this.ee, this.bitcrusher, function (value) {
-	        _this3.bitcrusher = value;
-	        _this3.clips.forEach(function (clip) {
-	          clip.playout.togglePhaser = value > 1;
-	          clip.playout.bitcrusher.bits = value;
+	      }).map(function (i) {
+	        return _this5.renderSingleEffect(data, i.name, new _EffectKnobHook2.default(_this5.ee, _this5[i.knob], function (value) {
+	          _this5[i.knob] = value;
+	          _this5.clips.forEach(function (clip) {
+	            clip.playout['toggle_' + i.knob] = value > 1;
+	            clip.playout[i.knob].bypass = value;
+	          });
+	        }));
+	      });
+	
+	      return (0, _h2.default)('div.effectsmenu' + (this.showmenu ? '.visible' : ''), effects);
+	    }
+	  }, {
+	    key: 'renderEffectSubmenu',
+	    value: function renderEffectSubmenu(data) {
+	      var _this6 = this;
+	
+	      var children = this.effectsList.find(function (i) {
+	        return i.name == _this6.showSubMenu;
+	      }).params.map(function (i) {
+	        return (0, _h2.default)('canvas.effect.' + i.name, {
+	          attributes: {
+	            width: '35px',
+	            height: '35px',
+	            "data-ringbgcolor": "#606060",
+	            "data-effect": i.name
+	          },
+	          hook: new _EffectKnobHook2.default(_this6.ee, _this6[i.knob] || i.init, function (value) {
+	            _this6[i.knob] = value;
+	            _this6.clips.forEach(function (clip) {
+	              _this6.ee.emit("interactive");
+	            });
+	          }, i.min, i.max)
 	        });
-	      }, 1, 16)), this.renderSingleEffect(data, 'lowpass', new _EffectKnobHook2.default(this.ee, this.lowpass, function (value) {
-	        _this3.lowpass = value;
-	        _this3.clips.forEach(function (clip) {
-	          clip.playout.toggleLowpass = value > 10;
-	          clip.playout.lowpass.frequency.value = value;
-	          console.log(clip.playout.lowpass.Q);
-	        });
-	      }, 10, 440))]);
+	      }).map(function (el) {
+	        var label = el.properties.attributes["data-effect"];
+	        return (0, _h2.default)('.effectBox', [el, (0, _h2.default)('div.subeffectlabel', label)]);
+	      });
+	      return (0, _h2.default)('div.effectSubMenu', children);
 	    }
 	  }, {
 	    key: 'renderVolumeSlider',
 	    value: function renderVolumeSlider(data) {
-	      var _this4 = this;
+	      var _this7 = this;
 	
 	      var width = 75;
 	      return (0, _h2.default)('canvas.volume-slider', {
@@ -15074,7 +15145,7 @@ var WaveformPlaylist =
 	          var relativeX = e.layerX;
 	          //canvas is larger than the slider with 7 pixels on each side, so:
 	          var clamped = Math.min(Math.max(relativeX, 7), width - 7);
-	          _this4.setGainLevel((clamped - 7) / (width - 14));
+	          _this7.setGainLevel((clamped - 7) / (width - 14));
 	        },
 	        hook: this.analyzerHook
 	      });
@@ -15085,16 +15156,16 @@ var WaveformPlaylist =
 	  }, {
 	    key: 'renderControls',
 	    value: function renderControls(data) {
-	      var _this5 = this;
+	      var _this8 = this;
 	
 	      return (0, _h2.default)('div.track-controls', {
 	        onmouseenter: function onmouseenter(e) {
-	          _this5.showhovermenu = true;
-	          _this5.ee.emit("interactive");
+	          _this8.showhovermenu = true;
+	          _this8.ee.emit("interactive");
 	        },
 	        onmouseleave: function onmouseleave(e) {
-	          _this5.showhovermenu = false;
-	          _this5.ee.emit("interactive");
+	          _this8.showhovermenu = false;
+	          _this8.ee.emit("interactive");
 	        },
 	        attributes: {
 	          style: 'z-index: ' + (30 - this.id) + ';'
@@ -15103,7 +15174,7 @@ var WaveformPlaylist =
 	        onclick: this.renameTrack
 	      }, "ren"), (0, _h2.default)('span.delete-track', {
 	        onclick: function onclick() {
-	          _this5.ee.emit('destroy', _this5);
+	          _this8.ee.emit('destroy', _this8);
 	        }
 	      }, "del")])]), this.renderButtons(data), this.renderEffects(data)]);
 	    }
@@ -16057,7 +16128,7 @@ var WaveformPlaylist =
 	            //Background
 	
 	            g.lineWidth = this.lineWidth;
-	            g.strokeStyle = canvas.getAttribute('data-ringbgcolor') || '#EEE';
+	            g.strokeStyle = canvas.getAttribute('data-ringbgcolor') || '#444444';
 	            g.clearRect(0, 0, canvas.width, canvas.height);
 	            g.beginPath();
 	            g.arc(center.x, center.y, center.x - this.lineWidth, this.gap + this.gapPosition, TAU - this.gap + this.gapPosition);
@@ -16065,10 +16136,12 @@ var WaveformPlaylist =
 	
 	            //Pan Amount
 	
-	            g.strokeStyle = canvas.getAttribute('data-ringcolor') || 'black';
+	            var angle = this.value * (Math.PI - this.gap) + this.gapPosition + Math.PI;
+	            var r = center.x - this.lineWidth;
+	            g.fillStyle = "white";
 	            g.beginPath();
-	            g.arc(center.x, center.y, center.x - this.lineWidth, this.gapPosition + this.gap, this.value * (Math.PI - this.gap) + this.gapPosition + Math.PI, false);
-	            g.stroke();
+	            g.arc(center.x + r * Math.cos(angle), center.y + r * Math.sin(angle), 5, 0, Math.PI * 2);
+	            g.fill();
 	        }
 	    }, {
 	        key: 'hook',
@@ -16660,7 +16733,7 @@ var WaveformPlaylist =
 	
 	      return (0, _h2.default)('div.clipwaveform', {
 	        attributes: {
-	          style: 'background: gray;height: ' + data.height + 'px;pointer-events: none;'
+	          style: 'background: rgba(40,40,40,0.5);height: ' + data.height + 'px;pointer-events: none;'
 	
 	        }
 	      }, waveformChildren);
@@ -17764,7 +17837,6 @@ var WaveformPlaylist =
 	
 	      cc.clearRect(0, 0, canvas.width, canvas.height);
 	      var offsettotal = (0, _conversions.secondsToPixels)(-this.cueIn, this.resolution, this.sampleRate);
-	
 	      cc.drawImage(this.bufferedwaveform, offsettotal, 0);
 	    }
 	  }], [{
@@ -18046,15 +18118,15 @@ var WaveformPlaylist =
 	      this.source.connect(this.fadeGain).connect(this.panner);
 	
 	      var tunachain = this.panner;
-	      if (this.toggleDelay) {
+	      if (this.toggle_delay) {
 	        tunachain.connect(this.delay);
 	        tunachain = this.delay;
 	      }
-	      if (this.togglePhaser) {
+	      if (this.toggle_phaser) {
 	        tunachain.connect(this.bitcrusher);
 	        tunachain = this.bitcrusher;
 	      }
-	      if (this.toggleLowpass) {
+	      if (this.toggle_lowpass) {
 	        tunachain.connect(this.lowpass);
 	        tunachain = this.lowpass;
 	      }

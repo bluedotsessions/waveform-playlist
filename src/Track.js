@@ -28,6 +28,73 @@ export default class {
     
     this.clips = [];
     this.panHook = new PanKnob(this.pan,this);
+
+    this.buttonsList = [
+      "Lo-Pass",
+      "Delay - Simple",
+      "Verb - Hall"
+    ]
+
+    this.effectsList = [
+      {name:"Chorus",knob:"chorus",params:[
+        {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
+        {name:"somethingelse",tunaparam:"blabla",init:0,min:0.1,max:0.2}
+      ]},
+      {name:"Overdrive",knob:"overdrive",params:[
+        {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
+        {name:"somethingelse",tunaparam:"blabla",init:0,min:0.1,max:0.2}
+      ]},
+      {name:"BitCrusher",knob:"bitcrusher",params:[
+        {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
+        {name:"somethingelse",tunaparam:"blabla",init:0,min:0.1,max:0.2}
+      ]},
+      {name:"Lo-Pass",knob:"lowpass",params:[
+        {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
+        {name:"somethingelse",tunaparam:"blabla",init:0,min:0.1,max:0.2}
+      ]},
+      {name:"Hi-Pass",knob:"hipass",params:[
+        {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
+        {name:"somethingelse",tunaparam:"blabla",init:0,min:0.1,max:0.2}
+      ]},
+      {name:"Band-Pass",knob:"bandpass",params:[
+        {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
+        {name:"somethingelse",tunaparam:"blabla",init:0,min:0.1,max:0.2}
+      ]},
+      {name:"Cabinet",knob:"cabinet",params:[
+        {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
+        {name:"somethingelse",tunaparam:"blabla",init:0,min:0.1,max:0.2}
+      ]},
+      {name:"Delay - Simple",knob:"delay",params:[
+        {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
+        {name:"somethingelse",tunaparam:"blabla",init:0,min:0.1,max:0.2}
+      ]},
+      {name:"Delay - Stereo",knob:"delay",params:[
+        {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
+        {name:"somethingelse",tunaparam:"blabla",init:0,min:0.1,max:0.2}
+      ]},
+
+      {name:"Verb - Hall",knob:"reverb",params:[
+        {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
+        {name:"somethingelse",tunaparam:"blabla",init:0,min:0.1,max:0.2}
+      ]},
+      {name:"Verb - Church",knob:"reverb",params:[
+        {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
+        {name:"somethingelse",tunaparam:"blabla",init:0,min:0.1,max:0.2}
+      ]},
+      {name:"Verb - Room",knob:"reverb",params:[
+        {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
+        {name:"somethingelse",tunaparam:"blabla",init:0,min:0.1,max:0.2}
+      ]},
+      {name:"Verb - Spring",knob:"reverb",params:[
+        {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
+        {name:"somethingelse",tunaparam:"blabla",init:0,min:0.1,max:0.2}
+      ]},
+
+    ]
+
+
+
+
   }
   updatedBMeter(){
     this.analyzerHook.update();
@@ -166,65 +233,111 @@ export default class {
       this.renderVolumeSlider(data),
     ])
   }
+  renderChooseEffectMenu(data){
+    let children = this.effectsList
+      .filter(ef=>!this.buttonsList.find(i=>i == ef.name))
+      .map(i=>i.name)
+      .map(name=>h('div.effectlabel',{
+        onclick:e=>{
+          const ind = this.buttonsList.indexOf(this.changeEffect);
+          this.buttonsList[ind] = e.target.innerHTML;
+          this.changeEffect = undefined;
+          this.ee.emit("interactive");
+        }
+      },name));
+
+    return h("div.choose-effect-menu",{
+      onclick:e=>{
+        this.changeEffect = undefined;
+        this.ee.emit("interactive");
+      }
+    },[
+      h("div.effectlabel.highlight",this.changeEffect),
+      ...children
+    ])
+  }
 
   renderSingleEffect(data,name,hook){
-    return h("div.effectBox",{attributes:{style:`
-      display:inline-block;
-    `}},[
+    // console.log(this.changeEffect);
+    return h("div.effectBox",{
+      onmouseenter:e=>{
+        this.showSubMenu = name;
+        this.ee.emit("interactive");
+      },
+      onmouseleave:e=>{
+        this.showSubMenu = undefined;
+        this.ee.emit("interactive");
+      },
+    },[
+      this.changeEffect==name?
+        
+        this.renderChooseEffectMenu(data):
+
+        h('div.effectlabel',{
+          onclick:e=>{
+            this.changeEffect=name;
+            this.ee.emit("interactive");
+          }
+        },name),
       h(`canvas.effect.${name}`,{
-        hook,
+        
         attributes:{
-          width: '40px',
-          height: '40px',
-          style:`
-            display:inline-block;
-            margin:0 10px;
-          `
-        }
+          width: '35px',
+          height: '35px',
+        },
+        hook
       }),
-      h('div.effectlabel',name)
+      this.showSubMenu == name?
+      this.renderEffectSubmenu(data):""
     ])
   }
 
   renderEffects(data){
-    return h(`div.effectsmenu`,{
-      attributes:{
-        style:`
-          position:absolute;
-          top:60px;
-          width:100%;
-          height:70px;
-          background-color:lightgray;
-          z-index:31;
-          ${this.showmenu?'':"visibility:hidden;"}
-        `
-      }
-    },[
-      this.renderSingleEffect(data,'delay',new EffectKnobHook(this.ee,this.delay,(value)=>{
-          this.delay = value;
+
+    const effects = this.buttonsList
+      .map(name=>this.effectsList.find(i=>i.name == name))
+      .map(i=>
+        this.renderSingleEffect(data,i.name,new EffectKnobHook(this.ee,this[i.knob],(value)=>{
+          this[i.knob] = value;
           this.clips.forEach(clip=>{
-            clip.playout.toggleDelay = value > 1;
-            clip.playout.delay.delayTime.value = value;
+            clip.playout[`toggle_${i.knob}`] = value > 1;
+            clip.playout[i.knob].bypass = value;
           })
-        },1,10)),
-      this.renderSingleEffect(data,'bitcrusher', new EffectKnobHook(this.ee,this.bitcrusher,(value)=>{
-          this.bitcrusher = value;
-          this.clips.forEach(clip=>{
-            clip.playout.togglePhaser = value > 1
-            clip.playout.bitcrusher.bits = value;
-          })
-      },1,16)),
-      this.renderSingleEffect(data,'lowpass', new EffectKnobHook(this.ee,this.lowpass,(value)=>{
-          this.lowpass = value;
-          this.clips.forEach(clip=>{
-            clip.playout.toggleLowpass = value > 10;
-            clip.playout.lowpass.frequency.value = value;
-            console.log(clip.playout.lowpass.Q);
-          })
-        },10,440))
-    ])
+        }))
+      )
+    
+    return h(`div.effectsmenu${this.showmenu?'.visible':''}`,effects);
+
   }
-  
+      
+  renderEffectSubmenu(data){
+
+    const children = this.effectsList
+      .find(i=>i.name == this.showSubMenu)
+      .params
+      .map(i=>
+        h(`canvas.effect.${i.name}`,{
+          attributes:{
+            width: '35px',
+            height: '35px',
+            "data-ringbgcolor":"#606060",
+            "data-effect":i.name
+          },
+          hook:new EffectKnobHook(this.ee,this[i.knob]||i.init,(value)=>{
+            this[i.knob] = value;
+            this.clips.forEach(clip=>{
+              this.ee.emit("interactive");
+            })
+          },i.min,i.max)
+        }),
+      )
+      .map(el=>{
+        const label = el.properties.attributes["data-effect"]
+        return h(`.effectBox`,[el,h('div.subeffectlabel',label)])  
+      }
+      )
+    return h('div.effectSubMenu',children);
+  }
 
   renderVolumeSlider(data){
     const width = 75;

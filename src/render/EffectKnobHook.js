@@ -49,7 +49,7 @@ export default class {
         //Background
 
         g.lineWidth = this.lineWidth;
-        g.strokeStyle = canvas.getAttribute('data-ringbgcolor') || '#EEE';
+        g.strokeStyle = canvas.getAttribute('data-ringbgcolor') || '#444444';
         g.clearRect(0,0,canvas.width,canvas.height);
         g.beginPath()
         g.arc(
@@ -63,17 +63,16 @@ export default class {
         
         //Pan Amount
 
-        g.strokeStyle = canvas.getAttribute('data-ringcolor') || 'black';
+        const angle = this.value*(Math.PI-this.gap) + this.gapPosition + Math.PI
+        const r = center.x-this.lineWidth;
+        g.fillStyle = "white"
         g.beginPath();
         g.arc(
-            center.x,
-            center.y,
-            center.x-this.lineWidth,
-            this.gapPosition + this.gap,
-            this.value*(Math.PI-this.gap) + this.gapPosition + Math.PI,
-            false
-        )
-        g.stroke();
+            center.x + r * Math.cos(angle),
+            center.y + r * Math.sin(angle),
+            5,
+            0,Math.PI*2);
+        g.fill();
 
     }
     hook(canvas,_,prev){

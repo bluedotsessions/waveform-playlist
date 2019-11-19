@@ -34,11 +34,11 @@ body {
 .playlist-time-scale{
     height: 30px;
     position:relative;
-    margin-left: 200px;
+    margin-left: 250px;
 }
 
 #controls{
-    margin-left:200px;
+    margin-left:250px;
     display:flex;
     position:relative;
     color:white;
@@ -102,7 +102,7 @@ body {
 .track-controls{
     background-color:#606060;
     height: 100px;
-    width: 200px;
+    width: 250px;
     overflow:visible;
     left:0;
 }
@@ -147,6 +147,7 @@ body {
     font-size: 0.9em;
     background-color: #454545;
     border-radius: 3px;
+    cursor: pointer;
 }
 
 div.cursor{
@@ -177,4 +178,63 @@ div.cursor{
     bottom:0;
 }
 
+.effectsmenu{
+    display: flex;
+    position:absolute;
+    top:60px;
+    width:250px;
+    height:70px;
+    background-color:#909090;
+    border-bottom:1px solid white;
+    z-index:31;
+    visibility: hidden;
+}
+.effectBox{
+    display:flex;
+    flex-flow: column;
+}
+.effectsmenu.visible{
+    visibility: visible;
+}
+canvas.effect{
+    align-self: center;
+    cursor: pointer;
+}
+.effectlabel{
+    background-color: #444444;
+    border-radius: 3px;
+    font-size: 0.9em;
+    color:white;
+    padding:2px;
+    margin:5px 0 5px 5px;
+    cursor: pointer;
+    text-align: center;
+}
+.effectlabel:hover{
+    background-color: #AAAAAA
+}
+.choose-effect-menu{
+    position: absolute;;
+    background-color:#333;
+    z-index:10;
+    padding:10px;
+}
+.choose-effect-menu > .effectlabel{
+    margin: 5px;
+}
+
+.effectSubMenu{
+    position: absolute;
+    top:70px;
+    background-color: #333;
+    display:flex;
+}
+.effectSubMenu > * {
+    margin:10px;
+}
+.subeffectlabel{
+    font-size: 0.9em;
+    color:white;
+    text-align: center;
+}
 

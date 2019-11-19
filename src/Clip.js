@@ -568,7 +568,7 @@ export default class {
     
     return h('div.clipwaveform',{
       attributes:{
-        style:`background: gray;height: ${data.height}px;pointer-events: none;`,
+        style:`background: rgba(40,40,40,0.5);height: ${data.height}px;pointer-events: none;`,
         
       }
     },waveformChildren);
