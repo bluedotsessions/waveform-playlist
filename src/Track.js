@@ -24,7 +24,7 @@ export default class {
     
     this.delay = 1;
     this.bitcrusher = 1;
-    this.lowpass = 10;
+    this.lowpass = 0;
     
     this.clips = [];
     this.panHook = new PanKnob(this.pan,this);
@@ -36,58 +36,45 @@ export default class {
     ]
 
     this.effectsList = [
-      {name:"Chorus",knob:"chorus",params:[
-        {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
-        {name:"somethingelse",tunaparam:"blabla",init:0,min:0.1,max:0.2}
-      ]},
+      // {name:"Chorus",knob:"chorus",params:[
+      //   {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
+      // ]},
       {name:"Overdrive",knob:"overdrive",params:[
-        {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
-        {name:"somethingelse",tunaparam:"blabla",init:0,min:0.1,max:0.2}
+        {name:"mybypass",tunaparam:"mybypass",init:0,min:0,max:1},
       ]},
       {name:"BitCrusher",knob:"bitcrusher",params:[
-        {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
-        {name:"somethingelse",tunaparam:"blabla",init:0,min:0.1,max:0.2}
+        {name:"bits",tunaparam:"bits",init:6,min:6,max:3},
+        {name:"frequency",tunaparam:"normfreq",init:0.5,min:0.5,max:0.1},
       ]},
       {name:"Lo-Pass",knob:"lowpass",params:[
-        {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
-        {name:"somethingelse",tunaparam:"blabla",init:0,min:0.1,max:0.2}
+        {name:"frequency",tunaparam:"frequency",init:4000,min:4000,max:100},
       ]},
       {name:"Hi-Pass",knob:"hipass",params:[
-        {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
-        {name:"somethingelse",tunaparam:"blabla",init:0,min:0.1,max:0.2}
+        {name:"frequency",tunaparam:"frequency",init:100,min:100,max:6000},
       ]},
       {name:"Band-Pass",knob:"bandpass",params:[
-        {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
-        {name:"somethingelse",tunaparam:"blabla",init:0,min:0.1,max:0.2}
+        {name:"frequency",tunaparam:"frequency",init:100,min:100,max:8000},
       ]},
       {name:"Cabinet",knob:"cabinet",params:[
-        {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
-        {name:"somethingelse",tunaparam:"blabla",init:0,min:0.1,max:0.2}
+        {name:"mybypass",tunaparam:"mybypass",init:0,min:0,max:1},
       ]},
       {name:"Delay - Simple",knob:"delay",params:[
-        {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
-        {name:"somethingelse",tunaparam:"blabla",init:0,min:0.1,max:0.2}
+        {name:"mybypass",tunaparam:"mybypass",init:0,min:0,max:1},
       ]},
       {name:"Delay - Stereo",knob:"delay",params:[
-        {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
-        {name:"somethingelse",tunaparam:"blabla",init:0,min:0.1,max:0.2}
+        {name:"mybypass",tunaparam:"mybypass",init:0,min:0,max:1},
       ]},
-
       {name:"Verb - Hall",knob:"reverb",params:[
-        {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
-        {name:"somethingelse",tunaparam:"blabla",init:0,min:0.1,max:0.2}
+        {name:"mybypass",tunaparam:"mybypass",init:0,min:0,max:1},
       ]},
       {name:"Verb - Church",knob:"reverb",params:[
-        {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
-        {name:"somethingelse",tunaparam:"blabla",init:0,min:0.1,max:0.2}
+        {name:"mybypass",tunaparam:"mybypass",init:0,min:0,max:1},
       ]},
       {name:"Verb - Room",knob:"reverb",params:[
-        {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
-        {name:"somethingelse",tunaparam:"blabla",init:0,min:0.1,max:0.2}
+        {name:"mybypass",tunaparam:"mybypass",init:0,min:0,max:1},
       ]},
       {name:"Verb - Spring",knob:"reverb",params:[
-        {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
-        {name:"somethingelse",tunaparam:"blabla",init:0,min:0.1,max:0.2}
+        {name:"mybypass",tunaparam:"mybypass",init:0,min:0,max:1},
       ]},
 
     ]
@@ -287,8 +274,8 @@ export default class {
         },
         hook
       }),
-      this.showSubMenu == name?
-      this.renderEffectSubmenu(data):""
+      // this.showSubMenu == name?
+      // this.renderEffectSubmenu(data):""
     ])
   }
 
@@ -297,13 +284,16 @@ export default class {
     const effects = this.buttonsList
       .map(name=>this.effectsList.find(i=>i.name == name))
       .map(i=>
-        this.renderSingleEffect(data,i.name,new EffectKnobHook(this.ee,this[i.knob],(value)=>{
+        this.renderSingleEffect(data,i.name,new EffectKnobHook(this.ee,this[i.knob] || 0,(value)=>{
           this[i.knob] = value;
           this.clips.forEach(clip=>{
-            clip.playout[`toggle_${i.knob}`] = value > 1;
-            clip.playout[i.knob].bypass = value;
+            clip.playout[`toggle_${i.knob}`] = value;
+            i.params.forEach(param=>{
+              const amount = (param.max - param.min) * value + param.min;
+              clip.playout[i.knob][param.tunaparam] = amount;
+            })
           })
-        }))
+        },0,1))
       )
     
     return h(`div.effectsmenu${this.showmenu?'.visible':''}`,effects);
