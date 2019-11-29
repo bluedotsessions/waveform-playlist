@@ -89,6 +89,18 @@ export default class {
   unasignAll(){
     return this.clips = [];
   }
+  checkCrossfade(){
+    for (let a of this.clips){
+      for (let b of this.clips){
+        if (a.startTime < b.startTime && a.endTime > b.startTime){
+          this.ee.emit("fadeout", a.endTime - b.startTime, a);
+          this.ee.emit("fadein", a.endTime - b.startTime, b);
+        }
+      }
+    }
+
+
+  }
 
   schedulePlay(...args) {
     return Promise.all(this.clips.map(c=>c.schedulePlay(...args)));

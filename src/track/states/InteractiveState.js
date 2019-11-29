@@ -218,10 +218,12 @@ export default class {
     }
     else if (this.action == "dragginghandle" || this.action == "shifting"){
       this.action = null;
+      this.ee.emit('restartplay');
       this.bufferedMovement = 0;
     }
     else if (this.action == "resizingleft" || this.action == "resizingright") {
       e.preventDefault();
+      this.ee.emit('restartplay');
       this.updateResizing(e);
       this.action = null;
       // console.log("dropped");

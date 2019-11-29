@@ -44,8 +44,8 @@
   },
   "scripts": {
     "clean": "rm waveform-playlist.var.js waveform-playlist.var.js.map",
-    "build": "npm run clean && webpack",
-    "webpack:server": "node_modules/webpack-dev-server/bin/webpack-dev-server.js --content-base . --colors --host 0.0.0.0 --inline",
+    "build": "webpack",
+    "webpack:server": "webpack-dev-server --content-base . --colors --host 0.0.0.0 --inline",
     "start": "npm run webpack:server",
     "dev": "npm run webpack:server"
   },

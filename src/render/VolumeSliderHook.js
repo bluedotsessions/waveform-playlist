@@ -1,3 +1,5 @@
+import { globalAgent } from "https";
+
 /*
 * virtual-dom hook for setting the volume input programmatically.
 * ... AND dB METER
@@ -5,6 +7,7 @@
 export default class {
   constructor(track){
     this.track = track;
+    this.recentPeak = 0;
   }
   update(){
     const NLazar = this.track.analyzer; 
@@ -31,7 +34,14 @@ export default class {
     }
     this.draw(max);
   }
-  draw(max){
+  draw(max=0){
+    if (this.recentPeak < max){
+      this.recentPeak = max;
+    }
+    else{
+      this.recentPeak = this.recentPeak * 0.99;
+    }
+
     /* dB Meter */
     const g = this.g;
 
@@ -50,12 +60,17 @@ export default class {
     //foreground
     if (max > 0){
       g.globalCompositeOperation = "source-atop";
-      g.lineCap="butt";
-      g.strokeStyle = "orange";
-      g.beginPath();
-      g.moveTo(7,this.canvas.height/2);
-      g.lineTo(max*(this.canvas.width-7),this.canvas.height/2);
-      g.stroke();
+
+      g.fillStyle = "orange"
+      g.fillRect(7,0,max*(this.canvas.width-7), this.canvas.height);
+      
+      g.fillStyle = "white";
+        
+      console.log(this.recentPeak);
+      const x = this.recentPeak*(this.canvas.width-7) + 7;
+      g.fillRect(x, 0, 2, this.canvas.height);
+
+
       g.globalCompositeOperation = "source-over";
     }
     
@@ -65,6 +80,9 @@ export default class {
     g.moveTo(this.track.gain*(this.canvas.width-14)+7+7,this.canvas.height/2);
     g.arc(this.track.gain*(this.canvas.width-14)+7,this.canvas.height/2,7,0,Math.PI*2);
     g.fill(); 
+
+    /* RecentPeak */
+    
 
 
   }

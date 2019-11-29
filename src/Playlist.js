@@ -204,9 +204,14 @@ export default class {
 
     ee.on('shift', (deltaTime, clip) => {
       clip.setStartTime(clip.getStartTime() + deltaTime);
+      clip.track.checkCrossfade();
       this.adjustDuration();
       this.drawRequest();
     });
+    ee.on('restartplay',_=>{
+      this.pause();
+      this.play();
+    })
 
     ee.on('record', () => {
       this.record();
