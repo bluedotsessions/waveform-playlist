@@ -1,3 +1,6 @@
+/// This is copy-pasted PanKnobHook.js but a bit more abstracted.
+/// Go read PanKnobHook firstly.
+
 export default class {
     constructor (ee,initialValue=0,callback,from = -2,to = 2){
         this.value = ((initialValue - from)/(to - from)) * 2 - 1;

@@ -17,15 +17,18 @@ export default class {
         const {offsetX,offsetY} = e;
         const center = {x:this.canvas.width/2,y:this.canvas.height/2};
         const TAU = Math.PI*2;
-
+        /// Where the mouse clicked:
         const angle = Math.atan2(offsetY-center.y,offsetX-center.x);
         
+        /// Where is the top of the pan
         const top = this.gapPosition - 3*Math.PI;
 
+        /// transform position:
         const dangle = (angle - top)%TAU;
 
         const adjustedNegatives = dangle > Math.PI?dangle-TAU:dangle;
 
+        /// account for the gap.
         const amount = adjustedNegatives/(Math.PI-this.gap);
 
         const realamount = amount > 1 ? 1 : (amount < -1 ? -1 : amount); //clamping to -1 to 1
@@ -44,10 +47,13 @@ export default class {
         const TAU = Math.PI*2;
         this.pan = this.track.pan;
         //Background
+        ///Thickness:
         g.lineWidth = this.lineWidth;
+        ///Color:
         g.strokeStyle = canvas.getAttribute('data-ringbgcolor') || '#EEE';
         g.clearRect(0,0,canvas.width,canvas.height);
-        g.beginPath()
+        g.beginPath();
+        /// Circle:
         g.arc(
             center.x,
             center.y,

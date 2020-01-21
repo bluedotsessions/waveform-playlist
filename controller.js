@@ -1,3 +1,5 @@
+///This is the loading of a STEM file.
+
 let playlist = WaveformPlaylist.init({
   samplesPerPixel: 3000,
   waveHeight: 100,

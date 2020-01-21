@@ -15,7 +15,7 @@ export default function (clip,playlist){
     const secsperbar = secsperbeat * playlist.barLength;
     const offsetTime = secsperbeat * playlist.barOffset;
     let startofSilence = NaN;
-    const threshhold = 0.02;
+    const threshhold = 0.01;
 
     for (let a=cueInSamp;a<cueOutSamp;a++){
     if(!isNaN(startofSilence) && Math.abs(samples[a])>threshhold){

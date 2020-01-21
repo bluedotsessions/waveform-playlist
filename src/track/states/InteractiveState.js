@@ -3,12 +3,22 @@ import { pixelsToSeconds , secondsToPixels } from '../../utils/conversions';
 export default class {
   constructor(ee) {
     this.ee = ee;
-    // 0 : not dragging; 1 : dragging the end; -1 : dragging the begining
+    /// 0 : not dragging; 
+    /// 1 : dragging the end;
+    /// -1 : dragging the begining
     this.draggingFrom = 0;
+
+    /// Action means what the user is doing right now.
     this.action = null;
     this.bufferedMovement = 0;
+
+
+    /// Each clip has it's own eventlistener
+    /// Go to Clip.js/render() for more info.
     this._activeClip = {name:'_none',startTime:0}; 
     this.setupEventListeners();
+
+    /// Go to mousemove()
   }
 
   set activeClip(clip){
@@ -66,6 +76,7 @@ export default class {
   }
   
   updateDraggingFadeHandle(mousepos){
+    /// I didn't design the fades :(
     const fadeout= this.activeClip.fades[this.activeClip.fadeOut];
     const fadein= this.activeClip.fades[this.activeClip.fadeIn];
     if (this.hoveringover == "fadein")
@@ -73,22 +84,40 @@ export default class {
     else
       this.ee.emit('fadeout', this.activeClip.duration - Math.min( Math.max(mousepos, fadein.getDuration() + 0.5),this.activeClip.duration),this.activeClip);
     this.ee.emit('interactive');  
+    /// For more info go to the events at
+    /// ./Playlist.js/setupEventEmmiter()/'fadein'
+    /// ./Playlist.js/setupEventEmmiter()/'fadeout'
+
   }
 
   updateShifting(movementX){
-    const blocklength = (60 / this.activeClip.bpm)*this.activeClip.quantize; //in seconds
-    this.bufferedMovement += movementX; //in seconds
-    const snaps = Math.round(this.bufferedMovement/blocklength);
-    if (snaps != 0){
-      this.ee.emit("shift",snaps*blocklength,this.activeClip);
-      this.bufferedMovement = this.bufferedMovement - snaps*blocklength;
+    if (this.activeClip.quantize){
+      /// Example:
+      /// x beats per minute
+      /// x beats per 60 seconds
+      /// x/60 beats per 1 second
+      /// 60/x seconds per beat
+      const blocklength = (60 / this.activeClip.bpm)*this.activeClip.quantize; //in seconds
+      this.bufferedMovement += movementX; //in seconds
+      const snaps = Math.round(this.bufferedMovement/blocklength);
+      if (snaps != 0){
+        this.ee.emit("shift",snaps*blocklength,this.activeClip);
+        this.bufferedMovement = this.bufferedMovement - snaps*blocklength;
+      }
     }
+    else{
+      this.ee.emit("shift",movementX,this.activeClip);
+    }
+    /// more info at playlist.js / setupEventEmmiter() / ee.on('shift'
   }
 
   mousemove(e) {
+    /// Uncomment this to see the actions:
     // console.log(this.action);
     const mousepos = this.getMousepos(e);
     const movementX = pixelsToSeconds(e.movementX, this.samplesPerPixel, this.sampleRate);
+    
+    /// Mouse is clicked down:
     if (this.action == "dragginghandle"){
       this.updateDraggingFadeHandle(mousepos);
     }
@@ -98,7 +127,8 @@ export default class {
     else if (this.action == "shifting"){
      this.updateShifting(movementX);
     }
-    //Hovering Over:
+    /// Mouse Hovering Over:
+    /// Mouse has a tool:
     else if (this.action == "split"){
       document.body.style.cursor = "text";
     }
@@ -120,6 +150,7 @@ export default class {
       document.body.style.cursor = "grab";
 
     }
+    /// Else action is null.
     else{
       this.action = null;
       document.body.style.cursor = "auto";
@@ -160,15 +191,20 @@ export default class {
     }
     if (this.action == "resizingleft"){
       // console.log(activeClip.cueIn + mousepos);
+
+      /// guards that you don't resize it too small.
       if (activeClip.cueIn + mousepos <= 0)
         mousepos = -activeClip.cueIn;
       if (activeClip.cueIn + mousepos - activeClip.cueOut >= -4)
         mousepos = -4 + activeClip.cueOut - activeClip.cueIn;
+      
+      /// recalculating the new starts:
       const oldStartTime = activeClip.startTime;
       const oldCueIn = activeClip.cueIn;
       activeClip.startTime = oldStartTime + mousepos;
       activeClip.cueIn = oldCueIn + mousepos;
 
+      ///recalculating the new fades
       const fadeout= activeClip.fades[activeClip.fadeOut];
       const fadein= activeClip.fades[activeClip.fadeIn];
       this.ee.emit('fadein',Math.min(

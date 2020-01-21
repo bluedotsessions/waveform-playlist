@@ -1,15 +1,24 @@
 import { FADEIN, FADEOUT, createFadeIn, createFadeOut } from 'fade-maker';
 import Tuna from 'tunajs';
 
+/// This file is an interface to the audioContext and Tuna.js
 
 export default class {
 
   constructor(ac, buffer) {
     this.ac = ac;
+    /// probably there should be only one instance of the library
+    /// because it is currently really laggy.
+    /// and the chorus and reverb doesn't work. 
     this.tuna = new Tuna(this.ac);
     this.gain = 1;
     this.buffer = buffer;
     this.destination = this.ac.destination;
+
+    ///Now follows the initiation of the effects:
+
+
+    ///it is commented because it doesn't work :/
 
     // this.chorus =  new this.tuna.Chorus({
     //   rate: 1.5,         //0.01 to 8+
@@ -56,6 +65,8 @@ export default class {
       bypass: 0
     });
     
+    /// doesn't work :/
+
   //   this.cabinet = new this.tuna.Cabinet({
   //     makeupGain: 1,                                 //0 to 20
   //     impulsePath: "impulses/impulse_guitar.wav",    //path to your speaker impulse
@@ -63,7 +74,7 @@ export default class {
   // });
 
   
-
+    /// Now go to setUpSource() function
 
   }
 
@@ -111,14 +122,18 @@ export default class {
         tunachain.connect(effect);
         tunachain = effect;
       }
-      return tunachain
+      return tunachain;
     }
   }
 
   setUpSource(compressor) {
+    /// This function prepares the audio clip to be played.
+    /// The compressor here is global, so it is handled from the playlist.js
+    /// Go to the play() function in the Playlist.js for more info.
     this.source = this.ac.createBufferSource();
     this.source.buffer = this.buffer;
 
+    /// firstly we reset the effect chain
     const sourcePromise = new Promise((resolve) => {
       // keep track of the buffer state.
       this.source.onended = () => {
@@ -140,14 +155,14 @@ export default class {
         resolve();
       };
     });
-
+    // used for fadein/fadeout
     this.fadeGain = this.ac.createGain();
     // used for track volume slider
     this.volumeGain = this.ac.createGain();
     // used for solo/mute
     this.shouldPlayGain = this.ac.createGain();
     
-    
+    /// the Panner
     this.panner = this.ac.createStereoPanner();
 
 
@@ -156,12 +171,13 @@ export default class {
     
     this.masterGain = this.ac.createGain();
 
-
+    /// The effect chain:
     this.source
       .connect(this.fadeGain)
       .connect(this.panner)
 
     let tunachain = this.panner;
+
     if (this.toggle_delay){
       tunachain.connect(this.delay);  
       tunachain = this.delay;
@@ -174,6 +190,11 @@ export default class {
       tunachain.connect(this.lowpass);
       tunachain = this.lowpass;
     }
+    /// There is also setupEffect that is not used,
+    /// but you might find it usefull.
+    /// Feel free to add more ifs for more effects.
+
+
     tunachain.connect(this.volumeGain);
 
     this.volumeGain
@@ -182,7 +203,7 @@ export default class {
       .connect(compressor)
       .connect(this.destination)
 
-
+    /// Now go to the playlist.js/setUpEventEmmiter()/ee.on('play',...)
 
     return sourcePromise;
   }

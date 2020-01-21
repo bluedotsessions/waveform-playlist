@@ -1,3 +1,16 @@
+/// Don't be scared from the large file size.
+/// It was like that originally.
+///
+/// This file controles the whole thing.
+/// The main thing to get is that there are couple of arrays
+/// that hold the audioBuffers (audio clips) and hold the tracks
+///
+/// Go to the createClip() function and I'll see you there
+
+
+
+
+
 import _defaults from 'lodash.defaults';
 
 import h from 'virtual-dom/h';
@@ -22,9 +35,12 @@ import ExportWavWorkerFunction from './utils/exportWavWorker';
 
 export default class {
   constructor(ee) {
-    
+    /// comunication between the tracks, clips and the playlist
+    /// is handled through events.
+    /// to see the events comming in go to the 
+    /// setUpEventEmitter() function.
     this.ee = ee;
-
+    //Array that holds the tracks( go to the ./Track.js file for more info)
     this.tracks = [];
     this.buffers= new Map;
     this.clips = [];
@@ -40,7 +56,7 @@ export default class {
 
 
     this.scrollTimer = undefined;
-    this.showTimescale = false;
+    this.showTimescale = true;
     this.scrolldragging = false;
     this.seekClicking = true;
     // whether a user is scrolling the waveform
@@ -58,6 +74,8 @@ export default class {
     this.stateObj = new InteractiveState(this.ee);
     this.stateObj.ee = this.ee;
     this.stateObj.setup(this.samplesPerPixel,this.sampleRate);
+
+    /// Now go to ./src/track/states/InteractiveState.js 
   }
 
   setTracks(tracks){
@@ -147,10 +165,16 @@ export default class {
       }
     })
 
+    /// You might see this throughout the code
+    /// This if just updating the virtual-dom library,
+    /// because when the state is changed, the library does not
+    /// update the view, unless we tell it to.
     ee.on ('interactive', (track) => {
       this.drawRequest();
     });
+
     ee.on('activeclip',(clip)=>{
+      /// Activeclip means above which clip the mouse is.
       const segment = 60/clip.bpm;
       console.log(clip.name,clip.startTime/segment);
       this.stateObj.activeClip = clip;
@@ -209,19 +233,23 @@ export default class {
       this.drawRequest();
     });
     ee.on('restartplay',_=>{
-      this.pause();
-      this.play();
+      if (this.isPlaying()){
+        this.pause();
+        this.play();
+      }
     })
 
     ee.on('record', () => {
       this.record();
     });
 
+    ///This is called when the play button is pressed.
     ee.on('play', (start, end) => {
       if (this.isPlaying())
         this.pause();
       else
         this.play(start, end);
+      ///Go to play() function now.
     });
 
     ee.on('pause', () => {
@@ -373,7 +401,13 @@ export default class {
     return false;
   }
 
+
+  /// After we download the audio file
+  /// we need to load it into the playist
+
   createClip(audioBuffer,info,removeSilences=true,readypeaks){
+    /// For more info on the individual methods
+    /// Go to the ./Clip.js
     const name = info.name || 'Untitled';
     const start = info.start || 0;
     const states = info.states || {};
@@ -390,16 +424,26 @@ export default class {
     const customClass = info.customClass || undefined;
     const waveOutlineColor = info.waveOutlineColor || undefined;
 
-    // webaudio specific playout for now.
+    /// This handles the audio playing and effects.
+    /// Go to ./Playout.js
     const playout = new Playout(this.ac, audioBuffer);
 
+    /// We need to put the clip into a track:
     let track = this.getTrackByName(trackname);
+
+    /// Here we create the tracks:
     if (!track){
+      /// We need unique ids for some strange bugs with
+      /// the virtual-dom library
       track = new Track(this.tracksids++);
+      /// This is used for the dB meter:
       track.analyzer = this.ac.createAnalyser();
       track.name = trackname;
+      /// Quantize means if it should snap to the lines.
       track.quantize = this.quantize;
       track.bpm = this.bpm;
+      /// comunication between the tracks, clips and the playlist
+      /// is handled through events.
       track.setEventEmitter(this.ee);
       track.barLength = this.barLength;
       track.barOffset = this.barOffset;
@@ -423,6 +467,9 @@ export default class {
 
     track.assign(clip);
 
+
+    /// One slight notice:
+    /// There is always a fade in and fade out.
     if (fadeIn !== undefined) {
       clip.setFadeIn(fadeIn.duration, fadeIn.shape);
     }
@@ -442,17 +489,27 @@ export default class {
 
     clip.setGainLevel(gain);
 
-    // extract peaks with AudioContext for now.
+    /// This is used for the drawing of the clips.
+    /// If you want to see the drawaing go to 
+    /// ./src/render/CanvasHook.js
+    /// it is called from Clip.js/render().
     if (readypeaks !== undefined)
       clip.peaks = readypeaks;
     else
       clip.calculatePeaks(this.samplesPerPixel, this.sampleRate);
 
+    /// STEM files are bunch of audio files
+    /// that are the same length
+    /// but some instruments start and stop troughout the song
+    /// so in the files there are huge silences that are to be
+    /// removed. So go to the ./SilenceCutter.js for more info. 
     if(removeSilences){
       silenceCutter(clip,this);
     }
     this.clips.push(clip);
     return clip;
+
+    /// Okay, great! Now go to the render() function
   }
 
   async load(clipList) {
@@ -560,6 +617,7 @@ export default class {
   }
 
   adjustDuration() {
+    /// a bit of functional programming :)
     this.duration = this.tracks.reduce(
       (duration, track) => Math.max(duration, track.getEndTime()),
       0,
@@ -638,6 +696,9 @@ export default class {
     }
 
     const compressor = this.ac.createDynamicsCompressor();
+    
+    /// Firstly we prepare for play
+    
     this.tracks.forEach((track) => {
       // track.setState('cursor');
       playoutPromises.push(track.schedulePlay(currentTime, start, end, {
@@ -646,7 +707,13 @@ export default class {
         compressor,
       }));
     });
+    
+    /// Then we play:
     this.tracks.forEach(track=>track.play(this.ac.currentTime,start,end));
+
+    /// The code below is not mine :/
+    /// The next interesting functions are Clip.js/schedulePlay().
+    /// and Clip.js/play(). Go there now.
 
     this.lastPlay = this.ac.currentTime;
     // use these to track when the playlist has fully stopped.
@@ -820,6 +887,8 @@ export default class {
 
   renderTimeScale() {
     const controlWidth = this.controls.show ? this.controls.width : 0;
+    ///this.duration is the time for all the tracks to finish
+    /// it is calculated in the adjustDuration function
     const timeScale = new TimeScale(this.ee,this.duration, this.scrollLeft,
       this.samplesPerPixel, this.sampleRate, controlWidth);
 
@@ -827,10 +896,14 @@ export default class {
   }
 
   renderTrackSection() {
+    /// probably could've used the this.duration method ...
     const globalEndTime = this.tracks
       .map(tr=>tr.getEndTime())
       .reduce((a,b)=>Math.max(a,b),0);
 
+    /// Each track has controls to the left and it's clips to the right
+
+    /// Controls:
     const trackControls = this.tracks.map(track=>
       track.renderControls(this.getTrackRenderData({
         globalEndTime,
@@ -839,6 +912,7 @@ export default class {
         muted: this.mutedTracks.indexOf(track) > -1,
       }))
     )
+    /// Clips: 
     const trackWaveforms = this.tracks.map(track=>
       track.renderWaveform(this.getTrackRenderData({
         globalEndTime,
@@ -847,10 +921,16 @@ export default class {
         muted: this.mutedTracks.indexOf(track) > -1,
       }))
     )
+    
+    /// After this, you will need to go to the ./Track.js file
+    /// There you will need to read renderControls() and renderWaveform()
+    
 
     return h('div.playlist-tracks',
       [
+        /// Contols:
         h('div.controls-container',trackControls),
+        /// Clips:
         h('div.waveform-container',{
           onscroll: (e) => {
             this.scrollLeft = pixelsToSeconds(
@@ -865,26 +945,43 @@ export default class {
         },trackWaveforms)
       ],
     );
+    
   }
 
   render() {
+    /// Render means creating a virtual tree 
+    /// with the virtual-dom library.
+    /// Every HTML element has children elements:
     const containerChildren = [];
-
+    
+    /// Timescale is the container for the time stamps
+    /// that are bellow the controlls
+    /// and above the tracks.
     if (this.showTimescale) {
       containerChildren.push(this.renderTimeScale());
     }
-
+    
+    /// This renders the tracks.
+    /// Go there after you finish reading this function.
     containerChildren.push(this.renderTrackSection());
     
 
     return h('div#playlist-rendered',
       {
+        /// These events are used for the InteractiveState.
+        /// Go there if you haven't: ./src/track/states/InteractiveState.js
         onselectstart:event=>event.preventDefault(),
         onmouseleave:event=>this.ee.emit("playlistmouseleave",event),
         onmousedown:event=>this.ee.emit("playlistmousedown",event),
         onmouseup:event=>this.ee.emit("playlistmouseup",event),
         onmousemove:event=>this.ee.emit("playlistmousemove",event),
       },
+      /// This is where the children are put in the virtual-dom library
+      ///   |
+      ///   |
+      /// \ | /
+      ///  \|/
+      ///   V 
       containerChildren,
     );
   }

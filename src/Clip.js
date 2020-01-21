@@ -261,6 +261,13 @@ export default class {
     is either stopped or plays out naturally.
   */
   schedulePlay(now, startTime, endTime, config) {
+    /// double slashed comments are not mine.
+    /// TL;DR:
+    /// this.cueIn/this.cueOut means how the audio clip is cut
+    /// this.startTime/this.endTime means when the clip is played.
+    /// just startTime is where the cursor is on the timeline. 
+
+
     let start;
     let duration;
     let when = now;
@@ -305,10 +312,12 @@ export default class {
         duration = this.duration - start;
       }
     }
-
+    
     start += this.cueIn;
     const relPos = startTime - this.startTime;
+    /// Go read Playout.js/setUpSource if you haven't already.
     const sourcePromise = playoutSystem.setUpSource(config.compressor);
+    /// This is for the track's dB meter.
     this.track.registerPlayout(playoutSystem.dBSource);
 
     // param relPos: cursor position in seconds relative to this track.
@@ -342,7 +351,7 @@ export default class {
         }
       }
     });
-
+    
     playoutSystem.setVolumeGainLevel(this.gain);
     playoutSystem.setShouldPlay(options.shouldPlay);
     playoutSystem.setMasterGainLevel(options.masterGain);
@@ -353,19 +362,27 @@ export default class {
     // playoutSystem.play(when, start, duration);
     
     return sourcePromise;
+
+    /// Now go read play()
+    /// It's just bellow :)
+    /// |
+    /// V
   }
   play(now, startTime, endTime){
     endTime = endTime || undefined;
     let diff = this.startTime - startTime;
+    /// If the cursor is behind the clip
     if (diff > 0){
       this.readyPlayout.play(now + diff,this.cueIn,endTime);
     }
+    /// If the cursor is on the clip
     else if (this.endTime > startTime){
       if (this.cueIn < 0){
         debugger;
       }
       this.readyPlayout.play(now, this.cueIn - diff,endTime);
     }
+    /// Else do nothing.
   }
 
   scheduleStop(when = 0) {
@@ -649,6 +666,7 @@ export default class {
   }
 
   renderMenu(data){
+    /// Probably should offload the css to the main.css file.
     const buttonStyle = `
           height:20px;
           cursor:pointer;
@@ -702,19 +720,23 @@ export default class {
 
     let clipChildren = [];
 
+    /// The waveform image:
     clipChildren.push(this.renderWaveform(data));
 
+    /// The fades:
     if (this.fadeIn)
       clipChildren.push(this.renderFadeIn(data));
 
     if (this.fadeOut) 
       clipChildren.push(this.renderFadeOut(data));
 
+    /// The double straight lines:
     clipChildren.push(this.renderLeftShiftHandles(data));
     clipChildren.push(this.renderRightShiftHandles(data));
 
+    /// The button for the menu
     clipChildren.push(this.renderMenuButton(data));
-
+    /// The menu
     if(this.showMenu)
       clipChildren.push(this.renderMenu(data));
    

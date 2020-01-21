@@ -3,6 +3,8 @@ import h from 'virtual-dom/h';
 import { secondsToPixels,pixelsToSeconds } from './utils/conversions';
 import TimeScaleHook from './render/TimeScaleHook';
 
+/// Not mine.
+
 class TimeScale {
   constructor(ee,duration, offset, samplesPerPixel, sampleRate, marginLeft = 0) {
     this.ee = ee;

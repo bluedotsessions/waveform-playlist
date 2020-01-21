@@ -3,9 +3,11 @@
 */
 import { secondsToPixels, secondsToSamples } from '../utils/conversions';
 
-
 class CanvasHook {
   constructor(peaks, offset, bits, color, cueIn, resolution, sampleRate, image) {
+    
+    /// First go read the hook() function
+    
     this.cueIn = cueIn;
     this.resolution = resolution;
     this.sampleRate = sampleRate;
@@ -16,6 +18,7 @@ class CanvasHook {
     this.bits = bits;
     this.bufferedwaveform = image;
     this.bwc = undefined; // BufferedWaveformContext
+
   }
 
   static drawFrame(cc, h2, x, minPeak, maxPeak) {
@@ -31,13 +34,11 @@ class CanvasHook {
   }
 
   drawCanvas (cc, len, h2){
+    
     const maxValue = 2 ** (this.bits - 1);
 
     cc.clearRect(0, 0, len, h2*2);
-    // cc.fillStyle = "black";
-    // cc.fillRect(0,0,len,h2*2);
     cc.fillStyle = this.color;
-    // console.log(this.color);
     for (let i = 0; i < len; i += 1) {
       const minPeak = this.compressValue(this.peaks[i * 2] / maxValue);
       const maxPeak = this.compressValue(this.peaks[i * 2 + 1] / maxValue);
@@ -46,7 +47,7 @@ class CanvasHook {
     }
   }
   compressValue(val){
-  
+    /// This is to make the quiet parts louder.
     if (Math.abs(val) < 0.1){
       val *= 1.6;
     }
@@ -73,19 +74,22 @@ class CanvasHook {
     this.bufferedwaveform.width = width;
     this.bufferedwaveform.height = height;
     // console.log(this.bufferedwaveform);
-    console.log("redraw");
+    //console.log("redraw");
     this.bwc = this.bufferedwaveform.getContext('2d');
     this.drawCanvas(this.bwc,width,height/2);
     return this.bufferedwaveform;
   }
 
   hook(canvas, prop, prev) {
-    // canvas is up to date
+    /// canvas here is a real HTML canvas. Yes!
 
     const len = canvas.width;
     const cc = canvas.getContext('2d');
     const h2 = canvas.height / 2;
 
+    /// We don't need to rerender the waveform image everytime
+    /// the user shifts/resizes the clips.
+    /// So we store it in a bufferedwaveform
     if (!this.bufferedwaveform)
       this.setupImage(this.peaks.length,h2*2);
 

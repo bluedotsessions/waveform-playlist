@@ -1,5 +1,8 @@
+/// These are the controlls for the playlist
+
 const $ = s=>document.querySelector(s);
-const emit = (s,e)=>playlist.ee.emit(s,e);
+const $$ = s=>document.querySelectorAll(s);
+const emit = (...args)=>playlist.ee.emit(...args);
 
 $("#play-button").onclick = e=>emit("play",0);
 $("#prev-button").onclick = e=>emit("rewind");
@@ -12,7 +15,7 @@ function displayDownloadLink(link){
     if (l.href){
         window.URL.revokeObjectURL(l.href);
     }
-    l.download = "name-of-song.wav";
+    l.download = playlist.name;
     l.href = link;
     l.innerHTML = "download ready";
 
@@ -52,3 +55,24 @@ $("#zoomin").addEventListener("click",e=>{
 $("#zoomout").addEventListener("click",e=>{
     playlist.ee.emit("zoomout");
 })
+
+$("#snap").addEventListener("click",e=>{
+    const el = $("#snapmenu");
+    if(el.style.display =="none"){
+        el.style.display = "block";
+    }
+    else{
+        el.style.display = "none";
+    }
+})
+
+$$("#snapmenu > div").forEach(n => 
+    n.addEventListener("click",e=>{
+        const input = e.target.innerHTML;
+        const quantize = {"none":0,"beat":1,"bar":playlist.barLength}[input];
+        playlist.quantize = quantize;
+        $("#snap").innerHTML = input + " &#9662;";
+        $("#snapmenu").style.display = "none";
+    })
+)
+

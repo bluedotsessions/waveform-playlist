@@ -13,6 +13,9 @@ export default class {
     this.customClass = undefined; //Track
     this.waveOutlineColor = undefined; //Track
     this.gain = 1; //Track
+    /// Underlined properties are not to be touched.
+    /// They have setters and gettters, so use this.pan instead. 
+    /// go to the set pan() function for more info.
     this._pan = 0; // Track
     this.ee = undefined;
     this.bpm = 100;
@@ -20,22 +23,41 @@ export default class {
     this.quantize = 1;
     
     this.analyzer = undefined;
+    /// This is the volume slider and dB meter
+    /// go to the ./src/render/VolumeSliderHook.js for more info.
     this.analyzerHook = new VolumeSliderHook(this);
     
+    /// Properties for the effect knobs.
+    /// 0 generally means off
+    /// 1 - on
     this.delay = 1;
     this.bitcrusher = 1;
     this.lowpass = 0;
     
+    /// Each track has array of Clips.
+    /// Go to the ./Clip.js for more info.
     this.clips = [];
+    
+    /// This is the pan knob.
+    /// Probably have to change it, to be EffetKnob.
+    /// But this was my first effect done, so it's a bit hard-coded.
     this.panHook = new PanKnob(this.pan,this);
 
+    /// These are the knobs that are currently visible on the track.
     this.buttonsList = [
       "Lo-Pass",
       "Delay - Simple",
       "Verb - Hall"
     ]
 
+    /// I've experimented a bit, so there are the effects for the track
+    /// The idea is that it holds the info for the 
+    /// inital, minimal and maximum values and bunch more info.
+    /// I'm not quite happy with it now, so
+    /// you can change this array as you see fit.
+    /// To see how this info is used, go to the renderEffects() function
     this.effectsList = [
+
       // {name:"Chorus",knob:"chorus",params:[
       //   {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
       // ]},
@@ -76,12 +98,7 @@ export default class {
       {name:"Verb - Spring",knob:"reverb",params:[
         {name:"mybypass",tunaparam:"mybypass",init:0,min:0,max:1},
       ]},
-
     ]
-
-
-
-
   }
   updatedBMeter(){
     this.analyzerHook.update();
@@ -292,16 +309,32 @@ export default class {
   }
 
   renderEffects(data){
-
+    /// Ouch. Don't worry, I'll explain everything.
+    ///
+    /// 0) We start with the names of the visible effects.
+    /// Go to the constructor and see this.buttonList.
+    ///
+    /// 1) We get the info for the effects from the effectList array
+    ///
+    /// 2) We render the effect box by giving it a name, a controller
+    ///
+    /// 3) We create a controller for the effect Knob by giving it 
+    /// a current value for the knob, and a callback for what to do
+    /// when the user turns the knob. (value goes from 0 to 1)
     const effects = this.buttonsList
       .map(name=>this.effectsList.find(i=>i.name == name))
       .map(i=>
         this.renderSingleEffect(data,i.name,new EffectKnobHook(this.ee,this[i.knob] || 0,(value)=>{
+          /// Firstly we update the stored value for the knob.
           this[i.knob] = value;
+          /// We notify each clip for the changed value.
           this.clips.forEach(clip=>{
+            /// if the value is greater than 0, we turn on the effect
             clip.playout[`toggle_${i.knob}`] = value;
+            /// this determines what tuna.js parameters need to be changed.
             i.params.forEach(param=>{
               const amount = (param.max - param.min) * value + param.min;
+              /// go to Playout.js for more info on the tuna.js effects.
               clip.playout[i.knob][param.tunaparam] = amount;
             })
           })
@@ -365,6 +398,7 @@ export default class {
   renderControls(data) {
     return h('div.track-controls',
       {
+        /// These are for the delete/rename buttons.
         onmouseenter:e=>{
           this.showhovermenu = true;
           this.ee.emit("interactive");
@@ -374,23 +408,30 @@ export default class {
           this.ee.emit("interactive");
         },
         attributes: {
+          /// This is needed for opening menus that overlap with tracks
+          /// below them
           style: `z-index: ${30 - this.id};`,
         },
       }, [
         h('div.track-title',[
           h('span.track-title-text', [this.name]),
+          /// These are the buttons.
           h(`div.track-title-control-container${this.showhovermenu?".visible":""}`,[
             h('span.rename-track',{
+              /// Todo:
               onclick:this.renameTrack
             },"ren"),
             h('span.delete-track',{
               onclick:()=>{
+                /// implementation is in ./Playlist.js/setEventEmmiter().
                 this.ee.emit('destroy',this);
               }
             },"del")
           ])
         ]),
-        this.renderButtons(data),        
+        ///These are mute/solo buttons
+        this.renderButtons(data),     
+        ///These are the effects knobs. Go there now.   
         this.renderEffects(data),
       ],
     );
@@ -422,6 +463,7 @@ export default class {
     }
 
     const waveformChildren = [
+     /// This is the cursor
       h('div.cursor', {
         attributes: {
           style: `left: ${playbackX}px;`,
@@ -429,6 +471,7 @@ export default class {
       }),
     ];
 
+    /// This is the background grid.
     const grid = h('canvas.grid',{
       attributes :{
         width:convert(data.globalEndTime),
@@ -438,7 +481,8 @@ export default class {
       hook: new GridHook(this.quantize,this.bpm,this.barLength,this.barOffset,'lightgray',data.resolution,data.sampleRate)
     });
     waveformChildren.push(grid);
-
+    
+    /// And the clips
     waveformChildren.push(
       this.clips.map(
         clip=>clip.render(data)

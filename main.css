@@ -237,4 +237,18 @@ canvas.effect{
     color:white;
     text-align: center;
 }
-
+.label{
+    color: #5c5c5c;
+}
+#snapholder{
+    position: relative;
+}
+#snapmenu{
+    display:none;
+    position:absolute;
+    background-color: #464646;
+    border-radius: 5px;
+    padding:5px;
+    min-width: 50px;
+    z-index:10;
+}
