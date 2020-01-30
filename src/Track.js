@@ -239,7 +239,7 @@ export default class {
           this.ee.emit('solo', this);
         },
       }, ['S']),
-      h('div.effects-button.bordered-track-button',{
+      h(fx_class,{
           onclick: e=>{
             this.showmenu = !this.showmenu;
             this.ee.emit('interactive');

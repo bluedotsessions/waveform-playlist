@@ -150,6 +150,10 @@ body {
     cursor: pointer;
 }
 
+.fx-enabled{
+    background-color: #A8E4DE;
+}
+
 div.cursor{
     /* 'left' is controled from Track.js */
     position: absolute;
