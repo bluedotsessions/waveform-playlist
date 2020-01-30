@@ -15436,7 +15436,12 @@ var WaveformPlaylist =
 	            i.params.forEach(function (param) {
 	              var amount = (param.max - param.min) * value + param.min;
 	              /// go to Playout.js for more info on the tuna.js effects.
-	              clip.playout[i.knob][param.tunaparam] = amount;
+	              var knob = clip.playout[i.knob];
+	              if (knob) {
+	                knob[param.tunaparam] = amount;
+	              } else {
+	                console.warn(i.knob + ' does not exist, see Playout.js');
+	              }
 	            });
 	          });
 	        }, 0, 1));
