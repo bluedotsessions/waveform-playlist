@@ -101,7 +101,7 @@ body {
 }
 .track-controls{
     background-color:#606060;
-    height: 100px;
+    min-height: 100px;
     width: 250px;
     overflow:visible;
     left:0;
@@ -180,7 +180,6 @@ div.cursor{
 
 .effectsmenu{
     display: flex;
-    position:absolute;
     top:60px;
     width:250px;
     height:70px;
