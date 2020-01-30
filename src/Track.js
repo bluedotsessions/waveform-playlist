@@ -70,6 +70,9 @@ export default class {
       ]},
       {name:"Lo-Pass",knob:"lowpass",params:[
         {name:"frequency",tunaparam:"frequency",init:4000,min:4000,max:100},
+        {name:"gainCompensation",tunaparam:"gainCompensation",init:1,min:1,max:8},
+        //gainCompensation is not an actual tunaparam, the gain does not do anything for a lowpass filter
+        //gainCompensation is used to drive an additional gain node
       ]},
       {name:"Hi-Pass",knob:"hipass",params:[
         {name:"frequency",tunaparam:"frequency",init:100,min:100,max:6000},

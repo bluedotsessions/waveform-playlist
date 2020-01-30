@@ -64,6 +64,11 @@ export default class {
       filterType: "bandpass", //lowpass, highpass, bandpass, lowshelf, highshelf, peaking, notch, allpass
       bypass: 0
     });
+
+    //this is an gain node that the low pass filter needs to implement the volume compensation
+    this.gainCompensation = new this.tuna.Gain({
+        gain: 1
+    })
     
     /// doesn't work :/
 
@@ -187,13 +192,16 @@ export default class {
       tunachain = this.bitcrusher;
     }
     if(this.toggle_lowpass){
+      this.gainCompensation.gain = this.lowpass.gainCompensation;
       tunachain.connect(this.lowpass);
       tunachain = this.lowpass;
+      tunachain.connect(this.gainCompensation);
+      tunachain = this.gainCompensation;
     }
+
     /// There is also setupEffect that is not used,
     /// but you might find it usefull.
     /// Feel free to add more ifs for more effects.
-
 
     tunachain.connect(this.volumeGain);
 
