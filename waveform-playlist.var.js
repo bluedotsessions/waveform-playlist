@@ -15092,7 +15092,7 @@ var WaveformPlaylist =
 	    // {name:"Chorus",knob:"chorus",params:[
 	    //   {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
 	    // ]},
-	    { name: "Overdrive", knob: "overdrive", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "BitCrusher", knob: "bitcrusher", params: [{ name: "bits", tunaparam: "bits", init: 6, min: 6, max: 3 }, { name: "frequency", tunaparam: "normfreq", init: 0.5, min: 0.5, max: 0.1 }] }, { name: "Lo-Pass", knob: "lowpass", params: [{ name: "frequency", tunaparam: "frequency", init: 4000, min: 4000, max: 100 }, { name: "gainCompensation", tunaparam: "gainCompensation", init: 1, min: 1, max: 8 }] }, { name: "Hi-Pass", knob: "hipass", params: [{ name: "frequency", tunaparam: "frequency", init: 100, min: 100, max: 6000 }] }, { name: "Band-Pass", knob: "bandpass", params: [{ name: "frequency", tunaparam: "frequency", init: 100, min: 100, max: 8000 }] }, { name: "Cabinet", knob: "cabinet", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Delay - Simple", knob: "delay", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Delay - Stereo", knob: "delay", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Hall", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Church", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Room", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Spring", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }];
+	    { name: "Overdrive", knob: "overdrive", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "BitCrusher", knob: "bitcrusher", params: [{ name: "bits", tunaparam: "bits", init: 6, min: 6, max: 3 }, { name: "frequency", tunaparam: "normfreq", init: 0.5, min: 0.5, max: 0.1 }] }, { name: "Lo-Pass", knob: "lowpass", params: [{ name: "frequency", tunaparam: "frequency", init: 4000, min: 4000, max: 100 }, { auxiliaryKnob: "gainCompensation", name: "gain", tunaparam: "gain", init: 1, min: 1, max: 8 }] }, { name: "Hi-Pass", knob: "hipass", params: [{ name: "frequency", tunaparam: "frequency", init: 100, min: 100, max: 6000 }] }, { name: "Band-Pass", knob: "bandpass", params: [{ name: "frequency", tunaparam: "frequency", init: 100, min: 100, max: 8000 }] }, { name: "Cabinet", knob: "cabinet", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Delay - Simple", knob: "delay", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Delay - Stereo", knob: "delay", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Hall", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Church", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Room", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Spring", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }];
 	
 	    //menu is originally not open
 	    this.showmenu = false;
@@ -15316,6 +15316,11 @@ var WaveformPlaylist =
 	
 	      var muteClass = data.muted ? '.active' : '';
 	      var soloClass = data.soloed ? '.active' : '';
+	
+	      //different styling for fx
+	      var fx_class = 'div.effects-button.bordered-track-button' + (this.showmenu ? ".fx-enabled" : "");
+	      console.log(fx_class);
+	
 	      return (0, _h2.default)('div.track-buttons-container', [(0, _h2.default)('span.mute-button.bordered-track-button', {
 	        onclick: function onclick() {
 	          _this2.ee.emit('mute', _this2);
@@ -15324,7 +15329,7 @@ var WaveformPlaylist =
 	        onclick: function onclick() {
 	          _this2.ee.emit('solo', _this2);
 	        }
-	      }, ['S']), (0, _h2.default)('div.effects-button.bordered-track-button', {
+	      }, ['S']), (0, _h2.default)(fx_class, {
 	        onclick: function onclick(e) {
 	          _this2.showmenu = !_this2.showmenu;
 	          _this2.ee.emit('interactive');
@@ -15430,15 +15435,16 @@ var WaveformPlaylist =
 	          _this5[i.knob] = value;
 	          /// We notify each clip for the changed value.
 	          _this5.clips.forEach(function (clip) {
-	            /// if the value is greater than 0, we turn on the effect
-	            clip.playout['toggle_' + i.knob] = value;
 	            /// this determines what tuna.js parameters need to be changed.
 	            i.params.forEach(function (param) {
 	              var amount = (param.max - param.min) * value + param.min;
 	              /// go to Playout.js for more info on the tuna.js effects.
-	              var knob = clip.playout[i.knob];
+	
+	              var knob = clip.playout[param.auxiliaryKnob || i.knob]; //use auxiliary knob if specified
 	              if (knob) {
 	                knob[param.tunaparam] = amount;
+	                /// if the value is 0 we bypass the effect
+	                knob["bypass"] = value === 0;
 	              } else {
 	                console.warn(i.knob + ' does not exist, see Playout.js');
 	              }
@@ -26617,13 +26623,14 @@ var WaveformPlaylist =
 	      drive: 1, //0 to 1
 	      curveAmount: 1, //0 to 1
 	      algorithmIndex: 4, //0 to 5, selects one of our drive algorithms
-	      bypass: 0
+	      bypass: 1
 	    });
 	
 	    this.bitcrusher = new this.tuna.Bitcrusher({
 	      bits: 3, //1 to 16
 	      normfreq: 0.1, //0 to 1
-	      bufferSize: 4096 //256 to 16384
+	      bufferSize: 4096, //256 to 16384,
+	      bypass: 1
 	    });
 	
 	    this.lowpass = new this.tuna.Filter({
@@ -26631,7 +26638,7 @@ var WaveformPlaylist =
 	      Q: 1, //0.001 to 100
 	      gain: 0, //-40 to 40 (in decibels)
 	      filterType: "lowpass", //lowpass, highpass, bandpass, lowshelf, highshelf, peaking, notch, allpass
-	      bypass: 0
+	      bypass: 1
 	    });
 	
 	    this.hipass = new this.tuna.Filter({
@@ -26639,7 +26646,7 @@ var WaveformPlaylist =
 	      Q: 1, //0.001 to 100
 	      gain: 0, //-40 to 40 (in decibels)
 	      filterType: "highpass", //lowpass, highpass, bandpass, lowshelf, highshelf, peaking, notch, allpass
-	      bypass: 0
+	      bypass: 1
 	    });
 	
 	    this.bandpass = new this.tuna.Filter({
@@ -26647,7 +26654,7 @@ var WaveformPlaylist =
 	      Q: 1, //0.001 to 100
 	      gain: 0, //-40 to 40 (in decibels)
 	      filterType: "bandpass", //lowpass, highpass, bandpass, lowshelf, highshelf, peaking, notch, allpass
-	      bypass: 0
+	      bypass: 1
 	    });
 	
 	    //this is an gain node that the low pass filter needs to implement the volume compensation
@@ -26779,25 +26786,31 @@ var WaveformPlaylist =
 	
 	      var tunachain = this.panner;
 	
-	      if (this.toggle_delay) {
-	        tunachain.connect(this.delay);
-	        tunachain = this.delay;
-	      }
-	      if (this.toggle_phaser) {
-	        tunachain.connect(this.bitcrusher);
-	        tunachain = this.bitcrusher;
-	      }
-	      if (this.toggle_lowpass) {
-	        this.gainCompensation.gain = this.lowpass.gainCompensation;
-	        tunachain.connect(this.lowpass);
-	        tunachain = this.lowpass;
-	        tunachain.connect(this.gainCompensation);
-	        tunachain = this.gainCompensation;
-	      }
-	      if (this.toggle_hipass) {
-	        tunachain.connect(this.hipass);
-	        tunachain = this.hipass;
-	      }
+	      /**
+	       * Delay (not implemented yet)
+	       */
+	      // tunachain.connect(this.delay);
+	      // tunachain = this.delay;
+	
+	      /**
+	       * Bitcrusher
+	       */
+	      tunachain.connect(this.bitcrusher);
+	      tunachain = this.bitcrusher;
+	
+	      /**
+	       * Lowpass
+	       */
+	      tunachain.connect(this.lowpass);
+	      tunachain = this.lowpass;
+	      tunachain.connect(this.gainCompensation);
+	      tunachain = this.gainCompensation;
+	
+	      /**
+	       * Hipass
+	       */
+	      tunachain.connect(this.hipass);
+	      tunachain = this.hipass;
 	
 	      /// There is also setupEffect that is not used,
 	      /// but you might find it usefull.

@@ -70,9 +70,9 @@ export default class {
       ]},
       {name:"Lo-Pass",knob:"lowpass",params:[
         {name:"frequency",tunaparam:"frequency",init:4000,min:4000,max:100},
-        {name:"gainCompensation",tunaparam:"gainCompensation",init:1,min:1,max:8},
-        //gainCompensation is not an actual tunaparam, the gain does not do anything for a lowpass filter
-        //gainCompensation is used to drive an additional gain node
+        {auxiliaryKnob: "gainCompensation", name:"gain",tunaparam:"gain",init:1,min:1,max:8},
+        //gainCompensation is used to drive an additional gain node for volume compensation
+        //auxiliaryKnob new field to indicate a different target knob to manipulate
       ]},
       {name:"Hi-Pass",knob:"hipass",params:[
         {name:"frequency",tunaparam:"frequency",init:100,min:100,max:6000},
@@ -228,6 +228,11 @@ export default class {
   renderButtons(data){
     const muteClass = data.muted ? '.active' : '';
     const soloClass = data.soloed ? '.active' : '';
+
+    //different styling for fx
+    let fx_class = 'div.effects-button.bordered-track-button' + (this.showmenu ? ".fx-enabled" : "");
+    console.log(fx_class);
+
     return h('div.track-buttons-container', [
       h(`span.mute-button.bordered-track-button`, {
         onclick: () => {
@@ -341,15 +346,16 @@ export default class {
           this[i.knob] = value;
           /// We notify each clip for the changed value.
           this.clips.forEach(clip=>{
-            /// if the value is greater than 0, we turn on the effect
-            clip.playout[`toggle_${i.knob}`] = value;
             /// this determines what tuna.js parameters need to be changed.
             i.params.forEach(param=>{
               const amount = (param.max - param.min) * value + param.min;
               /// go to Playout.js for more info on the tuna.js effects.
-              let knob = clip.playout[i.knob];
+
+              let knob = clip.playout[param.auxiliaryKnob || i.knob]; //use auxiliary knob if specified
               if(knob){
                   knob[param.tunaparam] = amount;
+                  /// if the value is 0 we bypass the effect
+                  knob["bypass"] = value === 0;
               }else{
                   console.warn(`${i.knob} does not exist, see Playout.js`);
               }

@@ -32,13 +32,14 @@ export default class {
       drive: 1,              //0 to 1
       curveAmount: 1,          //0 to 1
       algorithmIndex: 4,       //0 to 5, selects one of our drive algorithms
-      bypass: 0
+      bypass: 1
     });
 
     this.bitcrusher =  new this.tuna.Bitcrusher({
       bits: 3,          //1 to 16
       normfreq: 0.1,    //0 to 1
-      bufferSize: 4096  //256 to 16384
+      bufferSize: 4096,  //256 to 16384,
+      bypass: 1
     });
 
     this.lowpass = new this.tuna.Filter({
@@ -46,7 +47,7 @@ export default class {
       Q: 1, //0.001 to 100
       gain: 0, //-40 to 40 (in decibels)
       filterType: "lowpass", //lowpass, highpass, bandpass, lowshelf, highshelf, peaking, notch, allpass
-      bypass: 0
+      bypass: 1
     });
 
     this.hipass = new this.tuna.Filter({
@@ -54,7 +55,7 @@ export default class {
       Q: 1, //0.001 to 100
       gain: 0, //-40 to 40 (in decibels)
       filterType: "highpass", //lowpass, highpass, bandpass, lowshelf, highshelf, peaking, notch, allpass
-      bypass: 0
+      bypass: 1
     });
 
     this.bandpass = new this.tuna.Filter({
@@ -62,7 +63,7 @@ export default class {
       Q: 1, //0.001 to 100
       gain: 0, //-40 to 40 (in decibels)
       filterType: "bandpass", //lowpass, highpass, bandpass, lowshelf, highshelf, peaking, notch, allpass
-      bypass: 0
+      bypass: 1
     });
 
     //this is an gain node that the low pass filter needs to implement the volume compensation
@@ -183,25 +184,31 @@ export default class {
 
     let tunachain = this.panner;
 
-    if (this.toggle_delay){
-      tunachain.connect(this.delay);  
-      tunachain = this.delay;
-    }
-    if(this.toggle_phaser){
-      tunachain.connect(this.bitcrusher);
-      tunachain = this.bitcrusher;
-    }
-    if(this.toggle_lowpass){
-      this.gainCompensation.gain = this.lowpass.gainCompensation;
-      tunachain.connect(this.lowpass);
-      tunachain = this.lowpass;
-      tunachain.connect(this.gainCompensation);
-      tunachain = this.gainCompensation;
-    }
-    if(this.toggle_hipass){
-        tunachain.connect(this.hipass);
-        tunachain = this.hipass;
-    }
+    /**
+     * Delay (not implemented yet)
+     */
+    // tunachain.connect(this.delay);
+    // tunachain = this.delay;
+
+    /**
+     * Bitcrusher
+     */
+    tunachain.connect(this.bitcrusher);
+    tunachain = this.bitcrusher;
+
+    /**
+     * Lowpass
+     */
+    tunachain.connect(this.lowpass);
+    tunachain = this.lowpass;
+    tunachain.connect(this.gainCompensation);
+    tunachain = this.gainCompensation;
+
+    /**
+     * Hipass
+     */
+    tunachain.connect(this.hipass);
+    tunachain = this.hipass;
 
     /// There is also setupEffect that is not used,
     /// but you might find it usefull.
