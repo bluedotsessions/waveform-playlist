@@ -26794,6 +26794,10 @@ var WaveformPlaylist =
 	        tunachain.connect(this.gainCompensation);
 	        tunachain = this.gainCompensation;
 	      }
+	      if (this.toggle_hipass) {
+	        tunachain.connect(this.hipass);
+	        tunachain = this.hipass;
+	      }
 	
 	      /// There is also setupEffect that is not used,
 	      /// but you might find it usefull.
