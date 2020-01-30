@@ -11268,6 +11268,13 @@ var WaveformPlaylist =
 	      });
 	
 	      ee.on('fx', function (track) {
+	        //need to disable fx on other tracks
+	        _this.tracks.forEach(function (t) {
+	          if (t !== track) {
+	            console.log(t);
+	            t.showmenu = false;
+	          }
+	        });
 	        _this.drawRequest();
 	      });
 	
@@ -15333,7 +15340,7 @@ var WaveformPlaylist =
 	        onclick: function onclick(e) {
 	          _this2.showmenu = !_this2.showmenu;
 	          _this2.ee.emit('interactive');
-	          _this2.ee.emit('fx');
+	          _this2.ee.emit('fx', _this2);
 	        }
 	      }, [this.getTextForFXButton()]), (0, _h2.default)('div.protectFromStreching', [(0, _h2.default)('canvas.knobCanvas#id' + this.id, {
 	        onclick: function onclick(e) {

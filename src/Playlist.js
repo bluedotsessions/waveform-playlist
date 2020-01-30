@@ -287,6 +287,13 @@ export default class {
     });
 
     ee.on('fx', (track)=> {
+      //need to disable fx on other tracks
+      this.tracks.forEach((t) => {
+        if(t !== track){
+          console.log(t);
+          t.showmenu = false;
+        }
+      });
       this.drawRequest();
     });
 

@@ -248,7 +248,7 @@ export default class {
           onclick: e=>{
             this.showmenu = !this.showmenu;
             this.ee.emit('interactive');
-            this.ee.emit('fx');
+            this.ee.emit('fx', this);
           }
         },[this.getTextForFXButton()]),
       h(`div.protectFromStreching`,[
