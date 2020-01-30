@@ -99,6 +99,9 @@ export default class {
         {name:"mybypass",tunaparam:"mybypass",init:0,min:0,max:1},
       ]},
     ]
+
+    //menu is originally not open
+    this.showmenu = false;
   }
   updatedBMeter(){
     this.analyzerHook.update();
@@ -214,6 +217,11 @@ export default class {
     this.clips.forEach(clip=>clip.setPan(this.pan));      
   }
 
+  getTextForFXButton(){
+      //unicode for up arrow, in the future use icon font?
+      return this.showmenu ? "\u25B2" : "FX";
+  }
+
   renderButtons(data){
     const muteClass = data.muted ? '.active' : '';
     const soloClass = data.soloed ? '.active' : '';
@@ -232,8 +240,9 @@ export default class {
           onclick: e=>{
             this.showmenu = !this.showmenu;
             this.ee.emit('interactive');
+            this.ee.emit('fx');
           }
-        },["FX"]),
+        },[this.getTextForFXButton()]),
       h(`div.protectFromStreching`,[
         h(`canvas.knobCanvas#id${this.id}`,{
           onclick: e=>this.panHook.onclick(e),

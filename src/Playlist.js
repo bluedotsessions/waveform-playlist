@@ -286,6 +286,10 @@ export default class {
       this.drawRequest();
     });
 
+    ee.on('fx', (track)=> {
+      this.drawRequest();
+    });
+
     ee.on('volumechange', (volume, track) => {
       track.setGainLevel(volume / 100);
     });
