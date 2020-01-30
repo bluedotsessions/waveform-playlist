@@ -66,6 +66,10 @@ body {
         "name bpm key"
         "time snap len"
 }
+#set-tester{
+    padding : 5px;
+    height: 25px;
+}
 #name{
     font-weight: bold;
     grid-area: name;
