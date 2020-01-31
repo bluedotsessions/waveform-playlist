@@ -27,6 +27,29 @@ Tuna.prototype.CustomOverdrive.prototype = Object.create(Tuna.prototype.Overdriv
     },
 });
 
+/**
+ * Overriding Tuna.js Convolver
+ *
+ * Same principle as for overdrive
+ * Eventually make this possible for all Tuna nodes for performance optimizations
+ */
+Tuna.prototype.CustomConvolver = function(properties){
+    Tuna.prototype.Convolver.call(this, properties);
+};
+Tuna.prototype.CustomConvolver.prototype = Object.create(Tuna.prototype.Convolver.prototype, {
+    activate: {
+        value: function(doActivate) {
+            Tuna.prototype.Convolver.prototype.activate.call(this, doActivate);
+            if(doActivate){
+                this.wet.connect(this.output);
+                this.dry.connect(this.output);
+            }else{
+                this.wet.disconnect();
+                this.dry.disconnect();
+            }
+        }
+    },
+});
 
 export default class {
 
@@ -98,27 +121,27 @@ export default class {
             bypass: 1
         });
 
-        this.telephone = new this.tuna.Convolver({
+        this.telephone = new this.tuna.CustomConvolver({
             impulse: "impulse_response/BDS_FX_Telephone.wav",    //path to your speaker impulse
             bypass: 1
         });
 
-        this.clouds = new this.tuna.Convolver({
+        this.clouds = new this.tuna.CustomConvolver({
             impulse: "impulse_response/BDS_FX_Clouds.wav",    //path to your speaker impulse
             bypass: 1
         });
 
-        this.reverb_hall = new this.tuna.Convolver({
+        this.reverb_hall = new this.tuna.CustomConvolver({
             impulse: "impulse_response/BDS_FX_Hall.wav",    //path to your speaker impulse
             bypass: 1
         });
 
-        this.reverb_room = new this.tuna.Convolver({
+        this.reverb_room = new this.tuna.CustomConvolver({
             impulse: "impulse_response/BDS_FX_Room.wav",    //path to your speaker impulse
             bypass: 1
         });
 
-        this.reverb_spring = new this.tuna.Convolver({
+        this.reverb_spring = new this.tuna.CustomConvolver({
             impulse: "impulse_response/BDS_FX_Spring.wav",    //path to your speaker impulse
             bypass: 1
         });
@@ -233,6 +256,9 @@ export default class {
             this.cabinet,
             this.clouds,
             this.telephone,
+            this.reverb_hall,
+            this.reverb_room,
+            this.reverb_spring,
             this.volumeGain,
             this.shouldPlayGain,
             this.masterGain,
