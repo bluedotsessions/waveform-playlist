@@ -69,16 +69,16 @@ export default class {
         {name:"frequency",tunaparam:"normfreq",init:0.5,min:0.5,max:0.1},
       ]},
       {name:"Lo-Pass",knob:"lowpass",params:[
-        {name:"frequency",tunaparam:"frequency",init:4000,min:4000,max:100},
-        {auxiliaryKnob: "gainCompensation", name:"gain",tunaparam:"gain",init:1,min:1,max:8},
+        {name:"frequency",tunaparam:"frequency",init:4000,min:4000,max:100,interp:"log"},
+        {auxiliaryKnob: "gainCompensation", name:"gain",tunaparam:"gain",init:1,min:1,max:5},
         //gainCompensation is used to drive an additional gain node for volume compensation
         //auxiliaryKnob new field to indicate a different target knob to manipulate
       ]},
       {name:"Hi-Pass",knob:"hipass",params:[
-        {name:"frequency",tunaparam:"frequency",init:100,min:100,max:6000},
+        {name:"frequency",tunaparam:"frequency",init:100,min:100,max:6000,interp:"log"},
       ]},
       {name:"Band-Pass",knob:"bandpass",params:[
-        {name:"frequency",tunaparam:"frequency",init:100,min:100,max:8000},
+        {name:"frequency",tunaparam:"frequency",init:100,min:100,max:8000,interp:"log"},
       ]},
       {name:"Cabinet",knob:"cabinet",params:[
         {name:"makeupGain",tunaparam:"makeupGain",init:10,min:10,max:10}, //cabinet is just on and off
@@ -348,7 +348,13 @@ export default class {
           this.clips.forEach(clip=>{
             /// this determines what tuna.js parameters need to be changed.
             i.params.forEach(param=>{
-              const amount = (param.max - param.min) * value + param.min;
+
+              let amount;
+              if(param.interp === "log"){//logarithmic curves are more natural in some cases
+                  amount = param.min * (Math.pow(param.max, value)/Math.pow(param.min, value));
+              }else{
+                  amount = (param.max - param.min) * value + param.min;
+              }
               /// go to Playout.js for more info on the tuna.js effects.
 
               let knob = clip.playout[param.auxiliaryKnob || i.knob]; //use auxiliary knob if specified

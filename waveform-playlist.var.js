@@ -15094,7 +15094,7 @@ var WaveformPlaylist =
 	    /// I'm not quite happy with it now, so
 	    /// you can change this array as you see fit.
 	    /// To see how this info is used, go to the renderEffects() function
-	    this.effectsList = [{ name: "Chorus", knob: "chorus", params: [{ name: "rate", tunaparam: "rate", init: 0.75, min: 0.75, max: 2.5 }, { name: "depth", tunaparam: "depth", init: 0.5, min: 0.5, max: 0.8 }] }, { name: "Overdrive", knob: "overdrive", params: [{ name: "curveAmount", tunaparam: "curveAmount", init: 0, min: 0, max: 1 }] }, { name: "BitCrusher", knob: "bitcrusher", params: [{ name: "bits", tunaparam: "bits", init: 6, min: 6, max: 3 }, { name: "frequency", tunaparam: "normfreq", init: 0.5, min: 0.5, max: 0.1 }] }, { name: "Lo-Pass", knob: "lowpass", params: [{ name: "frequency", tunaparam: "frequency", init: 4000, min: 4000, max: 100 }, { auxiliaryKnob: "gainCompensation", name: "gain", tunaparam: "gain", init: 1, min: 1, max: 8 }] }, { name: "Hi-Pass", knob: "hipass", params: [{ name: "frequency", tunaparam: "frequency", init: 100, min: 100, max: 6000 }] }, { name: "Band-Pass", knob: "bandpass", params: [{ name: "frequency", tunaparam: "frequency", init: 100, min: 100, max: 8000 }] }, { name: "Cabinet", knob: "cabinet", params: [{ name: "makeupGain", tunaparam: "makeupGain", init: 10, min: 10, max: 10 }] }, { name: "Delay - Simple", knob: "delay", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Delay - Stereo", knob: "delay", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Hall", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Church", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Room", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Spring", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }];
+	    this.effectsList = [{ name: "Chorus", knob: "chorus", params: [{ name: "rate", tunaparam: "rate", init: 0.75, min: 0.75, max: 2.5 }, { name: "depth", tunaparam: "depth", init: 0.5, min: 0.5, max: 0.8 }] }, { name: "Overdrive", knob: "overdrive", params: [{ name: "curveAmount", tunaparam: "curveAmount", init: 0, min: 0, max: 1 }] }, { name: "BitCrusher", knob: "bitcrusher", params: [{ name: "bits", tunaparam: "bits", init: 6, min: 6, max: 3 }, { name: "frequency", tunaparam: "normfreq", init: 0.5, min: 0.5, max: 0.1 }] }, { name: "Lo-Pass", knob: "lowpass", params: [{ name: "frequency", tunaparam: "frequency", init: 4000, min: 4000, max: 100, interp: "log" }, { auxiliaryKnob: "gainCompensation", name: "gain", tunaparam: "gain", init: 1, min: 1, max: 5 }] }, { name: "Hi-Pass", knob: "hipass", params: [{ name: "frequency", tunaparam: "frequency", init: 100, min: 100, max: 6000, interp: "log" }] }, { name: "Band-Pass", knob: "bandpass", params: [{ name: "frequency", tunaparam: "frequency", init: 100, min: 100, max: 8000, interp: "log" }] }, { name: "Cabinet", knob: "cabinet", params: [{ name: "makeupGain", tunaparam: "makeupGain", init: 10, min: 10, max: 10 }] }, { name: "Delay - Simple", knob: "delay", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Delay - Stereo", knob: "delay", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Hall", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Church", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Room", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Spring", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }];
 	
 	    //menu is originally not open
 	    this.showmenu = false;
@@ -15439,7 +15439,14 @@ var WaveformPlaylist =
 	          _this5.clips.forEach(function (clip) {
 	            /// this determines what tuna.js parameters need to be changed.
 	            i.params.forEach(function (param) {
-	              var amount = (param.max - param.min) * value + param.min;
+	
+	              var amount = void 0;
+	              if (param.interp === "log") {
+	                //logarithmic curves are more natural in some cases
+	                amount = param.min * (Math.pow(param.max, value) / Math.pow(param.min, value));
+	              } else {
+	                amount = (param.max - param.min) * value + param.min;
+	              }
 	              /// go to Playout.js for more info on the tuna.js effects.
 	
 	              var knob = clip.playout[param.auxiliaryKnob || i.knob]; //use auxiliary knob if specified
@@ -26578,7 +26585,7 @@ var WaveformPlaylist =
 	'use strict';
 	
 	Object.defineProperty(exports, "__esModule", {
-	  value: true
+	    value: true
 	});
 	
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -26595,264 +26602,288 @@ var WaveformPlaylist =
 	
 	/// This file is an interface to the audioContext and Tuna.js
 	
-	var _class = function () {
-	  function _class(ac, buffer) {
-	    _classCallCheck(this, _class);
 	
-	    this.ac = ac;
-	    /// probably there should be only one instance of the library
-	    /// because it is currently really laggy.
-	    /// and the chorus and reverb doesn't work. 
-	    this.tuna = new _tunajs2.default(this.ac);
-	    this.gain = 1;
-	    this.buffer = buffer;
-	    this.destination = this.ac.destination;
-	
-	    ///Now follows the initiation of the effects:
-	    this.chorus = new this.tuna.Chorus({
-	      rate: 1.5, //0.01 to 8+
-	      feedback: 0.2, //0 to 1+
-	      delay: 0.0245, //0 to 1
-	      bypass: 1 //the value 1 starts the effect as bypassed, 0 or 1
-	    });
-	
-	    this.overdrive = new this.tuna.Overdrive({
-	      outputGain: 0.1, //-42 to 0 in dB
-	      drive: 0.7, //0 to 1
-	      curveAmount: 1, //0 to 1
-	      algorithmIndex: 0, //0 to 5, selects one of our drive algorithms
-	      bypass: 1
-	    });
-	
-	    this.bitcrusher = new this.tuna.Bitcrusher({
-	      bits: 3, //1 to 16
-	      normfreq: 0.1, //0 to 1
-	      bufferSize: 256, //256 to 16384,
-	      bypass: 1
-	    });
-	
-	    this.lowpass = new this.tuna.Filter({
-	      frequency: 4000, //20 to 22050
-	      Q: 1, //0.001 to 100
-	      gain: 0, //-40 to 40 (in decibels)
-	      filterType: "lowpass", //lowpass, highpass, bandpass, lowshelf, highshelf, peaking, notch, allpass
-	      bypass: 1
-	    });
-	
-	    this.hipass = new this.tuna.Filter({
-	      frequency: 6000, //20 to 22050
-	      Q: 1, //0.001 to 100
-	      gain: 0, //-40 to 40 (in decibels)
-	      filterType: "highpass", //lowpass, highpass, bandpass, lowshelf, highshelf, peaking, notch, allpass
-	      bypass: 1
-	    });
-	
-	    this.bandpass = new this.tuna.Filter({
-	      frequency: 100, //20 to 22050
-	      Q: 1, //0.001 to 100
-	      gain: 0, //-40 to 40 (in decibels)
-	      filterType: "bandpass", //lowpass, highpass, bandpass, lowshelf, highshelf, peaking, notch, allpass
-	      bypass: 1
-	    });
-	
-	    //this is an gain node that the low pass filter needs to implement the volume compensation
-	    this.gainCompensation = new this.tuna.Gain({
-	      gain: 1
-	    });
-	
-	    this.cabinet = new this.tuna.Cabinet({
-	      makeupGain: 1, //0 to 20
-	      impulsePath: "impulse_response/BDS_FX_Cabinet.wav", //path to your speaker impulse
-	      bypass: 1
-	    });
-	
-	    /// Now go to setUpSource() function
-	  }
-	
-	  _createClass(_class, [{
-	    key: 'applyFade',
-	    value: function applyFade(type, start, duration) {
-	      var shape = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : 'logarithmic';
-	
-	      if (type === _fadeMaker.FADEIN) {
-	        (0, _fadeMaker.createFadeIn)(this.fadeGain.gain, shape, start, duration);
-	      } else if (type === _fadeMaker.FADEOUT) {
-	        (0, _fadeMaker.createFadeOut)(this.fadeGain.gain, shape, start, duration);
-	      } else {
-	        throw new Error('Unsupported fade type');
-	      }
-	    }
-	  }, {
-	    key: 'applyFadeIn',
-	    value: function applyFadeIn(start, duration) {
-	      var shape = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 'logarithmic';
-	
-	      this.applyFade(_fadeMaker.FADEIN, start, duration, shape);
-	    }
-	  }, {
-	    key: 'applyFadeOut',
-	    value: function applyFadeOut(start, duration) {
-	      var shape = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 'logarithmic';
-	
-	      this.applyFade(_fadeMaker.FADEOUT, start, duration, shape);
-	    }
-	  }, {
-	    key: 'isPlaying',
-	    value: function isPlaying() {
-	      return this.source !== undefined;
-	    }
-	  }, {
-	    key: 'getDuration',
-	    value: function getDuration() {
-	      return this.buffer.duration;
-	    }
-	  }, {
-	    key: 'setAudioContext',
-	    value: function setAudioContext(audioContext) {
-	      this.ac = audioContext;
-	      this.destination = this.ac.destination;
-	    }
-	  }, {
-	    key: 'setUpEffect',
-	    value: function setUpEffect(chain, effectname) {
-	      if (this['toggle_' + effectname]) {
-	        var effect = this[effectname];
-	        if (effect.mybypass) {
-	          var gainBypass = this.ac.createGain();
-	          gainBypass.value = Math.sqrt(effect.mybypass);
-	          var gainEffect = this.ac.createGain();
-	          gainEffect.value = Math.sqrt(1 - effect.mybypass);
-	        } else {
-	          tunachain.connect(effect);
-	          tunachain = effect;
+	/**
+	 * Overriding Tuna.js Overdrive
+	 *
+	 * Currently, even when Overdrive is clipping, it still sends bad data to the output node
+	 * This is presumably because even though the input is disconnect, the outputDrive node is still
+	 * sending data to the output. To prevent this, we override the activate function to disconnect the offending node
+	 */
+	_tunajs2.default.prototype.CustomOverdrive = function (properties) {
+	    _tunajs2.default.prototype.Overdrive.call(this, properties);
+	};
+	_tunajs2.default.prototype.CustomOverdrive.prototype = Object.create(_tunajs2.default.prototype.Overdrive.prototype, {
+	    activate: {
+	        value: function value(doActivate) {
+	            _tunajs2.default.prototype.Overdrive.prototype.activate.call(this, doActivate);
+	            if (doActivate) {
+	                this.outputDrive.connect(this.output);
+	            } else {
+	                this.outputDrive.disconnect();
+	            }
 	        }
-	        return tunachain;
-	      }
 	    }
-	  }, {
-	    key: 'setUpSource',
-	    value: function setUpSource(compressor) {
-	      var _this = this;
+	});
 	
-	      /// This function prepares the audio clip to be played.
-	      /// The compressor here is global, so it is handled from the playlist.js
-	      /// Go to the play() function in the Playlist.js for more info.
-	      this.source = this.ac.createBufferSource();
-	      this.source.buffer = this.buffer;
+	var _class = function () {
+	    function _class(ac, buffer) {
+	        _classCallCheck(this, _class);
 	
-	      /// firstly we reset the effect chain
-	      var sourcePromise = new Promise(function (resolve) {
-	        // keep track of the buffer state.
-	        _this.source.onended = function () {
-	          _this.source.disconnect();
-	          _this.fadeGain.disconnect();
-	          _this.volumeGain.disconnect();
-	          _this.shouldPlayGain.disconnect();
-	          _this.masterGain.disconnect();
-	          _this.panner.disconnect();
+	        this.ac = ac;
+	        /// probably there should be only one instance of the library
+	        /// because it is currently really laggy.
+	        /// and the chorus and reverb doesn't work.
+	        this.tuna = new _tunajs2.default(this.ac);
+	        this.gain = 1;
+	        this.buffer = buffer;
+	        this.destination = this.ac.destination;
 	
-	          _this.source = undefined;
-	          _this.fadeGain = undefined;
-	          _this.volumeGain = undefined;
-	          _this.shouldPlayGain = undefined;
-	          _this.masterGain = undefined;
-	          _this.panner = undefined;
+	        ///Now follows the initiation of the effects:
+	        this.chorus = new this.tuna.Chorus({
+	            rate: 1.5, //0.01 to 8+
+	            feedback: 0.2, //0 to 1+
+	            delay: 0.0245, //0 to 1
+	            bypass: 1 //the value 1 starts the effect as bypassed, 0 or 1
+	        });
 	
-	          resolve();
-	        };
-	      });
-	      // used for fadein/fadeout
-	      this.fadeGain = this.ac.createGain();
-	      // used for track volume slider
-	      this.volumeGain = this.ac.createGain();
-	      // used for solo/mute
-	      this.shouldPlayGain = this.ac.createGain();
+	        this.overdrive = new this.tuna.CustomOverdrive({
+	            outputGain: 0.1, //-42 to 0 in dB
+	            drive: 0.7, //0 to 1
+	            curveAmount: 1, //0 to 1
+	            algorithmIndex: 0, //0 to 5, selects one of our drive algorithms
+	            bypass: 1
+	        });
 	
-	      /// the Panner
-	      this.panner = this.ac.createStereoPanner();
+	        this.bitcrusher = new this.tuna.Bitcrusher({
+	            bits: 3, //1 to 16
+	            normfreq: 0.1, //0 to 1
+	            bufferSize: 256, //256 to 16384,
+	            bypass: 1
+	        });
 	
-	      // console.log('playout', this.delay);
+	        this.lowpass = new this.tuna.Filter({
+	            frequency: 4000, //20 to 22050
+	            Q: 1, //0.001 to 100
+	            gain: 0, //-40 to 40 (in decibels)
+	            filterType: "lowpass", //lowpass, highpass, bandpass, lowshelf, highshelf, peaking, notch, allpass
+	            bypass: 1
+	        });
 	
+	        this.hipass = new this.tuna.Filter({
+	            frequency: 6000, //20 to 22050
+	            Q: 1, //0.001 to 100
+	            gain: 0, //-40 to 40 (in decibels)
+	            filterType: "highpass", //lowpass, highpass, bandpass, lowshelf, highshelf, peaking, notch, allpass
+	            bypass: 1
+	        });
 	
-	      this.masterGain = this.ac.createGain();
+	        this.bandpass = new this.tuna.Filter({
+	            frequency: 100, //20 to 22050
+	            Q: 1, //0.001 to 100
+	            gain: 0, //-40 to 40 (in decibels)
+	            filterType: "bandpass", //lowpass, highpass, bandpass, lowshelf, highshelf, peaking, notch, allpass
+	            bypass: 1
+	        });
 	
-	      /// The effect chain:
-	      var effectChain = [this.fadeGain, this.panner, this.lowpass, this.gainCompensation, this.hipass, this.bandpass, this.bitcrusher, this.overdrive, this.chorus, this.cabinet, this.volumeGain, this.shouldPlayGain, this.masterGain, compressor, this.destination];
+	        //this is an gain node that the low pass filter needs to implement the volume compensation
+	        this.gainCompensation = new this.tuna.Gain({
+	            gain: 1
+	        });
 	
-	      //setups chain in series
-	      effectChain.reduce(function (previous, current) {
-	        previous.connect(current);
-	        return current;
-	      }, this.source);
+	        this.cabinet = new this.tuna.Cabinet({
+	            makeupGain: 1, //0 to 20
+	            impulsePath: "impulse_response/BDS_FX_Cabinet.wav", //path to your speaker impulse
+	            bypass: 1
+	        });
 	
-	      /// There is also setupEffect that is not used,
-	      /// but you might find it usefull.
-	      /// Feel free to add more ifs for more effects.
-	
-	      /// Now go to the playlist.js/setUpEventEmmiter()/ee.on('play',...)
-	
-	      return sourcePromise;
-	    }
-	  }, {
-	    key: 'setVolumeGainLevel',
-	    value: function setVolumeGainLevel(level) {
-	      if (this.volumeGain) {
-	        this.volumeGain.gain.value = level;
-	      }
-	    }
-	  }, {
-	    key: 'setShouldPlay',
-	    value: function setShouldPlay(bool) {
-	      if (this.shouldPlayGain) {
-	        this.shouldPlayGain.gain.value = bool ? 1 : 0;
-	      }
-	    }
-	  }, {
-	    key: 'setMasterGainLevel',
-	    value: function setMasterGainLevel(level) {
-	      if (this.masterGain) {
-	        this.masterGain.gain.value = level;
-	      }
-	    }
-	  }, {
-	    key: 'setPan',
-	    value: function setPan(pan) {
-	      if (this.panner) {
-	        this.panner.pan.value = pan;
-	      }
+	        /// Now go to setUpSource() function
 	    }
 	
-	    /*
-	      source.start is picky when passing the end time.
-	      If rounding error causes a number to make the source think
-	      it is playing slightly more samples than it has it won't play at all.
-	      Unfortunately it doesn't seem to work if you just give it a start time.
-	    */
+	    _createClass(_class, [{
+	        key: 'applyFade',
+	        value: function applyFade(type, start, duration) {
+	            var shape = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : 'logarithmic';
 	
-	  }, {
-	    key: 'play',
-	    value: function play(when, start, duration) {
-	      this.source.start(when, start, duration);
-	    }
-	  }, {
-	    key: 'stop',
-	    value: function stop() {
-	      var when = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 0;
+	            if (type === _fadeMaker.FADEIN) {
+	                (0, _fadeMaker.createFadeIn)(this.fadeGain.gain, shape, start, duration);
+	            } else if (type === _fadeMaker.FADEOUT) {
+	                (0, _fadeMaker.createFadeOut)(this.fadeGain.gain, shape, start, duration);
+	            } else {
+	                throw new Error('Unsupported fade type');
+	            }
+	        }
+	    }, {
+	        key: 'applyFadeIn',
+	        value: function applyFadeIn(start, duration) {
+	            var shape = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 'logarithmic';
 	
-	      if (this.source) {
-	        try {
-	          this.source.stop(when);
-	        } catch (e) {}
-	      }
-	    }
-	  }, {
-	    key: 'dBSource',
-	    get: function get() {
-	      return this.masterGain;
-	    }
-	  }]);
+	            this.applyFade(_fadeMaker.FADEIN, start, duration, shape);
+	        }
+	    }, {
+	        key: 'applyFadeOut',
+	        value: function applyFadeOut(start, duration) {
+	            var shape = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 'logarithmic';
+	
+	            this.applyFade(_fadeMaker.FADEOUT, start, duration, shape);
+	        }
+	    }, {
+	        key: 'isPlaying',
+	        value: function isPlaying() {
+	            return this.source !== undefined;
+	        }
+	    }, {
+	        key: 'getDuration',
+	        value: function getDuration() {
+	            return this.buffer.duration;
+	        }
+	    }, {
+	        key: 'setAudioContext',
+	        value: function setAudioContext(audioContext) {
+	            this.ac = audioContext;
+	            this.destination = this.ac.destination;
+	        }
+	    }, {
+	        key: 'setUpEffect',
+	        value: function setUpEffect(chain, effectname) {
+	            if (this['toggle_' + effectname]) {
+	                var effect = this[effectname];
+	                if (effect.mybypass) {
+	                    var gainBypass = this.ac.createGain();
+	                    gainBypass.value = Math.sqrt(effect.mybypass);
+	                    var gainEffect = this.ac.createGain();
+	                    gainEffect.value = Math.sqrt(1 - effect.mybypass);
+	                } else {
+	                    tunachain.connect(effect);
+	                    tunachain = effect;
+	                }
+	                return tunachain;
+	            }
+	        }
+	    }, {
+	        key: 'setUpSource',
+	        value: function setUpSource(compressor) {
+	            var _this = this;
+	
+	            /// This function prepares the audio clip to be played.
+	            /// The compressor here is global, so it is handled from the playlist.js
+	            /// Go to the play() function in the Playlist.js for more info.
+	            this.source = this.ac.createBufferSource();
+	            this.source.buffer = this.buffer;
+	
+	            /// firstly we reset the effect chain
+	            var sourcePromise = new Promise(function (resolve) {
+	                // keep track of the buffer state.
+	                _this.source.onended = function () {
+	                    _this.source.disconnect();
+	                    _this.fadeGain.disconnect();
+	                    _this.volumeGain.disconnect();
+	                    _this.shouldPlayGain.disconnect();
+	                    _this.masterGain.disconnect();
+	                    _this.panner.disconnect();
+	
+	                    _this.source = undefined;
+	                    _this.fadeGain = undefined;
+	                    _this.volumeGain = undefined;
+	                    _this.shouldPlayGain = undefined;
+	                    _this.masterGain = undefined;
+	                    _this.panner = undefined;
+	
+	                    resolve();
+	                };
+	            });
+	            // used for fadein/fadeout
+	            this.fadeGain = this.ac.createGain();
+	            // used for track volume slider
+	            this.volumeGain = this.ac.createGain();
+	            // used for solo/mute
+	            this.shouldPlayGain = this.ac.createGain();
+	
+	            /// the Panner
+	            this.panner = this.ac.createStereoPanner();
+	
+	            // console.log('playout', this.delay);
+	
+	
+	            this.masterGain = this.ac.createGain();
+	
+	            /// The effect chain:
+	            var effectChain = [this.fadeGain, this.panner, this.lowpass, this.gainCompensation, this.hipass, this.bandpass, this.bitcrusher, this.overdrive, this.chorus, this.cabinet, this.volumeGain, this.shouldPlayGain, this.masterGain, compressor, this.destination];
+	
+	            //setups chain in series
+	            effectChain.reduce(function (previous, current) {
+	                previous.connect(current);
+	                return current;
+	            }, this.source);
+	
+	            /// There is also setupEffect that is not used,
+	            /// but you might find it usefull.
+	            /// Feel free to add more ifs for more effects.
+	
+	            /// Now go to the playlist.js/setUpEventEmmiter()/ee.on('play',...)
+	
+	            return sourcePromise;
+	        }
+	    }, {
+	        key: 'setVolumeGainLevel',
+	        value: function setVolumeGainLevel(level) {
+	            if (this.volumeGain) {
+	                this.volumeGain.gain.value = level;
+	            }
+	        }
+	    }, {
+	        key: 'setShouldPlay',
+	        value: function setShouldPlay(bool) {
+	            if (this.shouldPlayGain) {
+	                this.shouldPlayGain.gain.value = bool ? 1 : 0;
+	            }
+	        }
+	    }, {
+	        key: 'setMasterGainLevel',
+	        value: function setMasterGainLevel(level) {
+	            if (this.masterGain) {
+	                this.masterGain.gain.value = level;
+	            }
+	        }
+	    }, {
+	        key: 'setPan',
+	        value: function setPan(pan) {
+	            if (this.panner) {
+	                this.panner.pan.value = pan;
+	            }
+	        }
+	
+	        /*
+	          source.start is picky when passing the end time.
+	          If rounding error causes a number to make the source think
+	          it is playing slightly more samples than it has it won't play at all.
+	          Unfortunately it doesn't seem to work if you just give it a start time.
+	        */
+	
+	    }, {
+	        key: 'play',
+	        value: function play(when, start, duration) {
+	            this.source.start(when, start, duration);
+	        }
+	    }, {
+	        key: 'stop',
+	        value: function stop() {
+	            var when = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 0;
+	
+	            if (this.source) {
+	                try {
+	                    this.source.stop(when);
+	                } catch (e) {}
+	            }
+	        }
+	    }, {
+	        key: 'dBSource',
+	        get: function get() {
+	            return this.masterGain;
+	        }
+	    }]);
 
-	  return _class;
+	    return _class;
 	}();
 
 	exports.default = _class;
