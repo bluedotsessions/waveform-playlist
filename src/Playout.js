@@ -134,6 +134,11 @@ export default class {
             bypass: 1
         });
 
+        this.delay_texture = new this.tuna.CustomConvolver({
+            impulse: "impulse_response/BDS_FX_Delay_Rhythm.wav",
+            bypass: 1
+        });
+
         this.reverb_hall = new this.tuna.CustomConvolver({
             impulse: "impulse_response/BDS_FX_Hall.wav",
             bypass: 1
@@ -271,6 +276,7 @@ export default class {
             this.cabinet,
             this.clouds,
             this.telephone,
+            this.delay_texture,
             this.delay,
             this.ping_pong_delay,
             this.reverb_hall,
