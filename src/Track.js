@@ -89,17 +89,20 @@ export default class {
       {name:"Delay - Stereo",knob:"delay",params:[
         {name:"mybypass",tunaparam:"mybypass",init:0,min:0,max:1},
       ]},
-      {name:"Verb - Hall",knob:"reverb",params:[
-        {name:"mybypass",tunaparam:"mybypass",init:0,min:0,max:1},
+      {name:"Verb - Hall",knob:"reverb_hall",params:[
+        {name:"dryLevel",tunaparam:"dryLevel",init:1,min:1,max:0},
+        {name:"wetLevel",tunaparam:"wetLevel",init:0,min:0,max:1},
       ]},
       {name:"Verb - Church",knob:"reverb",params:[
         {name:"mybypass",tunaparam:"mybypass",init:0,min:0,max:1},
       ]},
-      {name:"Verb - Room",knob:"reverb",params:[
-        {name:"mybypass",tunaparam:"mybypass",init:0,min:0,max:1},
+      {name:"Verb - Room",knob:"reverb_room",params:[
+        {name:"dryLevel",tunaparam:"dryLevel",init:1,min:1,max:0},
+        {name:"wetLevel",tunaparam:"wetLevel",init:0,min:0,max:1},
       ]},
-      {name:"Verb - Spring",knob:"reverb",params:[
-        {name:"mybypass",tunaparam:"mybypass",init:0,min:0,max:1},
+      {name:"Verb - Spring",knob:"reverb_spring",params:[
+        {name:"dryLevel",tunaparam:"dryLevel",init:1,min:1,max:0},
+        {name:"wetLevel",tunaparam:"wetLevel",init:0,min:0,max:1},
       ]},
       {name:"Telephone",knob:"telephone",params:[
         {name:"dryLevel",tunaparam:"dryLevel",init:1,min:1,max:0},
