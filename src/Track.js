@@ -81,7 +81,7 @@ export default class {
         {name:"frequency",tunaparam:"frequency",init:100,min:100,max:8000},
       ]},
       {name:"Cabinet",knob:"cabinet",params:[
-        {name:"mybypass",tunaparam:"mybypass",init:0,min:0,max:1},
+        {name:"makeupGain",tunaparam:"makeupGain",init:10,min:10,max:10}, //cabinet is just on and off
       ]},
       {name:"Delay - Simple",knob:"delay",params:[
         {name:"mybypass",tunaparam:"mybypass",init:0,min:0,max:1},

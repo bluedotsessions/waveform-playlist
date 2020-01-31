@@ -65,17 +65,14 @@ export default class {
     //this is an gain node that the low pass filter needs to implement the volume compensation
     this.gainCompensation = new this.tuna.Gain({
         gain: 1
-    })
+    });
     
-    /// doesn't work :/
+    this.cabinet = new this.tuna.Cabinet({
+      makeupGain: 1,                                 //0 to 20
+      impulsePath: "impulse_response/BDS_FX_Cabinet.wav",    //path to your speaker impulse
+      bypass: 1
+    });
 
-  //   this.cabinet = new this.tuna.Cabinet({
-  //     makeupGain: 1,                                 //0 to 20
-  //     impulsePath: "impulses/impulse_guitar.wav",    //path to your speaker impulse
-  //     bypass: 0
-  // });
-
-  
     /// Now go to setUpSource() function
 
   }
@@ -184,6 +181,7 @@ export default class {
       this.bitcrusher,
       this.overdrive,
       this.chorus,
+      this.cabinet,
       this.volumeGain,
       this.shouldPlayGain,
       this.masterGain,
