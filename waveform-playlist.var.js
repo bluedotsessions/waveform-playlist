@@ -15094,7 +15094,7 @@ var WaveformPlaylist =
 	    /// I'm not quite happy with it now, so
 	    /// you can change this array as you see fit.
 	    /// To see how this info is used, go to the renderEffects() function
-	    this.effectsList = [{ name: "Chorus", knob: "chorus", params: [{ name: "rate", tunaparam: "rate", init: 0.75, min: 0.75, max: 2.5 }, { name: "depth", tunaparam: "depth", init: 0.5, min: 0.5, max: 0.8 }] }, { name: "Overdrive", knob: "overdrive", params: [{ name: "curveAmount", tunaparam: "curveAmount", init: 0, min: 0, max: 1 }] }, { name: "BitCrusher", knob: "bitcrusher", params: [{ name: "bits", tunaparam: "bits", init: 6, min: 6, max: 3 }, { name: "frequency", tunaparam: "normfreq", init: 0.5, min: 0.5, max: 0.1 }] }, { name: "Lo-Pass", knob: "lowpass", params: [{ name: "frequency", tunaparam: "frequency", init: 4000, min: 4000, max: 100, interp: "log" }, { auxiliaryKnob: "gainCompensation", name: "gain", tunaparam: "gain", init: 1, min: 1, max: 5 }] }, { name: "Hi-Pass", knob: "hipass", params: [{ name: "frequency", tunaparam: "frequency", init: 100, min: 100, max: 6000, interp: "log" }] }, { name: "Band-Pass", knob: "bandpass", params: [{ name: "frequency", tunaparam: "frequency", init: 100, min: 100, max: 8000, interp: "log" }] }, { name: "Cabinet", knob: "cabinet", params: [{ name: "makeupGain", tunaparam: "makeupGain", init: 10, min: 10, max: 10 }] }, { name: "Delay - Simple", knob: "delay", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Delay - Stereo", knob: "delay", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Hall", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Church", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Room", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Spring", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }];
+	    this.effectsList = [{ name: "Chorus", knob: "chorus", params: [{ name: "rate", tunaparam: "rate", init: 0.75, min: 0.75, max: 2.5 }, { name: "depth", tunaparam: "depth", init: 0.5, min: 0.5, max: 0.8 }] }, { name: "Overdrive", knob: "overdrive", params: [{ name: "curveAmount", tunaparam: "curveAmount", init: 0, min: 0, max: 1 }] }, { name: "BitCrusher", knob: "bitcrusher", params: [{ name: "bits", tunaparam: "bits", init: 6, min: 6, max: 3 }, { name: "frequency", tunaparam: "normfreq", init: 0.5, min: 0.5, max: 0.1 }] }, { name: "Lo-Pass", knob: "lowpass", params: [{ name: "frequency", tunaparam: "frequency", init: 4000, min: 4000, max: 100, interp: "log" }, { auxiliaryKnob: "gainCompensation", name: "gain", tunaparam: "gain", init: 1, min: 1, max: 5 }] }, { name: "Hi-Pass", knob: "hipass", params: [{ name: "frequency", tunaparam: "frequency", init: 100, min: 100, max: 6000, interp: "log" }] }, { name: "Band-Pass", knob: "bandpass", params: [{ name: "frequency", tunaparam: "frequency", init: 100, min: 100, max: 8000, interp: "log" }] }, { name: "Cabinet", knob: "cabinet", params: [{ name: "makeupGain", tunaparam: "makeupGain", init: 10, min: 10, max: 10 }] }, { name: "Delay - Simple", knob: "delay", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Delay - Stereo", knob: "delay", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Hall", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Church", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Room", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Spring", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Telephone", knob: "telephone", params: [{ name: "dryLevel", tunaparam: "dryLevel", init: 1, min: 1, max: 0 }, { name: "wetLevel", tunaparam: "wetLevel", init: 0, min: 0, max: 1 }] }, { name: "Clouds", knob: "clouds", params: [{ name: "dryLevel", tunaparam: "dryLevel", init: 1, min: 1, max: 0 }, { name: "wetLevel", tunaparam: "wetLevel", init: 0, min: 0, max: 1 }] }];
 	
 	    //menu is originally not open
 	    this.showmenu = false;
@@ -15321,7 +15321,6 @@ var WaveformPlaylist =
 	
 	      //different styling for fx
 	      var fx_class = 'div.effects-button.bordered-track-button' + (this.showmenu ? ".fx-enabled" : "");
-	      console.log(fx_class);
 	
 	      return (0, _h2.default)('div.track-buttons-container', [(0, _h2.default)('span.mute-button.bordered-track-button', {
 	        onclick: function onclick() {
@@ -15395,7 +15394,6 @@ var WaveformPlaylist =
 	        }
 	      }, [this.changeEffect == name ? this.renderChooseEffectMenu(data) : (0, _h2.default)('div.effectlabel', {
 	        onclick: function onclick(e) {
-	          console.log("CHANGE EFFECT", name);
 	          _this4.changeEffect = name;
 	          _this4.ee.emit("interactive");
 	        }
@@ -15471,7 +15469,6 @@ var WaveformPlaylist =
 	          i.params.forEach(function (param) {
 	            _this5[i.knob] = 0;
 	            var knob = clip.playout[param.auxiliaryKnob || i.knob];
-	            console.log(i.knob);
 	            if (knob) {
 	              knob["bypass"] = 1;
 	            }
@@ -16250,7 +16247,6 @@ var WaveformPlaylist =
 	
 	        g.fillStyle = "white";
 	
-	        console.log(this.recentPeak);
 	        var x = this.recentPeak * (this.canvas.width - 7) + 7;
 	        g.fillRect(x, 0, 2, this.canvas.height);
 	
@@ -26714,6 +26710,30 @@ var WaveformPlaylist =
 	            bypass: 1
 	        });
 	
+	        this.telephone = new this.tuna.Convolver({
+	            impulse: "impulse_response/BDS_FX_Telephone.wav", //path to your speaker impulse
+	            bypass: 1
+	        });
+	
+	        this.clouds = new this.tuna.Convolver({
+	            impulse: "impulse_response/BDS_FX_Clouds.wav", //path to your speaker impulse
+	            bypass: 1
+	        });
+	
+	        this.reverb_hall = new this.tuna.Convolver({
+	            impulse: "impulse_response/BDS_FX_Hall.wav", //path to your speaker impulse
+	            bypass: 1
+	        });
+	
+	        this.reverb_room = new this.tuna.Convolver({
+	            impulse: "impulse_response/BDS_FX_Room.wav", //path to your speaker impulse
+	            bypass: 1
+	        });
+	
+	        this.reverb_spring = new this.tuna.Convolver({
+	            impulse: "impulse_response/BDS_FX_Spring.wav", //path to your speaker impulse
+	            bypass: 1
+	        });
 	        /// Now go to setUpSource() function
 	    }
 	
@@ -26825,7 +26845,7 @@ var WaveformPlaylist =
 	            this.masterGain = this.ac.createGain();
 	
 	            /// The effect chain:
-	            var effectChain = [this.fadeGain, this.panner, this.lowpass, this.gainCompensation, this.hipass, this.bandpass, this.bitcrusher, this.overdrive, this.chorus, this.cabinet, this.volumeGain, this.shouldPlayGain, this.masterGain, compressor, this.destination];
+	            var effectChain = [this.fadeGain, this.panner, this.lowpass, this.gainCompensation, this.hipass, this.bandpass, this.bitcrusher, this.overdrive, this.chorus, this.cabinet, this.clouds, this.telephone, this.volumeGain, this.shouldPlayGain, this.masterGain, compressor, this.destination];
 	
 	            //setups chain in series
 	            effectChain.reduce(function (previous, current) {

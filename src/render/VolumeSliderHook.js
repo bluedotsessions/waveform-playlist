@@ -66,7 +66,6 @@ export default class {
       
       g.fillStyle = "white";
         
-      console.log(this.recentPeak);
       const x = this.recentPeak*(this.canvas.width-7) + 7;
       g.fillRect(x, 0, 2, this.canvas.height);
 

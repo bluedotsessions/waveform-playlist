@@ -101,7 +101,15 @@ export default class {
       {name:"Verb - Spring",knob:"reverb",params:[
         {name:"mybypass",tunaparam:"mybypass",init:0,min:0,max:1},
       ]},
-    ]
+      {name:"Telephone",knob:"telephone",params:[
+        {name:"dryLevel",tunaparam:"dryLevel",init:1,min:1,max:0},
+        {name:"wetLevel",tunaparam:"wetLevel",init:0,min:0,max:1},
+      ]},
+      {name:"Clouds",knob:"clouds",params:[
+        {name:"dryLevel",tunaparam:"dryLevel",init:1,min:1,max:0},
+        {name:"wetLevel",tunaparam:"wetLevel",init:0,min:0,max:1},
+      ]},
+    ];
 
     //menu is originally not open
     this.showmenu = false;
@@ -231,7 +239,6 @@ export default class {
 
     //different styling for fx
     let fx_class = 'div.effects-button.bordered-track-button' + (this.showmenu ? ".fx-enabled" : "");
-    console.log(fx_class);
 
     return h('div.track-buttons-container', [
       h(`span.mute-button.bordered-track-button`, {
@@ -376,7 +383,6 @@ export default class {
         i.params.forEach(param => {
           this[i.knob] = 0;
           let knob = clip.playout[param.auxiliaryKnob || i.knob];
-          console.log(i.knob);
           if(knob){
             knob["bypass"] = 1;
           }

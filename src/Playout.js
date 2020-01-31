@@ -98,6 +98,30 @@ export default class {
             bypass: 1
         });
 
+        this.telephone = new this.tuna.Convolver({
+            impulse: "impulse_response/BDS_FX_Telephone.wav",    //path to your speaker impulse
+            bypass: 1
+        });
+
+        this.clouds = new this.tuna.Convolver({
+            impulse: "impulse_response/BDS_FX_Clouds.wav",    //path to your speaker impulse
+            bypass: 1
+        });
+
+        this.reverb_hall = new this.tuna.Convolver({
+            impulse: "impulse_response/BDS_FX_Hall.wav",    //path to your speaker impulse
+            bypass: 1
+        });
+
+        this.reverb_room = new this.tuna.Convolver({
+            impulse: "impulse_response/BDS_FX_Room.wav",    //path to your speaker impulse
+            bypass: 1
+        });
+
+        this.reverb_spring = new this.tuna.Convolver({
+            impulse: "impulse_response/BDS_FX_Spring.wav",    //path to your speaker impulse
+            bypass: 1
+        });
         /// Now go to setUpSource() function
 
     }
@@ -207,6 +231,8 @@ export default class {
             this.overdrive,
             this.chorus,
             this.cabinet,
+            this.clouds,
+            this.telephone,
             this.volumeGain,
             this.shouldPlayGain,
             this.masterGain,
