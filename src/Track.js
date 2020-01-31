@@ -85,12 +85,12 @@ export default class {
       ]},
       {name:"Delay - Simple",knob:"delay",params:[
         {name:"feedback",tunaparam:"feedback",init:0.25,min:0.25,max:0.75},
-        {name:"dryLevel",tunaparam:"dryLevel",init:1,min:1,max:1}, //[[0, 1], [0.8, 1], [1, 0.5]]
+        {name:"dryLevel",tunaparam:"dryLevel",curve: [[0, 1], [0.8, 1], [1, 0.5]], interp: "piecewise"},
         {name:"wetLevel",tunaparam:"wetLevel",init:0,min:0,max:1},
       ]},
       {name:"Delay - Stereo",knob:"ping_pong_delay",params:[
         {name:"feedback",tunaparam:"feedback",init:0.2,min:0.2,max:0.6},
-        {name:"dryLevel",tunaparam:"dryLevel",init:1,min:1,max:1}, //[[0, 1], [0.8, 1], [1, 0.5]]
+        {name:"dryLevel",tunaparam:"dryLevel",curve: [[0, 1], [0.8, 1], [1, 0.5]], interp: "piecewise"}, //[[0, 1], [0.8, 1], [1, 0.5]]
         {name:"wetLevel",tunaparam:"wetLevel",init:0,min:0,max:1},
       ]},
       {name:"Delay - Texture",knob:"delay_texture",params:[
@@ -376,7 +376,23 @@ export default class {
               let amount;
               if(param.interp === "log"){//logarithmic curves are more natural in some cases
                   amount = param.min * (Math.pow(param.max, value)/Math.pow(param.min, value));
-              }else{
+              }
+              else if(param.interp === "piecewise"){
+                  let endPointIndex = param.curve.findIndex((point) => point[0] > value);
+                  if(endPointIndex === -1){ //last point
+                    endPointIndex = param.curve.length - 1;
+                  }
+                  let startPointIndex = endPointIndex - 1;
+
+                  let startX = param.curve[startPointIndex][0];
+                  let startY = param.curve[startPointIndex][1];
+                  let endX =   param.curve[endPointIndex][0];
+                  let endY =   param.curve[endPointIndex][1];
+
+                  let adjustedValue = (value - startX)/(endX - startX);
+                  amount = (endY - startY) * adjustedValue + startY;
+              }
+              else{
                   amount = (param.max - param.min) * value + param.min;
               }
               /// go to Playout.js for more info on the tuna.js effects.
