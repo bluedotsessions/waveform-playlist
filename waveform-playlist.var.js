@@ -15099,7 +15099,7 @@ var WaveformPlaylist =
 	    // {name:"Chorus",knob:"chorus",params:[
 	    //   {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
 	    // ]},
-	    { name: "Overdrive", knob: "overdrive", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "BitCrusher", knob: "bitcrusher", params: [{ name: "bits", tunaparam: "bits", init: 6, min: 6, max: 3 }, { name: "frequency", tunaparam: "normfreq", init: 0.5, min: 0.5, max: 0.1 }] }, { name: "Lo-Pass", knob: "lowpass", params: [{ name: "frequency", tunaparam: "frequency", init: 4000, min: 4000, max: 100 }, { auxiliaryKnob: "gainCompensation", name: "gain", tunaparam: "gain", init: 1, min: 1, max: 8 }] }, { name: "Hi-Pass", knob: "hipass", params: [{ name: "frequency", tunaparam: "frequency", init: 100, min: 100, max: 6000 }] }, { name: "Band-Pass", knob: "bandpass", params: [{ name: "frequency", tunaparam: "frequency", init: 100, min: 100, max: 8000 }] }, { name: "Cabinet", knob: "cabinet", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Delay - Simple", knob: "delay", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Delay - Stereo", knob: "delay", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Hall", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Church", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Room", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Spring", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }];
+	    { name: "Overdrive", knob: "overdrive", params: [{ name: "curveAmount", tunaparam: "curveAmount", init: 0, min: 0, max: 1 }] }, { name: "BitCrusher", knob: "bitcrusher", params: [{ name: "bits", tunaparam: "bits", init: 6, min: 6, max: 3 }, { name: "frequency", tunaparam: "normfreq", init: 0.5, min: 0.5, max: 0.1 }] }, { name: "Lo-Pass", knob: "lowpass", params: [{ name: "frequency", tunaparam: "frequency", init: 4000, min: 4000, max: 100 }, { auxiliaryKnob: "gainCompensation", name: "gain", tunaparam: "gain", init: 1, min: 1, max: 8 }] }, { name: "Hi-Pass", knob: "hipass", params: [{ name: "frequency", tunaparam: "frequency", init: 100, min: 100, max: 6000 }] }, { name: "Band-Pass", knob: "bandpass", params: [{ name: "frequency", tunaparam: "frequency", init: 100, min: 100, max: 8000 }] }, { name: "Cabinet", knob: "cabinet", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Delay - Simple", knob: "delay", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Delay - Stereo", knob: "delay", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Hall", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Church", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Room", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }, { name: "Verb - Spring", knob: "reverb", params: [{ name: "mybypass", tunaparam: "mybypass", init: 0, min: 0, max: 1 }] }];
 	
 	    //menu is originally not open
 	    this.showmenu = false;
@@ -26626,17 +26626,17 @@ var WaveformPlaylist =
 	    // });
 	
 	    this.overdrive = new this.tuna.Overdrive({
-	      outputGain: 0, //-42 to 0 in dB
-	      drive: 1, //0 to 1
+	      outputGain: 0.1, //-42 to 0 in dB
+	      drive: 0.7, //0 to 1
 	      curveAmount: 1, //0 to 1
-	      algorithmIndex: 4, //0 to 5, selects one of our drive algorithms
+	      algorithmIndex: 0, //0 to 5, selects one of our drive algorithms
 	      bypass: 1
 	    });
 	
 	    this.bitcrusher = new this.tuna.Bitcrusher({
 	      bits: 3, //1 to 16
 	      normfreq: 0.1, //0 to 1
-	      bufferSize: 4096, //256 to 16384,
+	      bufferSize: 256, //256 to 16384,
 	      bypass: 1
 	    });
 	
@@ -26789,7 +26789,7 @@ var WaveformPlaylist =
 	      this.masterGain = this.ac.createGain();
 	
 	      /// The effect chain:
-	      var effectChain = [this.fadeGain, this.panner, this.bitcrusher, this.lowpass, this.gainCompensation, this.hipass, this.bandpass, this.volumeGain, this.shouldPlayGain, this.masterGain, compressor, this.destination];
+	      var effectChain = [this.fadeGain, this.panner, this.lowpass, this.gainCompensation, this.hipass, this.bandpass, this.bitcrusher, this.overdrive, this.volumeGain, this.shouldPlayGain, this.masterGain, compressor, this.destination];
 	
 	      //setups chain in series
 	      effectChain.reduce(function (previous, current) {

@@ -62,7 +62,7 @@ export default class {
       //   {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
       // ]},
       {name:"Overdrive",knob:"overdrive",params:[
-        {name:"mybypass",tunaparam:"mybypass",init:0,min:0,max:1},
+        {name:"curveAmount",tunaparam:"curveAmount",init:0,min:0,max:1},
       ]},
       {name:"BitCrusher",knob:"bitcrusher",params:[
         {name:"bits",tunaparam:"bits",init:6,min:6,max:3},

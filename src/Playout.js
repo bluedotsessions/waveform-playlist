@@ -28,17 +28,17 @@ export default class {
     // });
 
     this.overdrive =  new this.tuna.Overdrive({
-      outputGain: 0,           //-42 to 0 in dB
-      drive: 1,              //0 to 1
+      outputGain: 0.1,           //-42 to 0 in dB
+      drive: 0.7,              //0 to 1
       curveAmount: 1,          //0 to 1
-      algorithmIndex: 4,       //0 to 5, selects one of our drive algorithms
+      algorithmIndex: 0,       //0 to 5, selects one of our drive algorithms
       bypass: 1
     });
 
     this.bitcrusher =  new this.tuna.Bitcrusher({
       bits: 3,          //1 to 16
       normfreq: 0.1,    //0 to 1
-      bufferSize: 4096,  //256 to 16384,
+      bufferSize: 256,  //256 to 16384,
       bypass: 1
     });
 
@@ -181,11 +181,12 @@ export default class {
     let effectChain = [
       this.fadeGain,
       this.panner,
-      this.bitcrusher,
       this.lowpass,
       this.gainCompensation,
       this.hipass,
       this.bandpass,
+      this.bitcrusher,
+      this.overdrive,
       this.volumeGain,
       this.shouldPlayGain,
       this.masterGain,
