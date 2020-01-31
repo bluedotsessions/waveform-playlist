@@ -14,7 +14,7 @@ export function startOfflineRender(playlist,type) {
 
     playlist.tracks.forEach((track) => {
       track.clips.forEach(clip=>{
-        clip.setOfflinePlayout(new Playout(playlist.offlineAudioContext, clip.buffer));
+        clip.setOfflinePlayout(new Playout(playlist.offlineAudioContext, clip.buffer, playlist.bpm));
         clip.schedulePlay(currentTime, 0, 0, {
           shouldPlay: playlist.shouldTrackPlay(clip),
           masterGain: 1,

@@ -29422,7 +29422,7 @@ var WaveformPlaylist =
 	
 	  playlist.tracks.forEach(function (track) {
 	    track.clips.forEach(function (clip) {
-	      clip.setOfflinePlayout(new _Playout2.default(playlist.offlineAudioContext, clip.buffer));
+	      clip.setOfflinePlayout(new _Playout2.default(playlist.offlineAudioContext, clip.buffer, playlist.bpm));
 	      clip.schedulePlay(currentTime, 0, 0, {
 	        shouldPlay: playlist.shouldTrackPlay(clip),
 	        masterGain: 1,
