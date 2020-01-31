@@ -31,7 +31,9 @@ export function init(options = {}, ee = EventEmitter()) {
   window.OfflineAudioContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
   window.AudioContext = window.AudioContext || window.webkitAudioContext;
 
-  const audioContext = new window.AudioContext();
+  const audioContext = new window.AudioContext({
+      latencyHint: "playback"
+  });
 
   const defaults = {
     ac: audioContext,

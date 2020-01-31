@@ -9405,7 +9405,9 @@ var WaveformPlaylist =
 	  window.OfflineAudioContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
 	  window.AudioContext = window.AudioContext || window.webkitAudioContext;
 	
-	  var audioContext = new window.AudioContext();
+	  var audioContext = new window.AudioContext({
+	    latencyHint: "playback"
+	  });
 	
 	  var defaults = {
 	    ac: audioContext,
