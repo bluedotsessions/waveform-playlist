@@ -185,6 +185,7 @@ export default class {
       this.lowpass,
       this.gainCompensation,
       this.hipass,
+      this.bandpass,
       this.volumeGain,
       this.shouldPlayGain,
       this.masterGain,

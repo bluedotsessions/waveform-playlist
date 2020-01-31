@@ -26789,7 +26789,7 @@ var WaveformPlaylist =
 	      this.masterGain = this.ac.createGain();
 	
 	      /// The effect chain:
-	      var effectChain = [this.fadeGain, this.panner, this.bitcrusher, this.lowpass, this.gainCompensation, this.hipass, this.volumeGain, this.shouldPlayGain, this.masterGain, compressor, this.destination];
+	      var effectChain = [this.fadeGain, this.panner, this.bitcrusher, this.lowpass, this.gainCompensation, this.hipass, this.bandpass, this.volumeGain, this.shouldPlayGain, this.masterGain, compressor, this.destination];
 	
 	      //setups chain in series
 	      effectChain.reduce(function (previous, current) {
