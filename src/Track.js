@@ -369,7 +369,21 @@ export default class {
           })
         },0,1))
       )
-    
+
+    //bypass all other inactive effects
+    this.effectsList.filter(i => !this.buttonsList.includes(i.name)).forEach(i => {
+      this.clips.forEach(clip => {
+        i.params.forEach(param => {
+          this[i.knob] = 0;
+          let knob = clip.playout[param.auxiliaryKnob || i.knob];
+          console.log(i.knob);
+          if(knob){
+            knob["bypass"] = 1;
+          }
+        })
+      })
+    });
+
     return h(`div.effectsmenu${this.showmenu?'.visible':''}`,effects);
 
   }

@@ -15395,6 +15395,7 @@ var WaveformPlaylist =
 	        }
 	      }, [this.changeEffect == name ? this.renderChooseEffectMenu(data) : (0, _h2.default)('div.effectlabel', {
 	        onclick: function onclick(e) {
+	          console.log("CHANGE EFFECT", name);
 	          _this4.changeEffect = name;
 	          _this4.ee.emit("interactive");
 	        }
@@ -15460,6 +15461,22 @@ var WaveformPlaylist =
 	            });
 	          });
 	        }, 0, 1));
+	      });
+	
+	      //bypass all other inactive effects
+	      this.effectsList.filter(function (i) {
+	        return !_this5.buttonsList.includes(i.name);
+	      }).forEach(function (i) {
+	        _this5.clips.forEach(function (clip) {
+	          i.params.forEach(function (param) {
+	            _this5[i.knob] = 0;
+	            var knob = clip.playout[param.auxiliaryKnob || i.knob];
+	            console.log(i.knob);
+	            if (knob) {
+	              knob["bypass"] = 1;
+	            }
+	          });
+	        });
 	      });
 	
 	      return (0, _h2.default)('div.effectsmenu' + (this.showmenu ? '.visible' : ''), effects);
