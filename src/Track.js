@@ -84,10 +84,14 @@ export default class {
         {name:"makeupGain",tunaparam:"makeupGain",init:10,min:10,max:10}, //cabinet is just on and off
       ]},
       {name:"Delay - Simple",knob:"delay",params:[
-        {name:"mybypass",tunaparam:"mybypass",init:0,min:0,max:1},
+        {name:"feedback",tunaparam:"feedback",init:0.25,min:0.25,max:0.75},
+        {name:"dryLevel",tunaparam:"dryLevel",init:1,min:1,max:1}, //[[0, 1], [0.8, 1], [1, 0.5]]
+        {name:"wetLevel",tunaparam:"wetLevel",init:0,min:0,max:1},
       ]},
-      {name:"Delay - Stereo",knob:"delay",params:[
-        {name:"mybypass",tunaparam:"mybypass",init:0,min:0,max:1},
+      {name:"Delay - Stereo",knob:"ping_pong_delay",params:[
+        {name:"feedback",tunaparam:"feedback",init:0.2,min:0.2,max:0.6},
+        {name:"dryLevel",tunaparam:"dryLevel",init:1,min:1,max:1}, //[[0, 1], [0.8, 1], [1, 0.5]]
+        {name:"wetLevel",tunaparam:"wetLevel",init:0,min:0,max:1},
       ]},
       {name:"Verb - Hall",knob:"reverb_hall",params:[
         {name:"dryLevel",tunaparam:"dryLevel",init:1,min:1,max:0},

@@ -117,34 +117,45 @@ export default class {
 
         this.cabinet = new this.tuna.Cabinet({
             makeupGain: 1,                                 //0 to 20
-            impulsePath: "impulse_response/BDS_FX_Cabinet.wav",    //path to your speaker impulse
+            impulsePath: "impulse_response/BDS_FX_Cabinet.wav",
             bypass: 1
         });
 
         this.telephone = new this.tuna.CustomConvolver({
-            impulse: "impulse_response/BDS_FX_Telephone.wav",    //path to your speaker impulse
+            impulse: "impulse_response/BDS_FX_Telephone.wav",
             bypass: 1
         });
 
         this.clouds = new this.tuna.CustomConvolver({
-            impulse: "impulse_response/BDS_FX_Clouds.wav",    //path to your speaker impulse
+            impulse: "impulse_response/BDS_FX_Clouds.wav",
             bypass: 1
         });
 
         this.reverb_hall = new this.tuna.CustomConvolver({
-            impulse: "impulse_response/BDS_FX_Hall.wav",    //path to your speaker impulse
+            impulse: "impulse_response/BDS_FX_Hall.wav",
             bypass: 1
         });
 
         this.reverb_room = new this.tuna.CustomConvolver({
-            impulse: "impulse_response/BDS_FX_Room.wav",    //path to your speaker impulse
+            impulse: "impulse_response/BDS_FX_Room.wav",
             bypass: 1
         });
 
         this.reverb_spring = new this.tuna.CustomConvolver({
-            impulse: "impulse_response/BDS_FX_Spring.wav",    //path to your speaker impulse
+            impulse: "impulse_response/BDS_FX_Spring.wav",
             bypass: 1
         });
+        this.delay = new this.tuna.Delay({
+            delayTime: 100,
+            feedback: 0.45,
+            bypass: 1
+        });
+        this.ping_pong_delay = new this.tuna.PingPongDelay({
+            delayTimeLeft: 200,
+            delayTimeRight: 400,
+            feedback: 0.3,
+            bypass: 1
+        })
         /// Now go to setUpSource() function
 
     }
@@ -256,6 +267,8 @@ export default class {
             this.cabinet,
             this.clouds,
             this.telephone,
+            this.delay,
+            this.ping_pong_delay,
             this.reverb_hall,
             this.reverb_room,
             this.reverb_spring,
