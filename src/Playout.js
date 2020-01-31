@@ -153,12 +153,19 @@ export default class {
             impulse: "impulse_response/BDS_FX_Spring.wav",
             bypass: 1
         });
+
+        this.reverb_church = new this.tuna.CustomConvolver({
+            impulse: "impulse_response/BDS_FX_Church.wav",
+            bypass: 1
+        });
+
         this.delay = new this.tuna.Delay({
             delayTime: bpm_to_mspb(this.bpm),//quarter
             feedback: 0.45,
             bypass: 1,
             cutoff: 2000 //2K low pass
         });
+
         this.ping_pong_delay = new this.tuna.PingPongDelay({
             delayTimeLeft: bpm_to_mspb(this.bpm), //quarter
             delayTimeRight: bpm_to_mspb(this.bpm) * 0.75, //dotted eighth
@@ -263,6 +270,8 @@ export default class {
         this.masterGain = this.ac.createGain();
 
         /// The effect chain:
+        /// Note, this does look like a lot of effects in series, but most of them are bypassed
+        /// Reverbs act as send due to dry/wet parameters
         let effectChain = [
             this.fadeGain,
             this.panner,
@@ -282,6 +291,7 @@ export default class {
             this.reverb_hall,
             this.reverb_room,
             this.reverb_spring,
+            this.reverb_church,
             this.volumeGain,
             this.shouldPlayGain,
             this.masterGain,

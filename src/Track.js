@@ -101,7 +101,7 @@ export default class {
         {name:"dryLevel",tunaparam:"dryLevel",init:1,min:1,max:0},
         {name:"wetLevel",tunaparam:"wetLevel",init:0,min:0,max:1},
       ],isReverb:true},
-      {name:"Verb - Church",knob:"reverb",params:[
+      {name:"Verb - Church",knob:"reverb_church",params:[
         {name:"mybypass",tunaparam:"mybypass",init:0,min:0,max:1},
       ],isReverb:true},
       {name:"Verb - Room",knob:"reverb_room",params:[
