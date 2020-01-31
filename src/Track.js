@@ -98,18 +98,15 @@ export default class {
         {name:"wetLevel",tunaparam:"wetLevel",init:0,min:0,max:1},
       ]},
       {name:"Verb - Hall",knob:"reverb_hall",params:[
-        {name:"dryLevel",tunaparam:"dryLevel",init:1,min:1,max:0},
         {name:"wetLevel",tunaparam:"wetLevel",init:0,min:0,max:1},
       ],isReverb:true},
       {name:"Verb - Church",knob:"reverb_church",params:[
         {name:"mybypass",tunaparam:"mybypass",init:0,min:0,max:1},
       ],isReverb:true},
       {name:"Verb - Room",knob:"reverb_room",params:[
-        {name:"dryLevel",tunaparam:"dryLevel",init:1,min:1,max:0},
         {name:"wetLevel",tunaparam:"wetLevel",init:0,min:0,max:1},
       ],isReverb:true},
       {name:"Verb - Spring",knob:"reverb_spring",params:[
-        {name:"dryLevel",tunaparam:"dryLevel",init:1,min:1,max:0},
         {name:"wetLevel",tunaparam:"wetLevel",init:0,min:0,max:1},
       ],isReverb:true},
       {name:"Telephone",knob:"telephone",params:[
