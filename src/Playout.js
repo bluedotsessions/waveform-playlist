@@ -1,6 +1,6 @@
 import { FADEIN, FADEOUT, createFadeIn, createFadeOut } from 'fade-maker';
 import Tuna from 'tunajs';
-
+import {bpm_to_mspb} from './utils/timing'
 /// This file is an interface to the audioContext and Tuna.js
 
 
@@ -53,7 +53,7 @@ Tuna.prototype.CustomConvolver.prototype = Object.create(Tuna.prototype.Convolve
 
 export default class {
 
-    constructor(ac, buffer) {
+    constructor(ac, buffer, bpm) {
         this.ac = ac;
         /// probably there should be only one instance of the library
         /// because it is currently really laggy.
@@ -62,6 +62,9 @@ export default class {
         this.gain = 1;
         this.buffer = buffer;
         this.destination = this.ac.destination;
+
+        ///Some effects are tempo locked, need bpm
+        this.bpm = bpm;
 
         ///Now follows the initiation of the effects:
         this.chorus =  new this.tuna.Chorus({
@@ -146,13 +149,14 @@ export default class {
             bypass: 1
         });
         this.delay = new this.tuna.Delay({
-            delayTime: 100,
+            delayTime: bpm_to_mspb(this.bpm),//quarter
             feedback: 0.45,
-            bypass: 1
+            bypass: 1,
+            cutoff: 2000 //2K low pass
         });
         this.ping_pong_delay = new this.tuna.PingPongDelay({
-            delayTimeLeft: 200,
-            delayTimeRight: 400,
+            delayTimeLeft: bpm_to_mspb(this.bpm), //quarter
+            delayTimeRight: bpm_to_mspb(this.bpm) * 0.75, //dotted eighth
             feedback: 0.3,
             bypass: 1
         })

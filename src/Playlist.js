@@ -437,7 +437,7 @@ export default class {
 
     /// This handles the audio playing and effects.
     /// Go to ./Playout.js
-    const playout = new Playout(this.ac, audioBuffer);
+    const playout = new Playout(this.ac, audioBuffer, this.bpm);
 
     /// We need to put the clip into a track:
     let track = this.getTrackByName(trackname);

@@ -11447,7 +11447,7 @@ var WaveformPlaylist =
 	
 	      /// This handles the audio playing and effects.
 	      /// Go to ./Playout.js
-	      var playout = new _Playout2.default(this.ac, audioBuffer);
+	      var playout = new _Playout2.default(this.ac, audioBuffer, this.bpm);
 	
 	      /// We need to put the clip into a track:
 	      var track = this.getTrackByName(trackname);
@@ -26620,6 +26620,8 @@ var WaveformPlaylist =
 	
 	var _tunajs2 = _interopRequireDefault(_tunajs);
 	
+	var _timing = __webpack_require__(461);
+	
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
@@ -26675,7 +26677,7 @@ var WaveformPlaylist =
 	});
 	
 	var _class = function () {
-	    function _class(ac, buffer) {
+	    function _class(ac, buffer, bpm) {
 	        _classCallCheck(this, _class);
 	
 	        this.ac = ac;
@@ -26686,6 +26688,9 @@ var WaveformPlaylist =
 	        this.gain = 1;
 	        this.buffer = buffer;
 	        this.destination = this.ac.destination;
+	
+	        ///Some effects are tempo locked, need bpm
+	        this.bpm = bpm;
 	
 	        ///Now follows the initiation of the effects:
 	        this.chorus = new this.tuna.Chorus({
@@ -26770,13 +26775,14 @@ var WaveformPlaylist =
 	            bypass: 1
 	        });
 	        this.delay = new this.tuna.Delay({
-	            delayTime: 100,
+	            delayTime: (0, _timing.bpm_to_mspb)(this.bpm), //quarter
 	            feedback: 0.45,
-	            bypass: 1
+	            bypass: 1,
+	            cutoff: 2000 //2K low pass
 	        });
 	        this.ping_pong_delay = new this.tuna.PingPongDelay({
-	            delayTimeLeft: 200,
-	            delayTimeRight: 400,
+	            delayTimeLeft: (0, _timing.bpm_to_mspb)(this.bpm), //quarter
+	            delayTimeRight: (0, _timing.bpm_to_mspb)(this.bpm) * 0.75, //dotted eighth
 	            feedback: 0.3,
 	            bypass: 1
 	        });
@@ -29636,6 +29642,26 @@ var WaveformPlaylist =
 	    }
 	  };
 	};
+
+/***/ }),
+/* 461 */
+/***/ (function(module, exports) {
+
+	"use strict";
+	
+	Object.defineProperty(exports, "__esModule", {
+	    value: true
+	});
+	exports.bpm_to_spb = bpm_to_spb;
+	exports.bpm_to_mspb = bpm_to_mspb;
+	function bpm_to_spb(bpm) {
+	    //seconds per beat
+	    return 60 / bpm;
+	}
+	function bpm_to_mspb(bpm) {
+	    //ms per beat
+	    return 1000 * bpm_to_spb(bpm);
+	}
 
 /***/ })
 /******/ ]);
