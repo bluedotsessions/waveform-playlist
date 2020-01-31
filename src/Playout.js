@@ -178,49 +178,30 @@ export default class {
     this.masterGain = this.ac.createGain();
 
     /// The effect chain:
-    this.source
-      .connect(this.fadeGain)
-      .connect(this.panner)
+    let effectChain = [
+      this.fadeGain,
+      this.panner,
+      this.bitcrusher,
+      this.lowpass,
+      this.gainCompensation,
+      this.hipass,
+      this.volumeGain,
+      this.shouldPlayGain,
+      this.masterGain,
+      compressor,
+      this.destination
+    ];
 
-    let tunachain = this.panner;
+    //setups chain in series
+    effectChain.reduce((previous, current) => {
+      previous.connect(current);
+      return current;
+    }, this.source);
 
-    /**
-     * Delay (not implemented yet)
-     */
-    // tunachain.connect(this.delay);
-    // tunachain = this.delay;
-
-    /**
-     * Bitcrusher
-     */
-    tunachain.connect(this.bitcrusher);
-    tunachain = this.bitcrusher;
-
-    /**
-     * Lowpass
-     */
-    tunachain.connect(this.lowpass);
-    tunachain = this.lowpass;
-    tunachain.connect(this.gainCompensation);
-    tunachain = this.gainCompensation;
-
-    /**
-     * Hipass
-     */
-    tunachain.connect(this.hipass);
-    tunachain = this.hipass;
 
     /// There is also setupEffect that is not used,
     /// but you might find it usefull.
     /// Feel free to add more ifs for more effects.
-
-    tunachain.connect(this.volumeGain);
-
-    this.volumeGain
-      .connect(this.shouldPlayGain)
-      .connect(this.masterGain)
-      .connect(compressor)
-      .connect(this.destination)
 
     /// Now go to the playlist.js/setUpEventEmmiter()/ee.on('play',...)
 
