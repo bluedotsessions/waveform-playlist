@@ -1,28 +1,5 @@
 ///This is the loading of a STEM file.
 
-let playlist = WaveformPlaylist.init({
-    samplesPerPixel: 3000,
-    waveHeight: 100,
-    container: document.getElementById("playlist"),
-    state: 'interactive',
-    bpm:90,
-    quantize:1,
-    barLength:4,
-    barOffset:1,
-    name: "Um Pepino",
-    colors: {
-        waveOutlineColor: '#E0EFF1',
-        timeColor: 'grey',
-        fadeColor: 'black'
-    },
-    timescale: true,
-    controls: {
-        show: true, //whether or not to include the track controls
-        width: 200 //width of controls in pixels
-    },
-    seekStyle : 'line',
-    zoomLevels: [500, 1000, 3000, 5000]
-});
 
 
 let DEFAULT_SET = [
@@ -151,6 +128,15 @@ let setlist_map = {
 
 };
 
+let bpm_map = {
+    "DEFAULT": 90,
+    "TEST1": 105,
+    "TEST2": 106,
+    "TEST3": 82,
+    "TEST4": 90,
+    "TEST5": 90,
+};
+
 let test_setlist_key = "TEST_SETLIST";
 let setlist_key = window.localStorage.getItem(test_setlist_key) || "DEFAULT";
 
@@ -163,8 +149,32 @@ dropdown.addEventListener("change", () => {
     location.reload();
 });
 
-
 let setlist = setlist_map[setlist_key] || DEFAULT_SET;
+let bpm = bpm_map[setlist_key] || 90;
+
+let playlist = WaveformPlaylist.init({
+    samplesPerPixel: 3000,
+    waveHeight: 100,
+    container: document.getElementById("playlist"),
+    state: 'interactive',
+    bpm:bpm,
+    quantize:1,
+    barLength:4,
+    barOffset:1,
+    name: "Um Pepino",
+    colors: {
+        waveOutlineColor: '#E0EFF1',
+        timeColor: 'grey',
+        fadeColor: 'black'
+    },
+    timescale: true,
+    controls: {
+        show: true, //whether or not to include the track controls
+        width: 200 //width of controls in pixels
+    },
+    seekStyle : 'line',
+    zoomLevels: [500, 1000, 3000, 5000]
+});
 
 playlist.load(setlist).then(function() {
     //can do stuff with the playlist.
