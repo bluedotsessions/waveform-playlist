@@ -57,10 +57,10 @@ export default class {
     /// you can change this array as you see fit.
     /// To see how this info is used, go to the renderEffects() function
     this.effectsList = [
-
-      // {name:"Chorus",knob:"chorus",params:[
-      //   {name:"bypass",tunaparam:"bypass",init:0,min:0,max:1},
-      // ]},
+      {name:"Chorus",knob:"chorus",params:[
+        {name:"rate",tunaparam:"rate",init:0.75,min:0.75,max:2.5},
+        {name:"depth",tunaparam:"depth",init:0.5,min:0.5,max:0.8},
+      ]},
       {name:"Overdrive",knob:"overdrive",params:[
         {name:"curveAmount",tunaparam:"curveAmount",init:0,min:0,max:1},
       ]},

@@ -16,16 +16,12 @@ export default class {
     this.destination = this.ac.destination;
 
     ///Now follows the initiation of the effects:
-
-
-    ///it is commented because it doesn't work :/
-
-    // this.chorus =  new this.tuna.Chorus({
-    //   rate: 1.5,         //0.01 to 8+
-    //   feedback: 0.2,     //0 to 1+
-    //   delay: 0.0245,     //0 to 1
-    //   bypass: 0          //the value 1 starts the effect as bypassed, 0 or 1
-    // });
+    this.chorus =  new this.tuna.Chorus({
+      rate: 1.5,         //0.01 to 8+
+      feedback: 0.2,     //0 to 1+
+      delay: 0.0245,     //0 to 1
+      bypass: 1          //the value 1 starts the effect as bypassed, 0 or 1
+    });
 
     this.overdrive =  new this.tuna.Overdrive({
       outputGain: 0.1,           //-42 to 0 in dB
@@ -187,6 +183,7 @@ export default class {
       this.bandpass,
       this.bitcrusher,
       this.overdrive,
+      this.chorus,
       this.volumeGain,
       this.shouldPlayGain,
       this.masterGain,
