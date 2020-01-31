@@ -92,18 +92,18 @@ export default class {
       {name:"Verb - Hall",knob:"reverb_hall",params:[
         {name:"dryLevel",tunaparam:"dryLevel",init:1,min:1,max:0},
         {name:"wetLevel",tunaparam:"wetLevel",init:0,min:0,max:1},
-      ]},
+      ],isReverb:true},
       {name:"Verb - Church",knob:"reverb",params:[
         {name:"mybypass",tunaparam:"mybypass",init:0,min:0,max:1},
-      ]},
+      ],isReverb:true},
       {name:"Verb - Room",knob:"reverb_room",params:[
         {name:"dryLevel",tunaparam:"dryLevel",init:1,min:1,max:0},
         {name:"wetLevel",tunaparam:"wetLevel",init:0,min:0,max:1},
-      ]},
+      ],isReverb:true},
       {name:"Verb - Spring",knob:"reverb_spring",params:[
         {name:"dryLevel",tunaparam:"dryLevel",init:1,min:1,max:0},
         {name:"wetLevel",tunaparam:"wetLevel",init:0,min:0,max:1},
-      ]},
+      ],isReverb:true},
       {name:"Telephone",knob:"telephone",params:[
         {name:"dryLevel",tunaparam:"dryLevel",init:1,min:1,max:0},
         {name:"wetLevel",tunaparam:"wetLevel",init:0,min:0,max:1},
@@ -276,8 +276,17 @@ export default class {
       this.renderVolumeSlider(data),
     ])
   }
-  renderChooseEffectMenu(data){
+  renderChooseEffectMenu(data, isReverbSlot){
     let children = this.effectsList
+      .filter(ef => {
+        //show only reverbs in reverb slot
+        //not doing simple equality check due to usage of both undefined and boolean values
+        if(isReverbSlot){
+          return ef.isReverb;
+        }else{
+          return !ef.isReverb;
+        }
+      })
       .filter(ef=>!this.buttonsList.find(i=>i == ef.name))
       .map(i=>i.name)
       .map(name=>h('div.effectlabel',{
@@ -300,7 +309,7 @@ export default class {
     ])
   }
 
-  renderSingleEffect(data,name,hook){
+  renderSingleEffect(data,name,hook, isReverbSlot){
     // console.log(this.changeEffect);
     return h("div.effectBox",{
       onmouseenter:e=>{
@@ -314,7 +323,7 @@ export default class {
     },[
       this.changeEffect==name?
         
-        this.renderChooseEffectMenu(data):
+        this.renderChooseEffectMenu(data, isReverbSlot):
 
         h('div.effectlabel',{
           onclick:e=>{
@@ -350,7 +359,7 @@ export default class {
     /// when the user turns the knob. (value goes from 0 to 1)
     const effects = this.buttonsList
       .map(name=>this.effectsList.find(i=>i.name == name))
-      .map(i=>
+      .map((i, index)=>
         this.renderSingleEffect(data,i.name,new EffectKnobHook(this.ee,this[i.knob] || 0,(value)=>{
           /// Firstly we update the stored value for the knob.
           this[i.knob] = value;
@@ -377,7 +386,7 @@ export default class {
               }
             })
           })
-        },0,1))
+        },0,1), index === 2) //reverb slot is 3rd slot
       )
 
     //bypass all other inactive effects
